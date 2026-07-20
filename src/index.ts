@@ -14,7 +14,13 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true })); // Required for Better Auth cookies
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'https://chat-app-two-khaki-va269vxf6w.vercel.app'
+].filter(Boolean) as string[];
+
+app.use(cors({ origin: allowedOrigins, credentials: true })); // Required for Better Auth cookies
 app.use(express.json());
 
 import uploadRoutes from './routes/upload.routes';
