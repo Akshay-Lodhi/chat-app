@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  phoneNumber   String    @unique
+  phoneNumberVerified Boolean @default(false)
+  email         String?   @unique
+  emailVerified Boolean   @default(false)
+  name          String?
+  about         String    @default("Hey there! I am using WhatsApp.")
+  profilePicture String?
+  image         String?
+  lastSeen      DateTime  @default(now())
+  isOnline      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  accounts      Account[]
+  chats         ChatParticipant[]
+  messages      Message[]
+  messageStatuses MessageStatus[]
+  callsMade     Call[]            @relation("Caller")
+  callsReceived Call[]            @relation("Receiver")
+  callParticipations CallParticipant[]
+  contacts      Contact[]         @relation("UserContacts")
+  contactOf     Contact[]         @relation("ContactOf")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  userId    String
+  contactId String
+  name      String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation("UserContacts", fields: [userId], references: [id])
+  contact   User     @relation("ContactOf", fields: [contactId], references: [id])
+
+  @@unique([userId, contactId])
+}
+
+model Chat {
+  id           String            @id @default(uuid())
+  isGroup      Boolean           @default(false)
+  name         String?
+  groupPicture String?
+  adminId      String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  participants ChatParticipant[]
+  messages     Message[]
+  calls        Call[]            // Calls can be linked to a chat (e.g. group calls)
+}
+
+model ChatParticipant {
+  userId   String
+  chatId   String
+  joinedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  chat Chat @relation(fields: [chatId], references: [id])
+
+  @@id([userId, chatId])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  chatId    String
+  senderId  String
+  content   String?
+  type      MessageType @default(TEXT)
+  mediaUrl  String?
+  createdAt DateTime @default(now())
+  isDeleted Boolean  @default(false)
+
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  sender    User     @relation(fields: [senderId], references: [id])
+  statuses  MessageStatus[]
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  CALL_LOG
+}
+
+model MessageStatus {
+  messageId String
+  userId    String
+  status    DeliveryStatus @default(SENT)
+  updatedAt DateTime       @default(now()) @updatedAt
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([messageId, userId])
+}
+
+enum DeliveryStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+model Call {
+  id         String     @id @default(uuid())
+  callerId   String
+  receiverId String?    // Nullable for group calls
+  chatId     String?    // Link to chat if group call
+  status     CallStatus @default(ONGOING)
+  type       CallType
+  startedAt  DateTime   @default(now())
+  endedAt    DateTime?
+
+  caller     User       @relation("Caller", fields: [callerId], references: [id])
+  receiver   User?      @relation("Receiver", fields: [receiverId], references: [id])
+  chat       Chat?      @relation(fields: [chatId], references: [id])
+  participants CallParticipant[]
+}
+
+model CallParticipant {
+  callId   String
+  userId   String
+  joinedAt DateTime @default(now())
+  leftAt   DateTime?
+
+  call Call @relation(fields: [callId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([callId, userId])
+}
+
+enum CallStatus {
+  ONGOING
+  MISSED
+  COMPLETED
+  REJECTED
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
