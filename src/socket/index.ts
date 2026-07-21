@@ -13,7 +13,7 @@ const userSocketMap = new Map<string, string>();
 export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
     cors: {
-      origin: 'http://localhost:3000',
+      origin: ['http://localhost:3000', 'http://127.0.0.1:3000', process.env.FRONTEND_URL || 'https://chat-app-two-khaki-va269vxf6w.vercel.app'].filter(Boolean),
       methods: ['GET', 'POST'],
       credentials: true
     }

@@ -6,10 +6,11 @@ import { phoneNumber } from "better-auth/plugins";
 const prisma = new PrismaClient();
 
 export const auth = betterAuth({
-    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:5000",
+    baseURL: process.env.BETTER_AUTH_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:5000",
     trustedOrigins: [
         process.env.FRONTEND_URL, 
         "http://localhost:3000", 
+        "http://127.0.0.1:3000",
         "https://chat-app-two-khaki-va269vxf6w.vercel.app"
     ].filter(Boolean) as string[],
     database: prismaAdapter(prisma, {
