@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useRouter } from 'next/navigation';
@@ -42,6 +42,9 @@ export default function ChatPage() {
   
   // New Feature States
   const [replyingTo, setReplyingTo] = useState<any>(null);
+  const swipeMsgRef = useRef<{ id: string; startX: number; deltaX: number } | null>(null);
+  const [msgInfoMsg, setMsgInfoMsg] = useState<any>(null); // Message Info panel
+  const longPressRef = useRef<NodeJS.Timeout | null>(null);
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [mainMenuOpen, setMainMenuOpen] = useState(false);
@@ -959,12 +962,47 @@ export default function ChatPage() {
 
                   return filteredMessages.map((msg, idx) => {
                     const isMine = msg.senderId === 'me' || msg.senderId === user?.id;
+
+                    // Long press (mobile) -> Message Info / Reply
+                    const handleLongPressStart = (m: any) => {
+                      longPressRef.current = setTimeout(() => {
+                        if (m.senderId === user?.id || m.senderId === 'me') setMsgInfoMsg(m);
+                        else setReplyingTo(m);
+                      }, 600);
+                    };
+                    const handleLongPressEnd = () => {
+                      if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+                    };
+
+                    // Swipe-to-reply handlers (mobile)
+                    const handleTouchStart = (e: React.TouchEvent) => {
+                      swipeMsgRef.current = { id: msg.id, startX: e.touches[0].clientX, deltaX: 0 };
+                    };
+                    const handleTouchMove = (e: React.TouchEvent) => {
+                      if (!swipeMsgRef.current || swipeMsgRef.current.id !== msg.id) return;
+                      const delta = e.touches[0].clientX - swipeMsgRef.current.startX;
+                      swipeMsgRef.current.deltaX = delta;
+                      const el = e.currentTarget as HTMLElement;
+                      if (delta > 0 && delta < 80) el.style.transform = `translateX(${delta * 0.4}px)`;
+                    };
+                    const handleTouchEnd = (e: React.TouchEvent) => {
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.transform = '';
+                      if (swipeMsgRef.current && swipeMsgRef.current.deltaX > 50 && !msg.isDeleted) {
+                        setReplyingTo(msg);
+                      }
+                      swipeMsgRef.current = null;
+                    };
+
                     return (
                       <div 
                       key={msg.id || idx} 
-                      className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${isMine ? 'justify-end' : 'justify-start'} transition-transform duration-100 relative`}
                       onMouseEnter={() => setHoveredMsgId(msg.id)}
                       onMouseLeave={() => setHoveredMsgId(null)}
+                      onTouchStart={(e) => { handleTouchStart(e); handleLongPressStart(msg); }}
+                      onTouchMove={(e) => { handleTouchMove(e); handleLongPressEnd(); }}
+                      onTouchEnd={(e) => { handleTouchEnd(e); handleLongPressEnd(); }}
                     >
                       {msg.type === 'CALL_LOG' ? (
                         <div 
@@ -1028,9 +1066,14 @@ export default function ChatPage() {
                                     <Reply size={16} /> Reply
                                   </button>
                                   {isMine && (
-                                    <button onClick={() => { deleteMessage(activeChatId, msg.id); setMenuOpenId(null); }} className="w-full text-left px-4 py-2 hover:bg-[#182229] flex items-center gap-2 text-red-400">
-                                      <Trash2 size={16} /> Delete
-                                    </button>
+                                    <>
+                                      <button onClick={() => { setMsgInfoMsg(msg); setMenuOpenId(null); }} className="w-full text-left px-4 py-2 hover:bg-[#182229] flex items-center gap-2">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> Info
+                                      </button>
+                                      <button onClick={() => { deleteMessage(activeChatId, msg.id); setMenuOpenId(null); }} className="w-full text-left px-4 py-2 hover:bg-[#182229] flex items-center gap-2 text-red-400">
+                                        <Trash2 size={16} /> Delete
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               )}
@@ -1284,6 +1327,84 @@ export default function ChatPage() {
           type={activeMedia.type} 
           onClose={() => setActiveMedia(null)} 
         />
+      )}
+      {/* Message Info Panel (WhatsApp-style) */}
+      {msgInfoMsg && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setMsgInfoMsg(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md bg-[#111B21] rounded-t-2xl p-6 pb-10 shadow-2xl border-t border-[#222D34] animate-slide-up"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-[#E9EDEF]">Message Info</h2>
+              <button onClick={() => setMsgInfoMsg(null)} className="text-[#8696A0] hover:text-white p-1">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Message preview */}
+            <div className="bg-[#005C4B] rounded-lg px-3 py-2 mb-6 text-sm text-[#E9EDEF] max-w-[85%] ml-auto">
+              {msgInfoMsg.isDeleted ? (
+                <span className="italic text-white/50">🚫 This message was deleted</span>
+              ) : (
+                <span className="break-words">{msgInfoMsg.content || msgInfoMsg.type}</span>
+              )}
+              <div className="text-[10px] text-white/50 text-right mt-1">
+                {new Date(msgInfoMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+
+            {/* Status rows */}
+            <div className="space-y-4">
+              {/* Sent */}
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-full bg-[#202C33] flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 16 15" width="18" height="18" className="text-[#8696A0]"><path fill="currentColor" d="M10.91 3.316l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.88a.32.32 0 0 1-.484.032L1.724 7.587a.32.32 0 0 0-.484.032l-.378.48a.418.418 0 0 0 .036.54l3.14 3.007c.174.166.452.155.612-.023l5.82-7.854a.365.365 0 0 0-.063-.51z"/></svg>
+                </div>
+                <div>
+                  <p className="text-[#E9EDEF] text-sm font-medium">Sent</p>
+                  <p className="text-[#8696A0] text-xs">
+                    {new Date(msgInfoMsg.createdAt).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {' at '}
+                    {new Date(msgInfoMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Delivered */}
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-full bg-[#202C33] flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 16 15" width="18" height="18" className={msgInfoMsg.deliveredAt ? 'text-[#8696A0]' : 'text-[#8696A0]/30'}><path fill="currentColor" d="m15.01 3.316-.478-.372a.365.365 0 0 0-.51.063L8.666 9.88a.32.32 0 0 1-.484.032l-.358-.325a.32.32 0 0 0-.484.032l-.378.48a.418.418 0 0 0 .036.54l1.32 1.267c.174.166.452.155.612-.023L15.073 3.826a.365.365 0 0 0-.063-.51z"/><path fill="currentColor" d="m9.98 3.316-.478-.372a.365.365 0 0 0-.51.063L3.636 9.88a.32.32 0 0 1-.484.032L1.35 8.287a.32.32 0 0 0-.484.032l-.378.48a.418.418 0 0 0 .036.54l2.76 2.646c.174.166.452.155.612-.023L9.943 3.826a.365.365 0 0 0-.063-.51z"/></svg>
+                </div>
+                <div>
+                  <p className="text-[#E9EDEF] text-sm font-medium">Delivered</p>
+                  <p className="text-[#8696A0] text-xs">
+                    {msgInfoMsg.deliveredAt
+                      ? `${new Date(msgInfoMsg.deliveredAt).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} at ${new Date(msgInfoMsg.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                      : 'Not yet delivered'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Read */}
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-full bg-[#202C33] flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 16 15" width="18" height="18" className={msgInfoMsg.readAt ? 'text-[#53bdeb]' : 'text-[#8696A0]/30'}><path fill="currentColor" d="m15.01 3.316-.478-.372a.365.365 0 0 0-.51.063L8.666 9.88a.32.32 0 0 1-.484.032l-.358-.325a.32.32 0 0 0-.484.032l-.378.48a.418.418 0 0 0 .036.54l1.32 1.267c.174.166.452.155.612-.023L15.073 3.826a.365.365 0 0 0-.063-.51z"/><path fill="currentColor" d="m9.98 3.316-.478-.372a.365.365 0 0 0-.51.063L3.636 9.88a.32.32 0 0 1-.484.032L1.35 8.287a.32.32 0 0 0-.484.032l-.378.48a.418.418 0 0 0 .036.54l2.76 2.646c.174.166.452.155.612-.023L9.943 3.826a.365.365 0 0 0-.063-.51z"/></svg>
+                </div>
+                <div>
+                  <p className="text-[#E9EDEF] text-sm font-medium">Read</p>
+                  <p className="text-[#8696A0] text-xs">
+                    {msgInfoMsg.readAt
+                      ? `${new Date(msgInfoMsg.readAt).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} at ${new Date(msgInfoMsg.readAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                      : 'Not yet read'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
