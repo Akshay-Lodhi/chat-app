@@ -1147,35 +1147,10 @@ export default function ChatPage() {
                 </div>
               )}
 
-              <div className="min-h-[62px] px-4 py-3 flex items-end space-x-4">
-                <div className="flex space-x-4 text-[#8696A0] mb-2">
-                  <button className="hover:text-white transition-colors"><Smile size={24} /></button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    onChange={handleFileUpload} 
-                    accept="image/*,video/*,application/pdf" 
-                  />
-                  <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`transition-colors ${isUploading ? 'text-[#00A884] animate-pulse' : 'hover:text-white'}`}
-                    disabled={isUploading}
-                    title="Attach File"
-                  >
-                    <Paperclip size={24} />
-                  </button>
-                  <button 
-                    onClick={handleShareLocation}
-                    className="hover:text-white transition-colors"
-                    title="Share Location"
-                  >
-                    <MapPin size={24} />
-                  </button>
-                </div>
+              <div className="min-h-[62px] px-2 md:px-4 py-3 flex items-end space-x-2 md:space-x-4">
                 
                 {isRecording ? (
-                  <div className="flex-1 bg-[#2A3942] rounded-full flex items-center px-4 py-2 space-x-4">
+                  <div className="flex-1 bg-[#2A3942] rounded-lg flex items-center px-4 py-2 space-x-4">
                     <div className="text-red-500 animate-pulse flex items-center space-x-2">
                       <Mic size={18} />
                       <span className="font-mono text-sm">
@@ -1189,7 +1164,11 @@ export default function ChatPage() {
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleSendMessage} className="flex-1 flex items-center mx-2 md:mx-4 bg-[#2A3942] rounded-lg px-4">
+                  <form onSubmit={handleSendMessage} className="flex-1 flex items-center bg-[#2A3942] rounded-lg px-2 md:px-4">
+                    <button type="button" className="text-[#8696A0] hover:text-white transition-colors p-2">
+                      <Smile size={24} />
+                    </button>
+
                     <input 
                       type="text" 
                       value={messageInput}
@@ -1202,33 +1181,64 @@ export default function ChatPage() {
                         }
                       }}
                       placeholder="Type a message" 
-                      className="w-full bg-transparent text-[#E9EDEF] py-2 md:py-3 focus:outline-none placeholder-[#8696A0] text-sm md:text-base"
+                      className="flex-1 w-full bg-transparent text-[#E9EDEF] py-2 md:py-3 focus:outline-none placeholder-[#8696A0] text-sm md:text-base mx-2"
                     />
+
+                    {messageInput.trim().length === 0 && (
+                      <div className="flex space-x-2 md:space-x-3 text-[#8696A0]">
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          onChange={handleFileUpload} 
+                          accept="image/*,video/*,application/pdf" 
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className={`transition-colors p-2 ${isUploading ? 'text-[#00A884] animate-pulse' : 'hover:text-white'}`}
+                          disabled={isUploading}
+                          title="Attach File"
+                        >
+                          <Paperclip size={24} />
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={handleShareLocation}
+                          className="hover:text-white transition-colors p-2"
+                          title="Share Location"
+                        >
+                          <MapPin size={24} />
+                        </button>
+                      </div>
+                    )}
                   </form>
                 )}
 
-                {messageInput.trim().length > 0 ? (
-                  <button 
-                    onClick={handleSendMessage}
-                    className="text-[#8696A0] hover:text-[#00A884] transition-colors mb-2"
-                  >
-                    <Send size={24} />
-                  </button>
-                ) : isRecording ? (
-                  <button 
-                    onClick={stopRecordingAndSend}
-                    className="bg-[#00A884] text-white p-2 rounded-full hover:bg-[#008f6f] transition-colors mb-1"
-                  >
-                    <Send size={20} />
-                  </button>
-                ) : (
-                  <button 
-                    onClick={startRecording}
-                    className="text-[#8696A0] hover:text-[#00A884] transition-colors mb-2"
-                  >
-                    <Mic size={24} />
-                  </button>
-                )}
+                <div className="flex items-center mb-1.5 md:mb-2">
+                  {messageInput.trim().length > 0 ? (
+                    <button 
+                      onClick={handleSendMessage}
+                      className="text-[#8696A0] hover:text-[#00A884] transition-colors p-1"
+                    >
+                      <Send size={24} />
+                    </button>
+                  ) : isRecording ? (
+                    <button 
+                      onClick={stopRecordingAndSend}
+                      className="bg-[#00A884] text-white p-2 rounded-full hover:bg-[#008f6f] transition-colors"
+                    >
+                      <Send size={20} />
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={startRecording}
+                      className="text-[#8696A0] hover:text-[#00A884] transition-colors p-1"
+                    >
+                      <Mic size={24} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </>
