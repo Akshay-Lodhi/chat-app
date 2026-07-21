@@ -124,7 +124,7 @@ export class ChatService {
       orderBy: { createdAt: 'asc' },
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
-      include: { statuses: true }
+      include: { statuses: true, replyTo: true }
     });
 
     return messages.map((msg: any) => {

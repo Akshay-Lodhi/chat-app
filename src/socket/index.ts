@@ -60,17 +60,34 @@ export function setupSocket(server: HttpServer) {
     });
 
     socket.on('send-message', async (data, callback) => {
-      const { chatId, content, type, mediaUrl, tempId } = data;
+      const { chatId, content, type, mediaUrl, tempId, replyToId } = data;
       // In a real app, you'd save the message to the DB here and then broadcast
       // For performance, we broadcast immediately and save async
       const message = await prisma.message.create({
-        data: { chatId, senderId: userId, content, type, mediaUrl }
+        data: { chatId, senderId: userId, content, type, mediaUrl, replyToId },
+        include: { replyTo: true }
       });
       
       socket.to(chatId).emit('receive-message', message);
       
       if (typeof callback === 'function') {
         callback({ message, tempId });
+      }
+    });
+
+    socket.on('delete-message', async ({ messageId, chatId }) => {
+      try {
+        const msg = await prisma.message.findUnique({ where: { id: messageId } });
+        if (msg && msg.senderId === userId) {
+          await prisma.message.update({
+            where: { id: messageId },
+            data: { isDeleted: true, content: null, mediaUrl: null }
+          });
+          chatNamespace.to(chatId).emit('message-deleted', { messageId, chatId });
+          socket.emit('message-deleted', { messageId, chatId });
+        }
+      } catch (err) {
+        console.error('Failed to delete message', err);
       }
     });
 
