@@ -85,6 +85,25 @@ export default function ChatPage() {
     };
   }, [session, isPending, connectSocket, disconnectSocket, fetchChats, router]);
 
+  // Handle mobile browser back button to close chat instead of logging out
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (activeChatId) {
+        // Only clear active chat if it was active
+        setActiveChat(null as any);
+      }
+    };
+
+    if (activeChatId) {
+      window.history.pushState({ chatActive: true }, '');
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [activeChatId, setActiveChat]);
+
   // Fetch messages when active chat changes
   useEffect(() => {
     if (activeChatId && token && !messages[activeChatId]) {
@@ -522,24 +541,24 @@ export default function ChatPage() {
         {activeChatId ? (
           <>
             {/* Chat Header */}
-            <div className="h-16 bg-[#202C33] flex items-center justify-between px-4 z-10">
-              <div className="flex items-center cursor-pointer">
-                <button onClick={() => setActiveChat(null as any)} className="md:hidden mr-4 text-[#AEBAC1] hover:text-white">
-                  <ArrowLeft size={20} />
+            <div className="h-16 bg-[#202C33] flex items-center justify-between px-2 md:px-4 z-10 w-full overflow-hidden">
+              <div className="flex items-center cursor-pointer min-w-0 flex-1">
+                <button onClick={() => window.history.back()} className="md:hidden mr-2 md:mr-4 p-2 text-[#AEBAC1] hover:text-white flex-shrink-0">
+                  <ArrowLeft size={24} />
                 </button>
-                <div className="w-10 h-10 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-lg font-semibold overflow-hidden">
+                <div className="w-10 h-10 bg-[#00A884] rounded-full mr-3 md:mr-4 flex-shrink-0 flex items-center justify-center text-lg font-semibold overflow-hidden">
                   {chats.find(c => c.id === activeChatId)?.groupPicture ? (
                     <img src={chats.find(c => c.id === activeChatId)?.groupPicture!} className="w-full h-full object-cover" />
                   ) : (
                     chats.find(c => c.id === activeChatId)?.name?.charAt(0) || 'C'
                   )}
                 </div>
-                <div>
-                  <h2 className="text-base font-normal">{chats.find(c => c.id === activeChatId)?.name}</h2>
-                  <p className="text-xs text-[#8696A0]">{typingStatus || 'Tap here for contact info'}</p>
+                <div className="min-w-0 flex-1 pr-2">
+                  <h2 className="text-base font-normal truncate">{chats.find(c => c.id === activeChatId)?.name}</h2>
+                  <p className="text-xs text-[#8696A0] truncate">{typingStatus || 'Tap here for contact info'}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-6 text-[#AEBAC1]">
+              <div className="flex items-center space-x-4 md:space-x-6 text-[#AEBAC1] flex-shrink-0 mr-2 md:mr-0">
                 <button onClick={() => startCall('VIDEO')} className="hover:text-white transition-colors" title="Video Call">
                   <Video size={20} />
                 </button>
@@ -573,7 +592,17 @@ export default function ChatPage() {
                   return (
                     <div key={msg.id || idx} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                       {msg.type === 'CALL_LOG' ? (
-                        <div className={`max-w-[65%] rounded-lg px-3 py-2 text-sm shadow-sm flex items-center space-x-3 relative my-0.5 ${isMine ? 'bg-[#005C4B] rounded-tr-none' : 'bg-[#202C33] rounded-tl-none'}`}>
+                        <div 
+                          onClick={() => {
+                            try {
+                              const log = JSON.parse(msg.content || '{}');
+                              if (log.type === 'VIDEO' || log.type === 'AUDIO') {
+                                startCall(log.type);
+                              }
+                            } catch (e) {}
+                          }}
+                          className={`max-w-[65%] rounded-lg px-3 py-2 text-sm shadow-sm flex items-center space-x-3 relative my-0.5 cursor-pointer hover:opacity-90 transition-opacity ${isMine ? 'bg-[#005C4B] rounded-tr-none' : 'bg-[#202C33] rounded-tl-none'}`}
+                        >
                           {(() => {
                             try {
                               const log = JSON.parse(msg.content || '{}');
