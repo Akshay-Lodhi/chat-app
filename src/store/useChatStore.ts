@@ -39,7 +39,6 @@ interface ChatState {
   setChats: (chats: Chat[]) => void;
   setActiveChat: (chatId: string) => void;
   addMessage: (chatId: string, message: Message) => void;
-  sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null) => void;
   fetchChats: (token: string) => Promise<void>;
   fetchMessages: (chatId: string, token: string) => Promise<void>;
   createChat: (contactId: string, token: string) => Promise<string>;

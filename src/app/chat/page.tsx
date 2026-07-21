@@ -41,6 +41,7 @@ export default function ChatPage() {
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [mainMenuOpen, setMainMenuOpen] = useState(false);
   
   // Audio Recording States
   const [isRecording, setIsRecording] = useState(false);
@@ -362,9 +363,31 @@ export default function ChatPage() {
                 <path fill="currentColor" d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"></path>
               </svg>
             </button>
-            <button className="hover:text-white transition-colors">
-              <MoreVertical size={20} />
-            </button>
+            <div className="relative">
+              <button 
+                className="hover:text-white transition-colors p-2"
+                onClick={() => setMainMenuOpen(!mainMenuOpen)}
+              >
+                <MoreVertical size={20} />
+              </button>
+              
+              {mainMenuOpen && (
+                <div className="absolute top-10 right-0 bg-[#233138] rounded shadow-lg z-50 py-2 min-w-[150px]">
+                  <button 
+                    onClick={() => { setShowProfile(true); setMainMenuOpen(false); }} 
+                    className="w-full text-left px-4 py-2 text-[#E9EDEF] hover:bg-[#182229]"
+                  >
+                    Profile
+                  </button>
+                  <button 
+                    onClick={() => { handleLogout(); setMainMenuOpen(false); }} 
+                    className="w-full text-left px-4 py-2 text-[#E9EDEF] hover:bg-[#182229]"
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
