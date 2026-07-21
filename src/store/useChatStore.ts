@@ -362,6 +362,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { socket } = get();
     if (socket && socket.connected) {
       // Optimistic update
+      let replyToObj = null;
+      if (replyToId) {
+        const msgs = get().messages[chatId] || [];
+        replyToObj = msgs.find(m => m.id === replyToId) || null;
+      }
+
       const tempId = Date.now().toString();
       const newMessage: Message = {
         id: tempId,
@@ -371,6 +377,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         type: type as any,
         mediaUrl: mediaUrl,
         replyToId,
+        replyTo: replyToObj,
         createdAt: new Date().toISOString(),
         status: 'PENDING'
       };

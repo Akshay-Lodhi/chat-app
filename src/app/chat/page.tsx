@@ -672,28 +672,47 @@ export default function ChatPage() {
                       }
                       const msg = chat.lastMessage;
                       if (!msg) return 'Tap to chat';
+                      
+                      const isMine = msg.senderId === user?.id;
+                      const renderTicks = () => {
+                        if (!isMine) return null;
+                        if (msg.status === 'PENDING') {
+                          return <svg viewBox="0 0 16 16" width="14" height="14" className="text-[#8696A0] mr-1 inline"><path fill="currentColor" d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8z" /><path fill="currentColor" d="M7.5 4.5a.5.5 0 0 1 1 0v3.25l2.25 1.25a.5.5 0 0 1-.5.86l-2.5-1.4A.5.5 0 0 1 7.5 8z" /></svg>;
+                        }
+                        if (msg.status === 'SENT') {
+                          return <svg viewBox="0 0 16 15" width="16" height="15" className="text-[#8696A0] mr-1 inline"><path fill="currentColor" d="M10.91 3.316l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.88a.32.32 0 0 1-.484.032L1.724 7.587a.32.32 0 0 0-.484.032l-.378.48a.418.418 0 0 0 .036.54l3.14 3.007c.174.166.452.155.612-.023l5.82-7.854a.365.365 0 0 0-.063-.51z"></path></svg>;
+                        }
+                        return <svg viewBox="0 0 16 15" width="16" height="15" className={`mr-1 inline ${msg.status === 'READ' ? 'text-[#53bdeb]' : 'text-[#8696A0]'}`}><path fill="currentColor" d="m15.01 3.316-.478-.372a.365.365 0 0 0-.51.063L8.666 9.88a.32.32 0 0 1-.484.032l-.358-.325a.32.32 0 0 0-.484.032l-.378.48a.418.418 0 0 0 .036.54l1.32 1.267c.174.166.452.155.612-.023L15.073 3.826a.365.365 0 0 0-.063-.51z"></path><path fill="currentColor" d="m9.98 3.316-.478-.372a.365.365 0 0 0-.51.063L3.636 9.88a.32.32 0 0 1-.484.032L1.35 8.287a.32.32 0 0 0-.484.032l-.378.48a.418.418 0 0 0 .036.54l2.76 2.646c.174.166.452.155.612-.023L9.943 3.826a.365.365 0 0 0-.063-.51z"></path></svg>;
+                      };
+
+                      let content = <span className="truncate">{msg.content || (msg.type !== 'TEXT' ? msg.type : '')}</span>;
                       if (msg.type === 'CALL_LOG') {
                         try {
                           const log = JSON.parse(msg.content || '{}');
                           const isMissed = log.action === 'MISSED';
                           const CallIcon = log.type === 'VIDEO' ? Video : Phone;
-                          return (
-                            <span className="flex items-center gap-1.5">
+                          content = (
+                            <span className="flex items-center gap-1.5 truncate">
                               <CallIcon size={14} className={isMissed ? 'text-red-500' : ''} />
                               <span>{isMissed ? 'Missed' : ''} {log.type === 'VIDEO' ? 'Video' : 'Voice'} call</span>
                             </span>
                           );
-                        } catch { return 'Call'; }
-                      }
-                      if (msg.type === 'LOCATION') {
-                        return (
-                          <span className="flex items-center gap-1.5">
+                        } catch { content = <span>Call</span>; }
+                      } else if (msg.type === 'LOCATION') {
+                        content = (
+                          <span className="flex items-center gap-1.5 truncate">
                             <MapPin size={14} className="text-[#AEBAC1]" />
                             <span>Location</span>
                           </span>
                         );
                       }
-                      return <span className="truncate">{msg.content || (msg.type !== 'TEXT' ? msg.type : '')}</span>;
+
+                      return (
+                        <div className="flex items-center w-full min-w-0">
+                          {renderTicks()}
+                          {content}
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>
@@ -1018,7 +1037,11 @@ export default function ChatPage() {
                               {msg.replyToId && (
                                 <div className="bg-black/20 rounded p-2 mb-1 border-l-4 border-[#00A884] text-xs opacity-80 cursor-pointer">
                                   <div className="text-[#00A884] font-semibold mb-1">
-                                    {msg.replyTo?.senderId === user?.id ? 'You' : (chats.find(c => c.id === activeChatId)?.name || 'Someone')}
+                                    {msg.replyTo?.senderId === user?.id ? 'You' : (
+                                      contacts.find(c => c.id === msg.replyTo?.senderId)?.name || 
+                                      chats.find(c => c.id === activeChatId)?.participants?.find((p: any) => p.userId === msg.replyTo?.senderId)?.user?.name || 
+                                      'Someone'
+                                    )}
                                   </div>
                                   <div className="truncate text-white/80">
                                     {msg.replyTo?.isDeleted ? '🚫 This message was deleted' : (msg.replyTo?.content || (msg.replyTo?.type !== 'TEXT' ? msg.replyTo?.type : 'Message'))}
