@@ -11,7 +11,8 @@ export const auth = betterAuth({
         process.env.FRONTEND_URL, 
         "http://localhost:3000", 
         "http://127.0.0.1:3000",
-        "https://chat-app-two-khaki-va269vxf6w.vercel.app"
+        "https://chat-app-two-khaki-va269vxf6w.vercel.app",
+        "https://chat-otr6e5wny-akshayappicsoftwares-2595s-projects.vercel.app"
     ].filter(Boolean) as string[],
     advanced: {
         defaultCookieAttributes: {

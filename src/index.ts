@@ -21,7 +21,16 @@ const allowedOrigins = [
   'https://chat-app-two-khaki-va269vxf6w.vercel.app'
 ].filter(Boolean) as string[];
 
-app.use(cors({ origin: allowedOrigins, credentials: true })); // Required for Better Auth cookies
+app.use(cors({ 
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'), false);
+  }, 
+  credentials: true 
+}));
 app.use(express.json());
 
 import uploadRoutes from './routes/upload.routes';
