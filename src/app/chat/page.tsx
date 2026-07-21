@@ -63,6 +63,7 @@ export default function ChatPage() {
   
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const profilePicRef = React.useRef<HTMLInputElement>(null);
+  const groupPicInputRef = React.useRef<HTMLInputElement>(null);
   const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -70,6 +71,8 @@ export default function ChatPage() {
   useEffect(() => {
     if (session?.user && (!user || user.id !== session.user.id)) {
       useAuthStore.getState().setAuth('better-auth-session', session.user as any);
+      setEditName(session.user.name || '');
+      setEditAbout((session.user as any).about || 'Hey there! I am using WhatsApp.');
     }
   }, [session, user]);
 
@@ -170,7 +173,7 @@ export default function ChatPage() {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
 
   const handleStartChat = async (contactId: string) => {
-    if (isCreatingGroup) {
+    if (isCreatingGroup || isAddingMembers) {
       if (groupParticipants.includes(contactId)) {
         setGroupParticipants(prev => prev.filter(id => id !== contactId));
       } else {
@@ -245,6 +248,18 @@ export default function ChatPage() {
     sendMessage(activeChatId, messageInput, 'TEXT', null, replyingTo?.id || null);
     setMessageInput('');
     setReplyingTo(null);
+  };
+
+  const handleGroupPicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChatId) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      await useChatStore.getState().updateGroupPicture(activeChatId, base64String);
+    };
+    reader.readAsDataURL(file);
   };
 
   const startRecording = async () => {
@@ -383,7 +398,11 @@ export default function ChatPage() {
           {/* Header */}
         <div className="h-16 bg-[#202C33] flex items-center justify-between px-4 py-2">
           <div 
-            onClick={() => setShowProfile(true)}
+            onClick={() => {
+              setEditName(user?.name || '');
+              setEditAbout(user?.about || 'Hey there! I am using WhatsApp.');
+              setShowProfile(true);
+            }}
             className="w-10 h-10 bg-gray-500 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
           >
             {user?.profilePicture ? (
@@ -578,7 +597,14 @@ export default function ChatPage() {
                   </div>
                 )}
 
-                {contacts.filter(c => !searchPhone || (c.name && c.name.toLowerCase().includes(searchPhone.toLowerCase())) || (c.phoneNumber && c.phoneNumber.includes(searchPhone))).map(contact => (
+                {contacts.filter(c => {
+                  if (isAddingMembers) {
+                    const activeChat = chats.find(chat => chat.id === activeChatId);
+                    const existingIds = activeChat?.participants?.map((p: any) => p.userId) || [];
+                    if (existingIds.includes(c.id)) return false;
+                  }
+                  return !searchPhone || (c.name && c.name.toLowerCase().includes(searchPhone.toLowerCase())) || (c.phoneNumber && c.phoneNumber.includes(searchPhone));
+                }).map(contact => (
                   <div key={contact.id} onClick={() => handleStartChat(contact.id)} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
                     {(isCreatingGroup || isAddingMembers) && (
                       <div className="mr-4">
@@ -781,7 +807,14 @@ export default function ChatPage() {
         {activeChatId && (
           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#374045]">
             <div className="flex flex-col items-center py-8 bg-[#111B21] border-b border-[#222D34]">
-              <div className="w-48 h-48 rounded-full overflow-hidden mb-4 border-2 border-transparent hover:border-[#00A884] transition-colors cursor-pointer relative group">
+              <div 
+                className="w-48 h-48 rounded-full overflow-hidden mb-4 border-2 border-transparent hover:border-[#00A884] transition-colors cursor-pointer relative group"
+                onClick={() => {
+                  if (chats.find(c => c.id === activeChatId)?.adminId === user?.id) {
+                    groupPicInputRef.current?.click();
+                  }
+                }}
+              >
                 {(() => {
                   const chat = chats.find(c => c.id === activeChatId);
                   if (chat?.isGroup) {
@@ -803,11 +836,18 @@ export default function ChatPage() {
                     );
                   }
                 })()}
-                {chats.find(c => c.id === activeChatId)?.isGroup && (
+                {chats.find(c => c.id === activeChatId)?.isGroup && chats.find(c => c.id === activeChatId)?.adminId === user?.id && (
                   <div className="absolute inset-0 bg-black/50 hidden group-hover:flex flex-col items-center justify-center text-white text-sm text-center px-4">
                     CHANGE GROUP ICON
                   </div>
                 )}
+                <input 
+                  type="file" 
+                  ref={groupPicInputRef} 
+                  onChange={handleGroupPicChange} 
+                  className="hidden" 
+                  accept="image/*" 
+                />
               </div>
               <h2 className="text-2xl font-normal text-[#E9EDEF] mb-1">{chats.find(c => c.id === activeChatId)?.name}</h2>
               {chats.find(c => c.id === activeChatId)?.isGroup ? (
@@ -825,24 +865,26 @@ export default function ChatPage() {
                     <Search size={18} />
                   </div>
                   
-                  <div 
-                    className="flex items-center px-6 py-3 cursor-pointer hover:bg-[#202C33] transition-colors"
-                    onClick={() => {
-                      setIsCreatingGroup(false);
-                      setIsAddingMembers(true);
-                      setGroupParticipants([]);
-                      setShowContacts(true);
-                      setShowGroupInfo(false);
-                      loadContacts();
-                    }}
-                  >
-                    <div className="w-10 h-10 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-white">
-                      <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 4l1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"></path></svg>
+                  {chats.find(c => c.id === activeChatId)?.adminId === user?.id && (
+                    <div 
+                      className="flex items-center px-6 py-3 cursor-pointer hover:bg-[#202C33] transition-colors"
+                      onClick={() => {
+                        setIsCreatingGroup(false);
+                        setIsAddingMembers(true);
+                        setGroupParticipants([]);
+                        setShowContacts(true);
+                        setShowGroupInfo(false);
+                        loadContacts();
+                      }}
+                    >
+                      <div className="w-10 h-10 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-white">
+                        <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 4l1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"></path></svg>
+                      </div>
+                      <div className="flex-1">
+                        <h2 className="text-base text-[#E9EDEF]">Add member</h2>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h2 className="text-base text-[#E9EDEF]">Add member</h2>
-                    </div>
-                  </div>
+                  )}
 
                   {chats.find(c => c.id === activeChatId)?.participants?.map((p: any) => (
                     <div key={p.userId} className="flex items-center px-6 py-3 hover:bg-[#202C33] transition-colors group">

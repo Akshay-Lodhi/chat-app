@@ -47,6 +47,7 @@ interface ChatState {
   createChat: (contactId: string, token: string) => Promise<string>;
   createGroupChat: (name: string, participantIds: string[], groupPicture?: string) => Promise<string>;
   addGroupParticipants: (chatId: string, participantIds: string[]) => Promise<void>;
+  updateGroupPicture: (chatId: string, pictureUrl: string) => Promise<void>;
   deleteGroupChat: (chatId: string) => Promise<void>;
   markChatAsRead: (chatId: string) => void;
   incrementUnreadCount: (chatId: string) => void;
@@ -275,24 +276,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return '';
   },
 
-  addGroupParticipants: async (chatId: string, participantIds: string[]) => {
+  addGroupParticipants: async (chatId, participantIds) => {
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/participants`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ participantIds })
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ participantIds }),
+        credentials: 'include'
       });
       if (res.ok) {
         const updatedChat = await res.json();
-        set((state) => ({
+        set(state => ({
           chats: state.chats.map(c => c.id === chatId ? updatedChat : c)
         }));
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add participants');
       }
-    } catch (err) {
-      console.error('Error adding participants to group chat:', err);
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : 'Failed to add participants');
+    }
+  },
+
+  updateGroupPicture: async (chatId, pictureUrl) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/picture`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ groupPicture: pictureUrl }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const updatedChat = await res.json();
+        set(state => ({
+          chats: state.chats.map(c => c.id === chatId ? updatedChat : c)
+        }));
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update group picture');
+      }
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : 'Failed to update group picture');
     }
   },
   
