@@ -34,6 +34,8 @@ interface ChatState {
   activeChatId: string | null;
   messages: Record<string, Message[]>; // chatId -> messages
   isConnecting: boolean;
+  onlineUsers: Record<string, boolean>;
+  typingStatuses: Record<string, { isTyping: boolean, timer?: NodeJS.Timeout }>;
   
   connectSocket: (token: string, userId: string) => void;
   disconnectSocket: () => void;
@@ -50,6 +52,7 @@ interface ChatState {
   incrementUnreadCount: (chatId: string) => void;
   sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null, replyToId?: string | null) => void;
   deleteMessage: (chatId: string, messageId: string) => void;
+  sendTypingStatus: (chatId: string, isTyping: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -58,6 +61,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeChatId: null,
   messages: {},
   isConnecting: false,
+  onlineUsers: {},
+  typingStatuses: {},
+
+  sendTypingStatus: (chatId: string, isTyping: boolean) => {
+    get().socket?.emit('typing', { chatId, isTyping });
+  },
 
   connectSocket: (token: string, userId: string) => {
     if (get().socket?.connected) return;
@@ -70,6 +79,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     socket.on('connect', () => {
       set({ isConnecting: false });
+    });
+
+    socket.on('user-status-changed', ({ userId, isOnline }) => {
+      set((state) => ({
+        onlineUsers: { ...state.onlineUsers, [userId]: isOnline }
+      }));
+    });
+
+    socket.on('typing', ({ chatId, userId, isTyping }) => {
+      set((state) => {
+        const currentTimer = state.typingStatuses[chatId]?.timer;
+        if (currentTimer) clearTimeout(currentTimer);
+        
+        let newTimer;
+        if (isTyping) {
+          newTimer = setTimeout(() => {
+            set((s) => ({
+              typingStatuses: {
+                ...s.typingStatuses,
+                [chatId]: { isTyping: false }
+              }
+            }));
+          }, 3000);
+        }
+        
+        return {
+          typingStatuses: {
+            ...state.typingStatuses,
+            [chatId]: { isTyping, timer: newTimer }
+          }
+        };
+      });
     });
 
     socket.on('receive-message', (message: Message) => {
@@ -149,7 +190,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
       if (res.ok) {
         const chats = await res.json();
-        set({ chats });
+        set((state) => {
+          const newOnlineUsers = { ...state.onlineUsers };
+          chats.forEach((c: any) => {
+            c.participants?.forEach((p: any) => {
+              if (p.user?.isOnline) {
+                newOnlineUsers[p.userId] = true;
+              } else if (p.user) {
+                newOnlineUsers[p.userId] = false;
+              }
+            });
+          });
+          return { chats, onlineUsers: newOnlineUsers };
+        });
       }
     } catch (err) {
       console.error('Error fetching chats:', err);

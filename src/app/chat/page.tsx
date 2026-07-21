@@ -9,7 +9,7 @@ import { useCallStore } from '../../store/useCallStore';
 import Peer from 'simple-peer';
 import CallOverlay from './CallOverlay';
 import MediaViewer from './MediaViewer';
-import { Video, Phone, Search, MoreVertical, Paperclip, Smile, Send, ArrowLeft, Check, CheckCheck, Mic, Trash2, X, ChevronDown, Reply, Ban, LogOut } from 'lucide-react';
+import { Video, Phone, Search, MoreVertical, Paperclip, Smile, Send, ArrowLeft, Check, CheckCheck, Mic, Trash2, X, ChevronDown, Reply, Ban, LogOut, MapPin } from 'lucide-react';
 import { authClient } from '../../lib/auth';
 
 export default function ChatPage() {
@@ -18,7 +18,8 @@ export default function ChatPage() {
   const { data: session, isPending } = authClient.useSession();
   const { 
     connectSocket, disconnectSocket, isConnecting, chats, messages, activeChatId, 
-    setActiveChat, sendMessage, fetchChats, fetchMessages, createChat, createGroupChat, deleteMessage 
+    setActiveChat, sendMessage, fetchChats, fetchMessages, createChat, createGroupChat, deleteMessage,
+    onlineUsers, typingStatuses, sendTypingStatus
   } = useChatStore();
   
   const [messageInput, setMessageInput] = useState('');
@@ -214,6 +215,25 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeMessages]);
 
+  const handleShareLocation = () => {
+    if (!activeChatId) return;
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        sendMessage(activeChatId, JSON.stringify({ lat: latitude, lng: longitude }), 'LOCATION');
+        setChatMenuOpen(false);
+      },
+      (error) => {
+        console.error('Error getting location', error);
+        alert('Unable to retrieve your location');
+      }
+    );
+  };
+
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!messageInput.trim() || !activeChatId) return;
@@ -353,7 +373,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-[#111B21] text-[#E9EDEF] overflow-hidden relative">
+    <div className="flex h-[100dvh] bg-[#111B21] text-[#E9EDEF] overflow-hidden relative">
         <CallOverlay />
         
         {/* Sidebar */}
@@ -647,6 +667,9 @@ export default function ChatPage() {
                   </div>
                   <div className="text-sm text-[#8696A0] truncate flex items-center">
                     {(() => {
+                      if (typingStatuses[chat.id]?.isTyping) {
+                        return <span className="text-[#00A884] font-medium italic">typing...</span>;
+                      }
                       const msg = chat.lastMessage;
                       if (!msg) return 'Tap to chat';
                       if (msg.type === 'CALL_LOG') {
@@ -806,7 +829,7 @@ export default function ChatPage() {
         {activeChatId ? (
           <>
             {/* Chat Header */}
-            <div className="h-16 bg-[#202C33] flex items-center justify-between px-2 md:px-4 z-10 w-full overflow-hidden">
+            <div className="h-16 bg-[#202C33] flex items-center justify-between px-2 md:px-4 z-10 w-full overflow-hidden shrink-0">
               <div 
                 className="flex items-center cursor-pointer min-w-0 flex-1"
                 onClick={() => {
@@ -825,7 +848,21 @@ export default function ChatPage() {
                 </div>
                 <div className="min-w-0 flex-1 pr-2">
                   <h2 className="text-base font-normal truncate">{chats.find(c => c.id === activeChatId)?.name}</h2>
-                  <p className="text-xs text-[#8696A0] truncate">{typingStatus || 'Tap here for contact info'}</p>
+                  <p className="text-xs text-[#8696A0] truncate">
+                    {(() => {
+                      if (activeChatId && typingStatuses[activeChatId]?.isTyping) {
+                        return <span className="text-[#00A884] font-medium italic">typing...</span>;
+                      }
+                      const activeChat = chats.find(c => c.id === activeChatId);
+                      if (activeChat && !activeChat.isGroup) {
+                        const otherParticipant = activeChat.participants?.find((p: any) => p.userId !== user?.id);
+                        if (otherParticipant && onlineUsers[otherParticipant.userId]) {
+                          return <span className="text-[#00A884]">Online</span>;
+                        }
+                      }
+                      return 'Tap here for contact info';
+                    })()}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center space-x-4 md:space-x-6 text-[#AEBAC1] flex-shrink-0 mr-2 md:mr-0">
@@ -1006,8 +1043,20 @@ export default function ChatPage() {
                                   <svg viewBox="0 0 24 24" width="24" height="24" className="text-[#AEBAC1]"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
                                   <span className="text-sm truncate max-w-[150px]">Document</span>
                                 </a>
+                              ) : msg.type === 'LOCATION' && msg.content ? (
+                                (() => {
+                                  try {
+                                    const loc = JSON.parse(msg.content);
+                                    return (
+                                      <a href={`https://maps.google.com/?q=${loc.lat},${loc.lng}`} target="_blank" rel="noreferrer" className="flex flex-col items-center space-y-1 bg-black/20 p-2 rounded mb-1 hover:bg-black/30 transition-colors">
+                                        <MapPin size={32} className="text-[#00A884]" />
+                                        <span className="text-sm underline text-blue-400">View Location</span>
+                                      </a>
+                                    );
+                                  } catch { return null; }
+                                })()
                               ) : null}
-                              {msg.content && <span className="break-words">{msg.content}</span>}
+                              {msg.type !== 'LOCATION' && msg.content && <span className="break-words">{msg.content}</span>}
                             </>
                           )}
                           
@@ -1081,8 +1130,16 @@ export default function ChatPage() {
                     onClick={() => fileInputRef.current?.click()}
                     className={`transition-colors ${isUploading ? 'text-[#00A884] animate-pulse' : 'hover:text-white'}`}
                     disabled={isUploading}
+                    title="Attach File"
                   >
                     <Paperclip size={24} />
+                  </button>
+                  <button 
+                    onClick={handleShareLocation}
+                    className="hover:text-white transition-colors"
+                    title="Share Location"
+                  >
+                    <MapPin size={24} />
                   </button>
                 </div>
                 
@@ -1101,13 +1158,20 @@ export default function ChatPage() {
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleSendMessage} className="flex-1 bg-[#2A3942] rounded-lg flex items-center px-4 py-2 max-h-32 overflow-y-auto">
-                    <input
-                      type="text"
+                  <form onSubmit={handleSendMessage} className="flex-1 flex items-center mx-2 md:mx-4 bg-[#2A3942] rounded-lg px-4">
+                    <input 
+                      type="text" 
                       value={messageInput}
-                      onChange={handleMessageChange}
-                      placeholder="Type a message"
-                      className="w-full bg-transparent focus:outline-none text-sm placeholder-[#8696A0]"
+                      onChange={(e) => {
+                        setMessageInput(e.target.value);
+                        if (activeChatId) {
+                          sendTypingStatus(activeChatId, true);
+                          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                          typingTimeoutRef.current = setTimeout(() => sendTypingStatus(activeChatId, false), 1500);
+                        }
+                      }}
+                      placeholder="Type a message" 
+                      className="w-full bg-transparent text-[#E9EDEF] py-2 md:py-3 focus:outline-none placeholder-[#8696A0] text-sm md:text-base"
                     />
                   </form>
                 )}
