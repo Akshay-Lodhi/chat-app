@@ -155,7 +155,7 @@ export default function ChatPage() {
   const loadContacts = async () => {
     if (!session) return;
     try {
-      const url = searchPhone ? `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/contacts?phone=${searchPhone}` : `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/contacts`;
+      const url = `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/contacts`;
       const res = await fetch(url, {
         credentials: 'include'
       });
@@ -578,7 +578,7 @@ export default function ChatPage() {
                   </div>
                 )}
 
-                {contacts.map(contact => (
+                {contacts.filter(c => !searchPhone || (c.name && c.name.toLowerCase().includes(searchPhone.toLowerCase())) || (c.phoneNumber && c.phoneNumber.includes(searchPhone))).map(contact => (
                   <div key={contact.id} onClick={() => handleStartChat(contact.id)} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
                     {(isCreatingGroup || isAddingMembers) && (
                       <div className="mr-4">
@@ -832,6 +832,7 @@ export default function ChatPage() {
                       setIsAddingMembers(true);
                       setGroupParticipants([]);
                       setShowContacts(true);
+                      setShowGroupInfo(false);
                       loadContacts();
                     }}
                   >
@@ -939,13 +940,17 @@ export default function ChatPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4 md:space-x-6 text-[#AEBAC1] flex-shrink-0 mr-2 md:mr-0">
-                <button onClick={() => startCall('VIDEO')} className="hover:text-white transition-colors" title="Video Call">
-                  <Video size={20} />
-                </button>
-                <button onClick={() => startCall('AUDIO')} className="hover:text-white transition-colors" title="Voice Call">
-                  <Phone size={20} />
-                </button>
+              <div className="flex items-center space-x-2 md:space-x-6 text-[#AEBAC1] flex-shrink-0 mr-2 md:mr-0">
+                {!isSearchActive && (
+                  <>
+                    <button onClick={() => startCall('VIDEO')} className="hover:text-white transition-colors p-2" title="Video Call">
+                      <Video size={20} />
+                    </button>
+                    <button onClick={() => startCall('AUDIO')} className="hover:text-white transition-colors p-2" title="Voice Call">
+                      <Phone size={20} />
+                    </button>
+                  </>
+                )}
                 {isSearchActive && (
                   <div className="bg-[#202C33] rounded-lg flex items-center px-2 py-1 mr-2 transition-all">
                     <input 
