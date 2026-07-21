@@ -17,7 +17,7 @@ interface Message {
   chatId: string;
   senderId: string;
   content: string | null;
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'CALL_LOG';
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'CALL_LOG' | 'LOCATION';
   mediaUrl: string | null;
   createdAt: string;
   status?: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ';
