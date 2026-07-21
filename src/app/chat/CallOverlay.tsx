@@ -40,6 +40,75 @@ export default function CallOverlay() {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  // Ringtone using Web Audio API
+  const ringtoneCtxRef = useRef<AudioContext | null>(null);
+  const ringtoneStopRef = useRef<(() => void) | null>(null);
+
+  const stopRingtone = useCallback(() => {
+    if (ringtoneStopRef.current) {
+      ringtoneStopRef.current();
+      ringtoneStopRef.current = null;
+    }
+    if (ringtoneCtxRef.current) {
+      ringtoneCtxRef.current.close().catch(() => {});
+      ringtoneCtxRef.current = null;
+    }
+  }, []);
+
+  const startRingtone = useCallback(() => {
+    stopRingtone();
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      ringtoneCtxRef.current = ctx;
+      let stopped = false;
+
+      const playRing = () => {
+        if (stopped || !ringtoneCtxRef.current) return;
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.connect(gain); osc2.connect(gain); gain.connect(ctx.destination);
+        osc1.frequency.value = 480; osc2.frequency.value = 620;
+        osc1.type = 'sine'; osc2.type = 'sine';
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + 0.35);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+        osc1.start(ctx.currentTime); osc2.start(ctx.currentTime);
+        osc1.stop(ctx.currentTime + 0.4); osc2.stop(ctx.currentTime + 0.4);
+        // second beep
+        const osc3 = ctx.createOscillator();
+        const osc4 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc3.connect(gain2); osc4.connect(gain2); gain2.connect(ctx.destination);
+        osc3.frequency.value = 480; osc4.frequency.value = 620;
+        osc3.type = 'sine'; osc4.type = 'sine';
+        gain2.gain.setValueAtTime(0, ctx.currentTime + 0.5);
+        gain2.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.55);
+        gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.85);
+        gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.9);
+        osc3.start(ctx.currentTime + 0.5); osc4.start(ctx.currentTime + 0.5);
+        osc3.stop(ctx.currentTime + 0.9); osc4.stop(ctx.currentTime + 0.9);
+        // repeat every 3s
+        const timerId = setTimeout(playRing, 3000);
+        ringtoneStopRef.current = () => { stopped = true; clearTimeout(timerId); };
+      };
+      playRing();
+    } catch (e) {
+      console.warn('Ringtone not supported', e);
+    }
+  }, [stopRingtone]);
+
+  // Play ringtone when call is incoming, stop when answered/ended
+  useEffect(() => {
+    if (isReceivingCall && !isCalling) {
+      startRingtone();
+    } else {
+      stopRingtone();
+    }
+    return () => stopRingtone();
+  }, [isReceivingCall, isCalling, startRingtone, stopRingtone]);
+
   // Use refs so callbacks in useEffect always see fresh values without triggering re-runs
   const localStreamRef = useRef<MediaStream | null>(null);
   const activeCallChatIdRef = useRef<string | null>(null);
@@ -212,6 +281,7 @@ export default function CallOverlay() {
   };
 
   const handleEndCall = () => {
+    stopRingtone();
     if (socket && activeCallChatId) {
       socket.emit('end-call', { chatId: activeCallChatId, duration: elapsedSeconds, type: callType, isInitiator });
       socket.emit('group-call-leave', { chatId: activeCallChatId });
@@ -220,6 +290,7 @@ export default function CallOverlay() {
   };
 
   const answerCall = async () => {
+    stopRingtone();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: callType === 'VIDEO',
