@@ -560,14 +560,12 @@ export default function ChatPage() {
             {/* Step 1: Contacts List */}
             {(!isCreatingGroup || groupCreationStep === 1) && (
               <>
-                {!isCreatingGroup && (
                   <div className="p-4 border-b border-[#222D34]">
                     <div className="bg-[#202C33] rounded-lg flex items-center px-4 py-2">
                       <Search size={18} className="text-[#8696A0] mr-4" />
                       <input type="text" onChange={(e) => setSearchPhone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadContacts()} placeholder="Search contacts" className="bg-transparent w-full focus:outline-none text-sm placeholder-[#8696A0]" />
                     </div>
                   </div>
-                )}
                 
                 {!isCreatingGroup && !isAddingMembers && (
                   <div onClick={() => { setIsCreatingGroup(true); setGroupCreationStep(1); }} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
