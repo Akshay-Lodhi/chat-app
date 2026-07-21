@@ -85,3 +85,21 @@ export const deleteGroup = async (req: AuthRequest, res: Response) => {
     }
   }
 };
+
+export const updateGroupPicture = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const { groupPicture } = req.body;
+    if (!groupPicture) return res.status(400).json({ error: 'groupPicture is required' });
+
+    const chat = await ChatService.updateGroupPicture(req.user!.userId, chatId, groupPicture);
+    res.json(chat);
+  } catch (error: any) {
+    console.error(error);
+    if (error.message === 'Group chat not found' || error.message === 'Only the group admin can update the group picture') {
+      res.status(403).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+};

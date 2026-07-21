@@ -127,11 +127,9 @@ export class ChatService {
       throw new Error('Group chat not found');
     }
     
-    // Only admins or existing members can add people (let's allow any existing member to add for now, or just admins)
-    // WhatsApp allows any member to add unless restricted. We'll check if the requester is in the group.
-    const isMember = chat.participants.some(p => p.userId === userId);
-    if (!isMember) {
-      throw new Error('You are not a participant in this group');
+    // Only admins can add people
+    if (chat.adminId !== userId) {
+      throw new Error('Only the group admin can add participants');
     }
 
     // Filter out participants that are already in the group
@@ -151,6 +149,30 @@ export class ChatService {
 
     return await prisma.chat.findUnique({
       where: { id: chatId },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, about: true } } }
+        }
+      }
+    });
+  }
+
+  static async updateGroupPicture(userId: string, chatId: string, pictureUrl: string) {
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId }
+    });
+
+    if (!chat || !chat.isGroup) {
+      throw new Error('Group chat not found');
+    }
+    
+    if (chat.adminId !== userId) {
+      throw new Error('Only the group admin can update the group picture');
+    }
+
+    return prisma.chat.update({
+      where: { id: chatId },
+      data: { groupPicture: pictureUrl },
       include: {
         participants: {
           include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, about: true } } }

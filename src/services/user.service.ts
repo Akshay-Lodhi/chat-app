@@ -17,16 +17,18 @@ export class UserService {
   }
 
   static async getContacts(userId: string, searchPhone?: string) {
-    if (!searchPhone || searchPhone.trim() === '') {
-      return [];
-    }
+    const whereClause: any = { id: { not: userId } };
     
-    // Only return exact match for phone number to prevent dumping all users
+    // Optional backend filtering if a query is provided
+    if (searchPhone && searchPhone.trim() !== '') {
+      whereClause.OR = [
+        { phoneNumber: { contains: searchPhone.trim() } },
+        { name: { contains: searchPhone.trim(), mode: 'insensitive' } }
+      ];
+    }
+
     return await prisma.user.findMany({
-      where: {
-        id: { not: userId },
-        phoneNumber: searchPhone.trim()
-      },
+      where: whereClause,
       select: {
         id: true,
         name: true,
