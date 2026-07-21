@@ -13,6 +13,12 @@ export const auth = betterAuth({
         "http://127.0.0.1:3000",
         "https://chat-app-two-khaki-va269vxf6w.vercel.app"
     ].filter(Boolean) as string[],
+    advanced: {
+        defaultCookieAttributes: {
+            sameSite: "none",
+            secure: true,
+        }
+    },
     database: prismaAdapter(prisma, {
         provider: "postgresql", 
     }),
