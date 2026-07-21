@@ -56,7 +56,7 @@ export default function CallOverlay() {
   const createPeer = (userId: string, stream: MediaStream, initiator: boolean, offerData?: any) => {
     const peer = new Peer({
       initiator,
-      trickle: false,
+      trickle: true,
       stream,
       config: {
         iceServers: [
@@ -67,18 +67,27 @@ export default function CallOverlay() {
     });
 
     peer.on('signal', (data) => {
-      if (initiator) {
-        socket?.emit('call-offer', {
-          chatId: activeCallChatId,
-          targetUserId: userId,
-          signalData: data,
-          type: callType
-        });
+      if (data.type === 'offer' || data.type === 'answer') {
+        if (initiator) {
+          socket?.emit('call-offer', {
+            chatId: activeCallChatId,
+            targetUserId: userId,
+            signalData: data,
+            type: callType
+          });
+        } else {
+          socket?.emit('call-answer', {
+            chatId: activeCallChatId,
+            targetUserId: userId,
+            signalData: data
+          });
+        }
       } else {
-        socket?.emit('call-answer', {
+        // ICE candidates
+        socket?.emit('ice-candidate', {
           chatId: activeCallChatId,
           targetUserId: userId,
-          signalData: data
+          candidate: data
         });
       }
     });
@@ -131,8 +140,10 @@ export default function CallOverlay() {
     };
 
     const handleIceCandidate = (data: { candidate: any, callerId: string }) => {
-      // Not strictly necessary since simple-peer handles it as part of signalData
-      // but if the server relays ICE candidates, it's good to just pass it down if needed.
+      const peer = useCallStore.getState().peers[data.callerId];
+      if (peer) {
+        peer.signal(data.candidate);
+      }
     };
 
     const handleGroupCallParticipants = (data: { chatId: string, participants: string[] }) => {

@@ -374,8 +374,6 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[100dvh] bg-[#111B21] text-[#E9EDEF] overflow-hidden relative">
-        <CallOverlay />
-        
         {/* Sidebar */}
         <div className={`w-full md:w-[30%] md:min-w-[350px] border-r border-[#222D34] flex-col bg-[#111B21] relative ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
           {/* Header */}
