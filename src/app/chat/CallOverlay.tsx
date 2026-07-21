@@ -255,6 +255,20 @@ export default function CallOverlay() {
   const remoteStreamEntries = Object.entries(remoteStreams);
   const gridCols = remoteStreamEntries.length > 1 ? 'grid-cols-2' : 'grid-cols-1';
 
+  const activeChat = chats.find(c => c.id === activeCallChatId);
+  const getCallAvatar = () => {
+    if (activeChat?.isGroup) return activeChat.groupPicture || null;
+    const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id);
+    return other?.user?.profilePicture || null;
+  };
+  const getCallName = () => {
+    if (activeChat?.isGroup) return activeChat.name || 'Group Call';
+    const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id);
+    return other?.user?.name || other?.user?.phoneNumber || caller || 'Unknown';
+  };
+  const callAvatar = getCallAvatar();
+  const callDisplayName = getCallName();
+
   return (
     <div className="absolute inset-0 z-50 bg-[#0B141A]/95 flex flex-col items-center justify-center backdrop-blur-sm">
       
@@ -262,12 +276,16 @@ export default function CallOverlay() {
       {isReceivingCall && !isCalling && (
         <div className="bg-[#111B21]/95 p-12 rounded-[2rem] flex flex-col items-center space-y-10 shadow-2xl border border-[#222D34] w-[400px]">
           <div className="w-32 h-32 bg-[#00A884]/20 rounded-full flex items-center justify-center animate-pulse">
-            <div className="w-24 h-24 bg-[#00A884] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(0,168,132,0.6)]">
-              {callType === 'VIDEO' ? <Video size={48} className="text-white" /> : <Phone size={48} className="text-white" />}
+            <div className="w-24 h-24 bg-[#00A884] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(0,168,132,0.6)] overflow-hidden">
+              {callAvatar ? (
+                <img src={callAvatar} alt="Caller" className="w-full h-full object-cover" />
+              ) : (
+                callType === 'VIDEO' ? <Video size={48} className="text-white" /> : <Phone size={48} className="text-white" />
+              )}
             </div>
           </div>
           <div className="text-center space-y-2">
-            <h2 className="text-4xl font-semibold text-[#E9EDEF] tracking-tight truncate max-w-[300px]">{caller || 'Unknown'}</h2>
+            <h2 className="text-4xl font-semibold text-[#E9EDEF] tracking-tight truncate max-w-[300px]">{callDisplayName}</h2>
             <p className="text-lg text-[#00A884] font-medium tracking-wide">Incoming {callType?.toLowerCase()} call</p>
           </div>
           <div className="flex space-x-12 pt-6">
@@ -285,9 +303,13 @@ export default function CallOverlay() {
       {isCalling && remoteStreamEntries.length === 0 && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
           <div className="w-32 h-32 bg-[#202C33] rounded-full flex items-center justify-center mb-8 shadow-2xl overflow-hidden">
-            <span className="text-5xl text-white font-light">{caller?.charAt(0) || 'U'}</span>
+            {callAvatar ? (
+              <img src={callAvatar} alt="Caller" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-5xl text-white font-light">{callDisplayName.charAt(0)}</span>
+            )}
           </div>
-          <h2 className="text-5xl font-semibold text-white mb-4 tracking-tight drop-shadow-md">{caller || 'Unknown'}</h2>
+          <h2 className="text-5xl font-semibold text-white mb-4 tracking-tight drop-shadow-md">{callDisplayName}</h2>
           <p className="text-xl text-white/60 tracking-widest font-light">Calling...</p>
         </div>
       )}
@@ -299,7 +321,7 @@ export default function CallOverlay() {
           {/* Top Bar with Timer */}
           {callType === 'VIDEO' && (
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 shadow-lg">
-              <span className="text-white/90 text-sm font-medium mb-0.5">{caller || 'Group Call'}</span>
+              <span className="text-white/90 text-sm font-medium mb-0.5">{callDisplayName}</span>
               <span className="text-white font-mono text-lg tracking-wider">
                 {Math.floor(elapsedSeconds / 60).toString().padStart(2, '0')}:
                 {(elapsedSeconds % 60).toString().padStart(2, '0')}
@@ -311,15 +333,24 @@ export default function CallOverlay() {
             {/* Remote Videos Grid */}
             {callType === 'VIDEO' ? (
               remoteStreamEntries.length > 0 ? (
-                <div className={`w-full h-full grid ${gridCols} gap-2 p-2 bg-[#111B21]`}>
-                  {remoteStreamEntries.map(([userId, stream]) => (
-                    <div key={userId} className="relative w-full h-full bg-black rounded-xl overflow-hidden shadow-lg border border-white/10">
-                      <VideoPlayer stream={stream} />
-                      <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded-full text-white/90 text-sm backdrop-blur-md">
-                        Participant
+                <div className={`w-full h-full relative`}>
+                  <div className={`w-full h-full grid ${gridCols} gap-2 p-2 bg-[#111B21]`}>
+                    {remoteStreamEntries.map(([userId, stream]) => (
+                      <div key={userId} className="relative w-full h-full bg-black rounded-xl overflow-hidden shadow-lg border border-white/10">
+                        <VideoPlayer stream={stream} />
+                        <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded-full text-white/90 text-sm backdrop-blur-md">
+                          Participant
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                  
+                  {/* Local Stream PiP */}
+                  {localStream && (
+                    <div className="absolute top-4 right-4 w-32 md:w-48 aspect-[3/4] bg-black rounded-xl overflow-hidden shadow-2xl border-2 border-[#202C33] z-20">
+                      <VideoPlayer stream={localStream} isLocal={true} isVideoOff={isVideoOff} />
                     </div>
-                  ))}
+                  )}
                 </div>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-[#8696A0]">
@@ -327,6 +358,13 @@ export default function CallOverlay() {
                     <Video size={40} />
                   </div>
                   <p>Connecting to Video...</p>
+                  
+                  {/* Show local camera while waiting */}
+                  {localStream && (
+                    <div className="absolute top-4 right-4 w-32 md:w-48 aspect-[3/4] bg-black rounded-xl overflow-hidden shadow-2xl border-2 border-[#202C33] z-20">
+                      <VideoPlayer stream={localStream} isLocal={true} isVideoOff={isVideoOff} />
+                    </div>
+                  )}
                 </div>
               )
             ) : (
@@ -336,10 +374,14 @@ export default function CallOverlay() {
                   <div className="absolute w-56 h-56 bg-[#00A884]/10 rounded-full animate-pulse"></div>
                   <div className="absolute w-72 h-72 border border-[#00A884]/5 rounded-full animate-pulse" style={{ animationDuration: '3s' }}></div>
                   <div className="relative z-10 w-40 h-40 bg-gradient-to-br from-[#111B21] to-[#202C33] rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(0,168,132,0.15)] overflow-hidden border-[3px] border-[#00A884]/40">
-                    <span className="text-7xl text-white font-light drop-shadow-xl">{caller?.charAt(0) || 'G'}</span>
+                    {callAvatar ? (
+                      <img src={callAvatar} alt="Caller" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-7xl text-white font-light drop-shadow-xl">{callDisplayName.charAt(0)}</span>
+                    )}
                   </div>
                 </div>
-                <h2 className="text-4xl font-semibold mb-6 tracking-tight drop-shadow-md">{caller || 'Group Call'}</h2>
+                <h2 className="text-4xl font-semibold mb-6 tracking-tight drop-shadow-md">{callDisplayName}</h2>
                 <div className="bg-[#111B21]/80 px-8 py-3 rounded-full border border-[#222D34] shadow-inner flex items-center space-x-3">
                   <div className="w-2 h-2 rounded-full bg-[#00A884] animate-pulse"></div>
                   <p className="text-[#00A884] text-2xl font-mono tracking-widest font-medium">

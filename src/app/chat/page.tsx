@@ -642,12 +642,23 @@ export default function ChatPage() {
                 onClick={() => setActiveChat(chat.id)}
                 className={`flex items-center p-3 cursor-pointer hover:bg-[#202C33] transition-colors ${activeChatId === chat.id ? 'bg-[#2A3942]' : ''}`}
               >
-                <div className="w-12 h-12 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-xl font-semibold overflow-hidden text-white">
-                  {chat.groupPicture ? (
-                    <img src={chat.groupPicture} className="w-full h-full object-cover" />
-                  ) : (
-                    chat.name?.charAt(0) || 'C'
-                  )}
+                <div className="relative mr-4">
+                  <div className="w-12 h-12 bg-[#00A884] rounded-full flex items-center justify-center text-xl font-semibold overflow-hidden text-white">
+                    {chat.groupPicture ? (
+                      <img src={chat.groupPicture} className="w-full h-full object-cover" />
+                    ) : (
+                      chat.name?.charAt(0) || 'C'
+                    )}
+                  </div>
+                  {(() => {
+                    if (!chat.isGroup) {
+                      const otherParticipant = chat.participants?.find((p: any) => p.userId !== user?.id);
+                      if (otherParticipant && onlineUsers[otherParticipant.userId]) {
+                        return <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#00A884] rounded-full border-2 border-[#111B21]"></div>;
+                      }
+                    }
+                    return null;
+                  })()}
                 </div>
                 <div className="flex-1 border-b border-[#222D34] pb-3">
                   <div className="flex justify-between items-center mb-1">
