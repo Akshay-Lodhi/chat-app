@@ -22,6 +22,9 @@ interface Message {
   status?: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ';
   deliveredAt?: string;
   readAt?: string;
+  isDeleted?: boolean;
+  replyToId?: string | null;
+  replyTo?: any | null;
 }
 
 interface ChatState {
@@ -43,6 +46,8 @@ interface ChatState {
   createGroupChat: (name: string, participantIds: string[], groupPicture?: string) => Promise<string>;
   markChatAsRead: (chatId: string) => void;
   incrementUnreadCount: (chatId: string) => void;
+  sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null, replyToId?: string | null) => void;
+  deleteMessage: (chatId: string, messageId: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -105,6 +110,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
               break;
             }
           }
+        }
+        return { messages: newMessages };
+      });
+    });
+
+    socket.on('message-deleted', ({ messageId, chatId }) => {
+      set((state) => {
+        const newMessages = { ...state.messages };
+        if (newMessages[chatId]) {
+          newMessages[chatId] = newMessages[chatId].map(msg => 
+            msg.id === messageId ? { ...msg, isDeleted: true, content: null, mediaUrl: null } : msg
+          );
         }
         return { messages: newMessages };
       });
@@ -245,7 +262,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   })),
 
-  sendMessage: (chatId, content, type = 'TEXT', mediaUrl = null) => {
+  sendMessage: (chatId, content, type = 'TEXT', mediaUrl = null, replyToId = null) => {
     const { socket } = get();
     if (socket && socket.connected) {
       // Optimistic update
@@ -257,6 +274,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         content,
         type: type as any,
         mediaUrl: mediaUrl,
+        replyToId,
         createdAt: new Date().toISOString(),
         status: 'PENDING'
       };
@@ -268,6 +286,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         content,
         type,
         mediaUrl,
+        replyToId,
         tempId
       }, (response: any) => {
         if (response && response.message) {
@@ -281,6 +300,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }));
         }
       });
+    }
+  },
+
+  deleteMessage: (chatId, messageId) => {
+    const { socket } = get();
+    if (socket && socket.connected) {
+      socket.emit('delete-message', { chatId, messageId });
     }
   }
 }));

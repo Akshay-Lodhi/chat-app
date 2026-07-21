@@ -9,7 +9,7 @@ import { useCallStore } from '../../store/useCallStore';
 import Peer from 'simple-peer';
 import CallOverlay from './CallOverlay';
 import MediaViewer from './MediaViewer';
-import { Video, Phone, Search, MoreVertical, Paperclip, Smile, Send, ArrowLeft, Check, CheckCheck } from 'lucide-react';
+import { Video, Phone, Search, MoreVertical, Paperclip, Smile, Send, ArrowLeft, Check, CheckCheck, Mic, Trash2, X, ChevronDown, Reply, Ban } from 'lucide-react';
 import { authClient } from '../../lib/auth';
 
 export default function ChatPage() {
@@ -18,7 +18,7 @@ export default function ChatPage() {
   const { data: session, isPending } = authClient.useSession();
   const { 
     connectSocket, disconnectSocket, isConnecting, chats, messages, activeChatId, 
-    setActiveChat, sendMessage, fetchChats, fetchMessages, createChat, createGroupChat 
+    setActiveChat, sendMessage, fetchChats, fetchMessages, createChat, createGroupChat, deleteMessage 
   } = useChatStore();
   
   const [messageInput, setMessageInput] = useState('');
@@ -36,6 +36,18 @@ export default function ChatPage() {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [groupParticipants, setGroupParticipants] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
+  
+  // New Feature States
+  const [replyingTo, setReplyingTo] = useState<any>(null);
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  
+  // Audio Recording States
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<BlobPart[]>([]);
+  const recordingIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
   
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const profilePicRef = React.useRef<HTMLInputElement>(null);
@@ -179,12 +191,76 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeMessages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!messageInput.trim() || !activeChatId) return;
     
-    sendMessage(activeChatId, messageInput);
+    sendMessage(activeChatId, messageInput, 'TEXT', null, replyingTo?.id || null);
     setMessageInput('');
+    setReplyingTo(null);
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (!activeChatId || !token) return;
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'voicenote.webm');
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+          });
+          if (res.ok) {
+            const data = await res.json();
+            sendMessage(activeChatId, '', 'AUDIO', data.url, replyingTo?.id || null);
+            setReplyingTo(null);
+          }
+        } catch (err) {}
+        setIsUploading(false);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Mic permission denied', err);
+    }
+  };
+
+  const stopRecordingAndSend = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    }
+  };
+  
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+      };
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,7 +281,8 @@ export default function ChatPage() {
       if (res.ok) {
         const data = await res.json();
         // Send the uploaded media URL as a message via socket
-        sendMessage(activeChatId, '', data.type, data.url);
+        sendMessage(activeChatId, '', data.type, data.url, replyingTo?.id || null);
+        setReplyingTo(null);
       }
     } catch (err) {
       console.error('Upload failed', err);
@@ -590,7 +667,12 @@ export default function ChatPage() {
                 activeMessages.map((msg, idx) => {
                   const isMine = msg.senderId === 'me' || msg.senderId === user?.id;
                   return (
-                    <div key={msg.id || idx} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                    <div 
+                      key={msg.id || idx} 
+                      className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
+                      onMouseEnter={() => setHoveredMsgId(msg.id)}
+                      onMouseLeave={() => setHoveredMsgId(null)}
+                    >
                       {msg.type === 'CALL_LOG' ? (
                         <div 
                           onClick={() => {
@@ -635,31 +717,81 @@ export default function ChatPage() {
                           })()}
                         </div>
                       ) : (
-                        <div className={`max-w-[65%] rounded-lg px-2 py-1.5 text-sm shadow-sm relative ${isMine ? 'bg-[#005C4B] rounded-tr-none' : 'bg-[#202C33] rounded-tl-none'}`}>
-                          {msg.type === 'IMAGE' && msg.mediaUrl ? (
-                          <img 
-                            src={msg.mediaUrl} 
-                            alt="Attachment" 
-                            className="max-w-full rounded mb-1 max-h-64 object-cover cursor-pointer hover:opacity-90"
-                            onClick={() => setActiveMedia({ url: msg.mediaUrl as string, type: 'IMAGE' })}
-                          />
-                        ) : msg.type === 'VIDEO' && msg.mediaUrl ? (
-                          <div className="relative cursor-pointer" onClick={() => setActiveMedia({ url: msg.mediaUrl as string, type: 'VIDEO' })}>
-                            <video src={msg.mediaUrl} className="max-w-full rounded mb-1 max-h-64 object-cover" />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded mb-1">
-                              <div className="bg-black/50 rounded-full p-2 text-white">
-                                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                              </div>
+                        <div className={`max-w-[65%] rounded-lg px-2 py-1.5 text-sm shadow-sm relative group ${isMine ? 'bg-[#005C4B] rounded-tr-none' : 'bg-[#202C33] rounded-tl-none'}`}>
+                          
+                          {/* Context Menu Icon */}
+                          {!msg.isDeleted && hoveredMsgId === msg.id && (
+                            <div className={`absolute top-1 ${isMine ? 'left-1' : 'right-1'} z-20`}>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === msg.id ? null : msg.id); }}
+                                className="text-white/60 hover:text-white bg-black/20 rounded-full p-1"
+                              >
+                                <ChevronDown size={14} />
+                              </button>
+                              
+                              {menuOpenId === msg.id && (
+                                <div className={`absolute top-6 ${isMine ? 'left-0' : 'right-0'} bg-[#233138] rounded shadow-lg z-50 py-2 min-w-[120px]`}>
+                                  <button onClick={() => { setReplyingTo(msg); setMenuOpenId(null); }} className="w-full text-left px-4 py-2 hover:bg-[#182229] flex items-center gap-2">
+                                    <Reply size={16} /> Reply
+                                  </button>
+                                  {isMine && (
+                                    <button onClick={() => { deleteMessage(activeChatId, msg.id); setMenuOpenId(null); }} className="w-full text-left px-4 py-2 hover:bg-[#182229] flex items-center gap-2 text-red-400">
+                                      <Trash2 size={16} /> Delete
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        ) : msg.type === 'DOCUMENT' && msg.mediaUrl ? (
-                          <a href={msg.mediaUrl} target="_blank" rel="noreferrer" className="flex items-center space-x-2 bg-black/20 p-2 rounded mb-1 hover:bg-black/30 transition-colors">
-                            <svg viewBox="0 0 24 24" width="24" height="24" className="text-[#AEBAC1]"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
-                            <span className="text-sm truncate max-w-[150px]">Document</span>
-                          </a>
-                        ) : null}
-                        {msg.content && <span className="break-words">{msg.content}</span>}
-                        <div className="flex items-center justify-end mt-1 space-x-1">
+                          )}
+
+                          {msg.isDeleted ? (
+                            <div className="flex items-center text-white/50 italic py-1 gap-1">
+                              <Ban size={14} /> This message was deleted
+                            </div>
+                          ) : (
+                            <>
+                              {msg.replyToId && (
+                                <div className="bg-black/20 rounded p-2 mb-1 border-l-4 border-[#00A884] text-xs opacity-80 cursor-pointer">
+                                  <div className="text-[#00A884] font-semibold mb-1">
+                                    {msg.replyTo?.senderId === user?.id ? 'You' : (chats.find(c => c.id === activeChatId)?.name || 'Someone')}
+                                  </div>
+                                  <div className="truncate text-white/80">
+                                    {msg.replyTo?.isDeleted ? '🚫 This message was deleted' : (msg.replyTo?.content || (msg.replyTo?.type !== 'TEXT' ? msg.replyTo?.type : 'Message'))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {msg.type === 'IMAGE' && msg.mediaUrl ? (
+                                <img 
+                                  src={msg.mediaUrl} 
+                                  alt="Attachment" 
+                                  className="max-w-full rounded mb-1 max-h-64 object-cover cursor-pointer hover:opacity-90"
+                                  onClick={() => setActiveMedia({ url: msg.mediaUrl as string, type: 'IMAGE' })}
+                                />
+                              ) : msg.type === 'VIDEO' && msg.mediaUrl ? (
+                                <div className="relative cursor-pointer" onClick={() => setActiveMedia({ url: msg.mediaUrl as string, type: 'VIDEO' })}>
+                                  <video src={msg.mediaUrl} className="max-w-full rounded mb-1 max-h-64 object-cover" />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded mb-1">
+                                    <div className="bg-black/50 rounded-full p-2 text-white">
+                                      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : msg.type === 'AUDIO' && msg.mediaUrl ? (
+                                <div className="flex items-center space-x-2 bg-black/10 p-2 rounded mb-1 min-w-[200px]">
+                                  <audio controls src={msg.mediaUrl} className="h-8 max-w-[200px]" />
+                                </div>
+                              ) : msg.type === 'DOCUMENT' && msg.mediaUrl ? (
+                                <a href={msg.mediaUrl} target="_blank" rel="noreferrer" className="flex items-center space-x-2 bg-black/20 p-2 rounded mb-1 hover:bg-black/30 transition-colors">
+                                  <svg viewBox="0 0 24 24" width="24" height="24" className="text-[#AEBAC1]"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
+                                  <span className="text-sm truncate max-w-[150px]">Document</span>
+                                </a>
+                              ) : null}
+                              {msg.content && <span className="break-words">{msg.content}</span>}
+                            </>
+                          )}
+                          
+                          <div className="flex items-center justify-end mt-1 space-x-1">
                           <span className="text-[10px] text-white/60 ml-3">
                             {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </span>
@@ -697,40 +829,92 @@ export default function ChatPage() {
             </div>
 
             {/* Message Input Area */}
-            <div className="min-h-[62px] bg-[#202C33] px-4 py-3 flex items-end space-x-4 z-10">
-              <div className="flex space-x-4 text-[#8696A0] mb-2">
-                <button className="hover:text-white transition-colors"><Smile size={24} /></button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  onChange={handleFileUpload} 
-                  accept="image/*,video/*,application/pdf" 
-                />
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`transition-colors ${isUploading ? 'text-[#00A884] animate-pulse' : 'hover:text-white'}`}
-                  disabled={isUploading}
-                >
-                  <Paperclip size={24} />
-                </button>
+            <div className="bg-[#202C33] flex flex-col z-10 w-full relative">
+              
+              {replyingTo && (
+                <div className="bg-[#202C33] p-2 border-b border-[#2A3942]">
+                  <div className="bg-[#2A3942] rounded border-l-4 border-[#00A884] p-2 flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[#00A884] text-sm font-semibold mb-1">Replying to</div>
+                      <div className="text-white/80 text-xs truncate">
+                        {replyingTo.content || (replyingTo.type !== 'TEXT' ? replyingTo.type : 'Message')}
+                      </div>
+                    </div>
+                    <button onClick={() => setReplyingTo(null)} className="text-[#8696A0] hover:text-white p-1">
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="min-h-[62px] px-4 py-3 flex items-end space-x-4">
+                <div className="flex space-x-4 text-[#8696A0] mb-2">
+                  <button className="hover:text-white transition-colors"><Smile size={24} /></button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    onChange={handleFileUpload} 
+                    accept="image/*,video/*,application/pdf" 
+                  />
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`transition-colors ${isUploading ? 'text-[#00A884] animate-pulse' : 'hover:text-white'}`}
+                    disabled={isUploading}
+                  >
+                    <Paperclip size={24} />
+                  </button>
+                </div>
+                
+                {isRecording ? (
+                  <div className="flex-1 bg-[#2A3942] rounded-full flex items-center px-4 py-2 space-x-4">
+                    <div className="text-red-500 animate-pulse flex items-center space-x-2">
+                      <Mic size={18} />
+                      <span className="font-mono text-sm">
+                        {Math.floor(recordingDuration / 60).toString().padStart(2, '0')}:
+                        {(recordingDuration % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                    <div className="flex-1 text-[#8696A0] text-sm italic text-center">Recording...</div>
+                    <button onClick={cancelRecording} className="text-red-400 hover:text-red-500 p-1">
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSendMessage} className="flex-1 bg-[#2A3942] rounded-lg flex items-center px-4 py-2 max-h-32 overflow-y-auto">
+                    <input
+                      type="text"
+                      value={messageInput}
+                      onChange={handleMessageChange}
+                      placeholder="Type a message"
+                      className="w-full bg-transparent focus:outline-none text-sm placeholder-[#8696A0]"
+                    />
+                  </form>
+                )}
+
+                {messageInput.trim().length > 0 ? (
+                  <button 
+                    onClick={handleSendMessage}
+                    className="text-[#8696A0] hover:text-[#00A884] transition-colors mb-2"
+                  >
+                    <Send size={24} />
+                  </button>
+                ) : isRecording ? (
+                  <button 
+                    onClick={stopRecordingAndSend}
+                    className="bg-[#00A884] text-white p-2 rounded-full hover:bg-[#008f6f] transition-colors mb-1"
+                  >
+                    <Send size={20} />
+                  </button>
+                ) : (
+                  <button 
+                    onClick={startRecording}
+                    className="text-[#8696A0] hover:text-[#00A884] transition-colors mb-2"
+                  >
+                    <Mic size={24} />
+                  </button>
+                )}
               </div>
-              <form onSubmit={handleSendMessage} className="flex-1 bg-[#2A3942] rounded-lg flex items-center px-4 py-2 max-h-32 overflow-y-auto">
-                <input
-                  type="text"
-                  value={messageInput}
-                  onChange={handleMessageChange}
-                  placeholder="Type a message"
-                  className="w-full bg-transparent focus:outline-none text-sm placeholder-[#8696A0]"
-                />
-              </form>
-              <button 
-                onClick={handleSendMessage}
-                disabled={!messageInput.trim()}
-                className="text-[#8696A0] hover:text-[#00A884] transition-colors mb-2 disabled:opacity-50"
-              >
-                <Send size={24} />
-              </button>
             </div>
           </>
         ) : (
