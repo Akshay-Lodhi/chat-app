@@ -36,6 +36,7 @@ export default function ChatPage() {
   
   // Group creation states
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [groupCreationStep, setGroupCreationStep] = useState(1); // 1: Select participants, 2: Group info
   const [isAddingMembers, setIsAddingMembers] = useState(false);
   const [groupParticipants, setGroupParticipants] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
@@ -503,8 +504,12 @@ export default function ChatPage() {
             <button 
               onClick={() => {
                 if (isCreatingGroup) {
-                  setIsCreatingGroup(false);
-                  setGroupParticipants([]);
+                  if (groupCreationStep === 2) {
+                    setGroupCreationStep(1);
+                  } else {
+                    setIsCreatingGroup(false);
+                    setGroupParticipants([]);
+                  }
                 } else if (isAddingMembers) {
                   setIsAddingMembers(false);
                   setGroupParticipants([]);
@@ -520,71 +525,103 @@ export default function ChatPage() {
               </svg>
             </button>
             <h1 className="text-xl font-medium text-[#E9EDEF]">
-              {isCreatingGroup ? 'Add group participants' : isAddingMembers ? 'Add members' : 'New chat'}
+              {isCreatingGroup && groupCreationStep === 1 ? 'Add group participants' : isCreatingGroup && groupCreationStep === 2 ? 'New group' : isAddingMembers ? 'Add members' : 'New chat'}
             </h1>
           </div>
           
           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#374045]">
-            {isCreatingGroup && (
-              <div className="p-4 border-b border-[#222D34]">
-                <input 
-                  type="text" 
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="Group Subject" 
-                  className="bg-transparent w-full focus:outline-none text-[#E9EDEF] border-b-2 border-[#00A884] pb-2 placeholder-[#8696A0]" 
-                />
-              </div>
-            )}
-
-            {!isCreatingGroup && (
-              <div className="p-4 border-b border-[#222D34]">
-                <div className="bg-[#202C33] rounded-lg flex items-center px-4 py-2">
-                  <Search size={18} className="text-[#8696A0] mr-4" />
-                  <input type="text" onChange={(e) => setSearchPhone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadContacts()} placeholder="Search contacts" className="bg-transparent w-full focus:outline-none text-sm placeholder-[#8696A0]" />
+            {/* Step 2: Group Info */}
+            {isCreatingGroup && groupCreationStep === 2 && (
+              <div className="flex flex-col items-center p-8 bg-[#111B21]">
+                <div className="w-48 h-48 bg-[#202C33] rounded-full flex items-center justify-center mb-8 hover:bg-[#2A3942] cursor-pointer transition-colors border-2 border-dashed border-[#8696A0]">
+                  <div className="text-[#8696A0] flex flex-col items-center">
+                    <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span className="mt-2 text-sm uppercase font-semibold">Add Group Icon</span>
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {!isCreatingGroup && !isAddingMembers && (
-              <div onClick={() => setIsCreatingGroup(true)} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
-                <div className="w-12 h-12 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-white">
-                  <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M16 11V7a4 4 0 1 0-8 0v4H4v11h16V11h-4zm-4-2a2 2 0 1 1 0-4 2 2 0 0 1 0 4zM6 20v-7h12v7H6z"></path></svg>
+                <div className="w-full border-b-2 border-[#00A884] flex items-center mb-8 pb-2">
+                  <input
+                    type="text"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                    placeholder="Group subject"
+                    className="bg-transparent flex-1 focus:outline-none text-[#E9EDEF] placeholder-[#8696A0] text-lg px-2"
+                    autoFocus
+                  />
+                  <div className="text-[#8696A0] text-xl mx-2">😀</div>
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-base text-[#E9EDEF]">New group</h2>
+                <p className="text-[#8696A0] text-sm self-start mb-4">Provide a group subject and optional group icon</p>
+                <div className="w-full">
+                  <p className="text-[#00A884] text-sm mb-4">Participants: {groupParticipants.length}</p>
                 </div>
               </div>
             )}
 
-            {contacts.map(contact => (
-              <div key={contact.id} onClick={() => handleStartChat(contact.id)} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
-                {(isCreatingGroup || isAddingMembers) && (
-                  <div className="mr-4">
-                    <div className={`w-5 h-5 rounded border ${groupParticipants.includes(contact.id) ? 'bg-[#00A884] border-[#00A884]' : 'border-[#8696A0]'} flex items-center justify-center`}>
-                      {groupParticipants.includes(contact.id) && <Check size={14} className="text-[#111B21]" />}
+            {/* Step 1: Contacts List */}
+            {(!isCreatingGroup || groupCreationStep === 1) && (
+              <>
+                {!isCreatingGroup && (
+                  <div className="p-4 border-b border-[#222D34]">
+                    <div className="bg-[#202C33] rounded-lg flex items-center px-4 py-2">
+                      <Search size={18} className="text-[#8696A0] mr-4" />
+                      <input type="text" onChange={(e) => setSearchPhone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadContacts()} placeholder="Search contacts" className="bg-transparent w-full focus:outline-none text-sm placeholder-[#8696A0]" />
                     </div>
                   </div>
                 )}
-                <div className="w-12 h-12 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-lg font-semibold text-white">
-                  {contact.name ? contact.name.charAt(0) : contact.phoneNumber.charAt(0)}
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-base text-[#E9EDEF]">{contact.name || contact.phoneNumber}</h2>
-                  <p className="text-sm text-[#8696A0] truncate">{contact.about}</p>
-                </div>
-              </div>
-            ))}
+                
+                {!isCreatingGroup && !isAddingMembers && (
+                  <div onClick={() => { setIsCreatingGroup(true); setGroupCreationStep(1); }} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
+                    <div className="w-12 h-12 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-white">
+                      <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M16 11V7a4 4 0 1 0-8 0v4H4v11h16V11h-4zm-4-2a2 2 0 1 1 0-4 2 2 0 0 1 0 4zM6 20v-7h12v7H6z"></path></svg>
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-base text-[#E9EDEF]">New group</h2>
+                    </div>
+                  </div>
+                )}
+
+                {contacts.map(contact => (
+                  <div key={contact.id} onClick={() => handleStartChat(contact.id)} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
+                    {(isCreatingGroup || isAddingMembers) && (
+                      <div className="mr-4">
+                        <div className={`w-5 h-5 rounded border ${groupParticipants.includes(contact.id) ? 'bg-[#00A884] border-[#00A884]' : 'border-[#8696A0]'} flex items-center justify-center`}>
+                          {groupParticipants.includes(contact.id) && <Check size={14} className="text-[#111B21]" />}
+                        </div>
+                      </div>
+                    )}
+                    <div className="w-12 h-12 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-lg font-semibold text-white">
+                      {contact.name ? contact.name.charAt(0) : contact.phoneNumber.charAt(0)}
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-base text-[#E9EDEF]">{contact.name || contact.phoneNumber}</h2>
+                      <p className="text-sm text-[#8696A0] truncate">{contact.about}</p>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
           
-          {isCreatingGroup && (
-            <div className="p-4 bg-[#202C33] shrink-0 flex justify-center">
+          {/* Navigation FABs */}
+          {isCreatingGroup && groupCreationStep === 1 && groupParticipants.length > 0 && (
+            <div className="p-6 bg-[#111B21] shrink-0 flex justify-center absolute bottom-0 w-full z-10">
+              <button 
+                onClick={() => setGroupCreationStep(2)}
+                className="bg-[#00A884] hover:bg-[#008f6f] text-white p-4 rounded-full shadow-[0_4px_12px_rgba(0,168,132,0.5)] transition-transform hover:scale-105"
+              >
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          )}
+
+          {isCreatingGroup && groupCreationStep === 2 && (
+            <div className="p-6 bg-[#111B21] shrink-0 flex justify-center absolute bottom-0 w-full z-10">
               <button 
                 onClick={handleCreateGroup}
-                disabled={groupParticipants.length === 0 || !groupName.trim()}
-                className="bg-[#00A884] hover:bg-[#008f6f] text-white p-4 rounded-full disabled:opacity-50 transition-colors"
+                disabled={!groupName.trim()}
+                className="bg-[#00A884] hover:bg-[#008f6f] text-white p-4 rounded-full shadow-[0_4px_12px_rgba(0,168,132,0.5)] transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
               >
-                <Check size={24} />
+                <Check size={24} strokeWidth={3} />
               </button>
             </div>
           )}

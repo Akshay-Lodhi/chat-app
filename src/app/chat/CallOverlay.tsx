@@ -5,7 +5,7 @@ import Peer, { Instance } from 'simple-peer';
 import { useCallStore } from '../../store/useCallStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff } from 'lucide-react';
+import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff, UserPlus, X } from 'lucide-react';
 
 const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false }: { stream: MediaStream; isLocal?: boolean, isVideoOff?: boolean }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -39,6 +39,7 @@ export default function CallOverlay() {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showAddPerson, setShowAddPerson] = useState(false);
 
   // Ringtone via <audio> element — works on mobile too
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
@@ -449,20 +450,71 @@ export default function CallOverlay() {
 
           {/* Call Controls */}
           <div className="h-24 mt-4 flex items-center justify-center space-x-6">
-            <button onClick={toggleMute} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors shadow-lg ${isMuted ? 'bg-white text-black' : 'bg-[#202C33] text-white hover:bg-[#2A3942]'}`}>
+            <button onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors shadow-lg ${isMuted ? 'bg-white text-black' : 'bg-[#202C33] text-white hover:bg-[#2A3942]'}`}>
               {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
             </button>
             
             {callType === 'VIDEO' && (
-              <button onClick={toggleVideo} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors shadow-lg ${isVideoOff ? 'bg-white text-black' : 'bg-[#202C33] text-white hover:bg-[#2A3942]'}`}>
+              <button onClick={toggleVideo} title={isVideoOff ? 'Start Video' : 'Stop Video'} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors shadow-lg ${isVideoOff ? 'bg-white text-black' : 'bg-[#202C33] text-white hover:bg-[#2A3942]'}`}>
                 {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
               </button>
             )}
+
+            {/* Add Person to Call */}
+            <button
+              onClick={() => setShowAddPerson(true)}
+              title="Add to call"
+              className="w-14 h-14 rounded-full bg-[#202C33] text-white hover:bg-[#2A3942] flex items-center justify-center transition-colors shadow-lg"
+            >
+              <UserPlus size={22} />
+            </button>
 
             <button onClick={handleEndCall} className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20">
               <PhoneOff size={28} className="text-white" />
             </button>
           </div>
+
+          {/* Add Person Picker */}
+          {showAddPerson && (
+            <div className="absolute inset-0 bg-[#0B141A]/90 z-30 flex flex-col" onClick={() => setShowAddPerson(false)}>
+              <div className="bg-[#202C33] rounded-t-2xl mt-auto max-h-[70%] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-[#2A3942]">
+                  <h3 className="text-[#E9EDEF] font-semibold text-base">Add to call</h3>
+                  <button onClick={() => setShowAddPerson(false)} className="text-[#8696A0] hover:text-white"><X size={20}/></button>
+                </div>
+                <div className="overflow-y-auto flex-1 py-2">
+                  {activeChat?.participants?.filter((p: any) => p.userId !== currentUser?.id && !Object.keys(peers).includes(p.userId)).map((p: any) => (
+                    <button
+                      key={p.userId}
+                      onClick={() => {
+                        if (localStreamRef.current) {
+                          createPeer(p.userId, localStreamRef.current, true);
+                          socket?.emit('call-offer', {
+                            chatId: activeCallChatId,
+                            targetUserId: p.userId,
+                            signalData: null,
+                            type: callType
+                          });
+                        }
+                        setShowAddPerson(false);
+                      }}
+                      className="w-full flex items-center px-6 py-3 hover:bg-[#2A3942] transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#00A884] flex items-center justify-center text-white font-semibold mr-4 overflow-hidden flex-shrink-0">
+                        {p.user?.profilePicture
+                          ? <img src={p.user.profilePicture} alt="" className="w-full h-full object-cover" />
+                          : (p.user?.name || p.user?.phoneNumber || '?').charAt(0)}
+                      </div>
+                      <span className="text-[#E9EDEF] text-sm">{p.user?.name || p.user?.phoneNumber || p.userId}</span>
+                    </button>
+                  ))}
+                  {activeChat?.participants?.filter((p: any) => p.userId !== currentUser?.id && !Object.keys(peers).includes(p.userId)).length === 0 && (
+                    <p className="text-[#8696A0] text-sm text-center py-8">Everyone is already on the call</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       )}
