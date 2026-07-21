@@ -13,7 +13,7 @@ export class ChatService {
       include: {
         participants: {
           include: {
-            user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } }
+            user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, isOnline: true } }
           }
         },
         messages: {

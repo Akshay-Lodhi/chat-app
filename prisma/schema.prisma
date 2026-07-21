@@ -136,6 +136,7 @@ enum MessageType {
   AUDIO
   DOCUMENT
   CALL_LOG
+  LOCATION
 }
 
 model MessageStatus {
