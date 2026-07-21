@@ -40,6 +40,7 @@ export default function CallOverlay() {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showAddPerson, setShowAddPerson] = useState(false);
+  const [contacts, setContacts] = useState<any[]>([]);
 
   // Ringtone via <audio> element — works on mobile too
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
@@ -153,7 +154,27 @@ export default function CallOverlay() {
     return peer;
   }, [socket, addRemoteStream, removePeer, removeRemoteStream, addPeer]);
 
-  // Handle Socket Events - stable dependency on socket only, use refs for other values
+  // Fetch contacts for adding to call
+  useEffect(() => {
+    if (showAddPerson && currentUser) {
+      const fetchContacts = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) return;
+          const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+          if (res.ok) {
+            const data = await res.json();
+            setContacts(data.filter((u: any) => u.id !== currentUser.id));
+          }
+        } catch (e) {
+          console.error('Failed to fetch contacts', e);
+        }
+      };
+      fetchContacts();
+    }
+  }, [showAddPerson, currentUser]);
+
+  // Handle incoming calls (receiver)
   useEffect(() => {
     if (!socket) return;
 
@@ -483,15 +504,15 @@ export default function CallOverlay() {
                   <button onClick={() => setShowAddPerson(false)} className="text-[#8696A0] hover:text-white"><X size={20}/></button>
                 </div>
                 <div className="overflow-y-auto flex-1 py-2">
-                  {activeChat?.participants?.filter((p: any) => p.userId !== currentUser?.id && !Object.keys(peers).includes(p.userId)).map((p: any) => (
+                  {contacts.filter((c: any) => !Object.keys(peers).includes(c.id)).map((c: any) => (
                     <button
-                      key={p.userId}
+                      key={c.id}
                       onClick={() => {
                         if (localStreamRef.current) {
-                          createPeer(p.userId, localStreamRef.current, true);
+                          createPeer(c.id, localStreamRef.current, true);
                           socket?.emit('call-offer', {
                             chatId: activeCallChatId,
-                            targetUserId: p.userId,
+                            targetUserId: c.id,
                             signalData: null,
                             type: callType
                           });
@@ -501,14 +522,14 @@ export default function CallOverlay() {
                       className="w-full flex items-center px-6 py-3 hover:bg-[#2A3942] transition-colors"
                     >
                       <div className="w-10 h-10 rounded-full bg-[#00A884] flex items-center justify-center text-white font-semibold mr-4 overflow-hidden flex-shrink-0">
-                        {p.user?.profilePicture
-                          ? <img src={p.user.profilePicture} alt="" className="w-full h-full object-cover" />
-                          : (p.user?.name || p.user?.phoneNumber || '?').charAt(0)}
+                        {c.profilePicture
+                          ? <img src={c.profilePicture} alt="" className="w-full h-full object-cover" />
+                          : (c.name || c.phoneNumber || '?').charAt(0)}
                       </div>
-                      <span className="text-[#E9EDEF] text-sm">{p.user?.name || p.user?.phoneNumber || p.userId}</span>
+                      <span className="text-[#E9EDEF] text-sm">{c.name || c.phoneNumber || c.id}</span>
                     </button>
                   ))}
-                  {activeChat?.participants?.filter((p: any) => p.userId !== currentUser?.id && !Object.keys(peers).includes(p.userId)).length === 0 && (
+                  {contacts.filter((c: any) => !Object.keys(peers).includes(c.id)).length === 0 && (
                     <p className="text-[#8696A0] text-sm text-center py-8">Everyone is already on the call</p>
                   )}
                 </div>
