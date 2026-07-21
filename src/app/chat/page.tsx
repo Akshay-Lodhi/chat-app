@@ -9,7 +9,7 @@ import { useCallStore } from '../../store/useCallStore';
 import Peer from 'simple-peer';
 import CallOverlay from './CallOverlay';
 import MediaViewer from './MediaViewer';
-import { Video, Phone, Search, MoreVertical, Paperclip, Smile, Send, ArrowLeft, Check, CheckCheck, Mic, Trash2, X, ChevronDown, Reply, Ban } from 'lucide-react';
+import { Video, Phone, Search, MoreVertical, Paperclip, Smile, Send, ArrowLeft, Check, CheckCheck, Mic, Trash2, X, ChevronDown, Reply, Ban, LogOut } from 'lucide-react';
 import { authClient } from '../../lib/auth';
 
 export default function ChatPage() {
@@ -25,6 +25,7 @@ export default function ChatPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [searchPhone, setSearchPhone] = useState('');
   const [contacts, setContacts] = useState<any[]>([]);
   const [editName, setEditName] = useState(user?.name || '');
@@ -34,6 +35,7 @@ export default function ChatPage() {
   
   // Group creation states
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [isAddingMembers, setIsAddingMembers] = useState(false);
   const [groupParticipants, setGroupParticipants] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
   
@@ -42,6 +44,10 @@ export default function ChatPage() {
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [mainMenuOpen, setMainMenuOpen] = useState(false);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [sidebarSearchQuery, setSidebarSearchQuery] = useState('');
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
   
   // Audio Recording States
   const [isRecording, setIsRecording] = useState(false);
@@ -117,12 +123,29 @@ export default function ChatPage() {
     };
   }, [activeChatId, setActiveChat]);
 
+  useEffect(() => {
+    // Reset group info when active chat changes
+    setShowGroupInfo(false);
+  }, [activeChatId]);
+
+  // Global click listener to close menus
+  useEffect(() => {
+    const closeMenus = () => {
+      setMainMenuOpen(false);
+      setMenuOpenId(null);
+      setChatMenuOpen(false);
+    };
+    document.addEventListener('click', closeMenus);
+    return () => document.removeEventListener('click', closeMenus);
+  }, []);
+
   // Fetch messages when active chat changes
   useEffect(() => {
-    if (activeChatId && token && !messages[activeChatId]) {
-      fetchMessages(activeChatId, token);
+    if (activeChatId && !messages[activeChatId]) {
+      // NOTE: token is removed here as it's not strictly required with better-auth
+      fetchMessages(activeChatId, token || 'better-auth-session');
     }
-  }, [activeChatId, token, messages, fetchMessages]);
+  }, [activeChatId, messages, fetchMessages]);
 
   const loadContacts = async () => {
     if (!session) return;
@@ -142,7 +165,6 @@ export default function ChatPage() {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
 
   const handleStartChat = async (contactId: string) => {
-    if (!token) return;
     if (isCreatingGroup) {
       if (groupParticipants.includes(contactId)) {
         setGroupParticipants(prev => prev.filter(id => id !== contactId));
@@ -151,7 +173,7 @@ export default function ChatPage() {
       }
       return;
     }
-    const chatId = await createChat(contactId, token);
+    const chatId = await createChat(contactId, token || 'better-auth-session');
     if (chatId) {
       setActiveChat(chatId);
       setShowContacts(false);
@@ -159,7 +181,7 @@ export default function ChatPage() {
   };
 
   const handleCreateGroup = async () => {
-    if (!token || !groupName.trim() || groupParticipants.length === 0) return;
+    if (!groupName.trim() || groupParticipants.length === 0) return;
     const chatId = await createGroupChat(groupName, groupParticipants);
     if (chatId) {
       setActiveChat(chatId);
@@ -214,7 +236,7 @@ export default function ChatPage() {
       
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        if (!activeChatId || !token) return;
+        if (!activeChatId) return;
         setIsUploading(true);
         const formData = new FormData();
         formData.append('file', audioBlob, 'voicenote.webm');
@@ -266,7 +288,7 @@ export default function ChatPage() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeChatId || !token) return;
+    if (!file || !activeChatId) return;
 
     setIsUploading(true);
     const formData = new FormData();
@@ -295,7 +317,7 @@ export default function ChatPage() {
 
   const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !token) return;
+    if (!file) return;
 
     const formData = new FormData();
     formData.append('file', file);
@@ -331,7 +353,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-[#111B21] text-[#E9EDEF] overflow-hidden">
+    <div className="flex h-screen bg-[#111B21] text-[#E9EDEF] overflow-hidden relative">
         <CallOverlay />
         
         {/* Sidebar */}
@@ -363,31 +385,13 @@ export default function ChatPage() {
                 <path fill="currentColor" d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"></path>
               </svg>
             </button>
-            <div className="relative">
-              <button 
-                className="hover:text-white transition-colors p-2"
-                onClick={() => setMainMenuOpen(!mainMenuOpen)}
-              >
-                <MoreVertical size={20} />
-              </button>
-              
-              {mainMenuOpen && (
-                <div className="absolute top-10 right-0 bg-[#233138] rounded shadow-lg z-50 py-2 min-w-[150px]">
-                  <button 
-                    onClick={() => { setShowProfile(true); setMainMenuOpen(false); }} 
-                    className="w-full text-left px-4 py-2 text-[#E9EDEF] hover:bg-[#182229]"
-                  >
-                    Profile
-                  </button>
-                  <button 
-                    onClick={() => { handleLogout(); setMainMenuOpen(false); }} 
-                    className="w-full text-left px-4 py-2 text-[#E9EDEF] hover:bg-[#182229]"
-                  >
-                    Log out
-                  </button>
-                </div>
-              )}
-            </div>
+            <button 
+              className="hover:text-white transition-colors p-2"
+              title="Log out"
+              onClick={handleLogout}
+            >
+              <LogOut size={20} className="text-[#AEBAC1]" />
+            </button>
           </div>
         </div>
 
@@ -471,6 +475,7 @@ export default function ChatPage() {
           </div>
         </div>
 
+
         {/* Contacts Slide-in Modal */}
         <div className={`absolute top-0 left-0 w-[30%] min-w-[350px] max-w-[450px] h-full bg-[#111B21] z-30 transform transition-transform duration-300 ${showContacts ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
           <div className="h-28 bg-[#202C33] flex items-end px-4 pb-4 shadow-md shrink-0">
@@ -479,6 +484,10 @@ export default function ChatPage() {
                 if (isCreatingGroup) {
                   setIsCreatingGroup(false);
                   setGroupParticipants([]);
+                } else if (isAddingMembers) {
+                  setIsAddingMembers(false);
+                  setGroupParticipants([]);
+                  setShowContacts(false);
                 } else {
                   setShowContacts(false);
                 }
@@ -489,7 +498,9 @@ export default function ChatPage() {
                 <path fill="currentColor" d="M12 4l1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"></path>
               </svg>
             </button>
-            <h1 className="text-xl font-medium text-[#E9EDEF]">{isCreatingGroup ? 'Add group participants' : 'New chat'}</h1>
+            <h1 className="text-xl font-medium text-[#E9EDEF]">
+              {isCreatingGroup ? 'Add group participants' : isAddingMembers ? 'Add members' : 'New chat'}
+            </h1>
           </div>
           
           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#374045]">
@@ -514,7 +525,7 @@ export default function ChatPage() {
               </div>
             )}
             
-            {!isCreatingGroup && (
+            {!isCreatingGroup && !isAddingMembers && (
               <div onClick={() => setIsCreatingGroup(true)} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
                 <div className="w-12 h-12 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-white">
                   <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M16 11V7a4 4 0 1 0-8 0v4H4v11h16V11h-4zm-4-2a2 2 0 1 1 0-4 2 2 0 0 1 0 4zM6 20v-7h12v7H6z"></path></svg>
@@ -527,7 +538,7 @@ export default function ChatPage() {
 
             {contacts.map(contact => (
               <div key={contact.id} onClick={() => handleStartChat(contact.id)} className="flex items-center px-4 py-3 cursor-pointer hover:bg-[#202C33] border-b border-[#222D34]">
-                {isCreatingGroup && (
+                {(isCreatingGroup || isAddingMembers) && (
                   <div className="mr-4">
                     <div className={`w-5 h-5 rounded border ${groupParticipants.includes(contact.id) ? 'bg-[#00A884] border-[#00A884]' : 'border-[#8696A0]'} flex items-center justify-center`}>
                       {groupParticipants.includes(contact.id) && <Check size={14} className="text-[#111B21]" />}
@@ -556,6 +567,25 @@ export default function ChatPage() {
               </button>
             </div>
           )}
+
+          {isAddingMembers && (
+            <div className="p-4 bg-[#202C33] shrink-0 flex justify-center">
+              <button 
+                onClick={async () => {
+                  if (activeChatId && groupParticipants.length > 0) {
+                    await useChatStore.getState().addGroupParticipants(activeChatId, groupParticipants);
+                    setIsAddingMembers(false);
+                    setGroupParticipants([]);
+                    setShowContacts(false);
+                  }
+                }}
+                disabled={groupParticipants.length === 0}
+                className="bg-[#00A884] hover:bg-[#008f6f] text-white p-4 rounded-full disabled:opacity-50 transition-colors"
+              >
+                <Check size={24} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Search */}
@@ -564,6 +594,8 @@ export default function ChatPage() {
             <Search size={18} className="text-[#8696A0] mr-4" />
             <input 
               type="text" 
+              value={sidebarSearchQuery}
+              onChange={(e) => setSidebarSearchQuery(e.target.value)}
               placeholder="Search or start new chat" 
               className="bg-transparent w-full focus:outline-none text-sm placeholder-[#8696A0]"
             />
@@ -572,12 +604,19 @@ export default function ChatPage() {
 
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#374045] scrollbar-track-transparent">
-          {chats.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-[#8696A0] text-sm">
-              No chats yet. Search for a contact.
-            </div>
-          ) : (
-            chats.map(chat => (
+          {(() => {
+            const filteredChats = sidebarSearchQuery.trim() 
+              ? chats.filter(c => c.name?.toLowerCase().includes(sidebarSearchQuery.toLowerCase())) 
+              : chats;
+            
+            if (filteredChats.length === 0) {
+              return (
+                <div className="flex items-center justify-center h-full text-[#8696A0] text-sm">
+                  {sidebarSearchQuery ? 'No chats found.' : 'No chats yet. Search for a contact.'}
+                </div>
+              );
+            }
+            return filteredChats.map(chat => (
               <div 
                 key={chat.id} 
                 onClick={() => setActiveChat(chat.id)}
@@ -628,9 +667,135 @@ export default function ChatPage() {
                   </div>
                 </div>
               </div>
-            ))
-          )}
+            ));
+          })()}
         </div>
+      </div>
+
+      {/* Group Info Slide-in Modal (Moved to root) */}
+      <div className={`absolute top-0 right-0 w-full md:w-[30%] min-w-[350px] max-w-[450px] h-full bg-[#111B21] z-50 transform transition-transform duration-300 ${showGroupInfo ? 'translate-x-0' : 'translate-x-full'} flex flex-col border-l border-[#222D34]`}>
+        <div className="h-16 bg-[#202C33] flex items-center px-4 shadow-md shrink-0 border-b border-[#222D34]">
+          <button onClick={(e) => { e.stopPropagation(); setShowGroupInfo(false); }} className="text-[#AEBAC1] mr-6 hover:text-white transition-colors cursor-pointer">
+            <X size={24} />
+          </button>
+          <h1 className="text-base font-medium text-[#E9EDEF]">{chats.find(c => c.id === activeChatId)?.isGroup ? 'Group info' : 'Contact info'}</h1>
+        </div>
+        
+        {activeChatId && (
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#374045]">
+            <div className="flex flex-col items-center py-8 bg-[#111B21] border-b border-[#222D34]">
+              <div className="w-48 h-48 rounded-full overflow-hidden mb-4 border-2 border-transparent hover:border-[#00A884] transition-colors cursor-pointer relative group">
+                {(() => {
+                  const chat = chats.find(c => c.id === activeChatId);
+                  if (chat?.isGroup) {
+                    return chat?.groupPicture ? (
+                      <img src={chat.groupPicture} alt="Group" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-[#00A884] flex items-center justify-center text-6xl font-semibold text-white">
+                        {chat?.name?.charAt(0) || 'G'}
+                      </div>
+                    );
+                  } else {
+                    const otherParticipant = chat?.participants?.find((p: any) => p.userId !== user?.id)?.user;
+                    return otherParticipant?.profilePicture ? (
+                      <img src={otherParticipant.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-[#00A884] flex items-center justify-center text-6xl font-semibold text-white">
+                        {otherParticipant?.name?.charAt(0) || otherParticipant?.phoneNumber?.charAt(0) || chat?.name?.charAt(0) || 'C'}
+                      </div>
+                    );
+                  }
+                })()}
+                {chats.find(c => c.id === activeChatId)?.isGroup && (
+                  <div className="absolute inset-0 bg-black/50 hidden group-hover:flex flex-col items-center justify-center text-white text-sm text-center px-4">
+                    CHANGE GROUP ICON
+                  </div>
+                )}
+              </div>
+              <h2 className="text-2xl font-normal text-[#E9EDEF] mb-1">{chats.find(c => c.id === activeChatId)?.name}</h2>
+              {chats.find(c => c.id === activeChatId)?.isGroup ? (
+                <p className="text-sm text-[#8696A0]">Group · {chats.find(c => c.id === activeChatId)?.participants?.length || 0} participants</p>
+              ) : (
+                <p className="text-sm text-[#8696A0]">{chats.find(c => c.id === activeChatId)?.participants?.find((p: any) => p.userId !== user?.id)?.user?.phoneNumber || 'Contact'}</p>
+              )}
+            </div>
+
+            {chats.find(c => c.id === activeChatId)?.isGroup ? (
+              <>
+                <div className="bg-[#111B21] mt-2 py-4">
+                  <div className="px-6 mb-4 flex justify-between items-center text-[#8696A0]">
+                    <span className="text-sm font-medium">{chats.find(c => c.id === activeChatId)?.participants?.length || 0} participants</span>
+                    <Search size={18} />
+                  </div>
+                  
+                  <div 
+                    className="flex items-center px-6 py-3 cursor-pointer hover:bg-[#202C33] transition-colors"
+                    onClick={() => {
+                      setIsCreatingGroup(false);
+                      setIsAddingMembers(true);
+                      setGroupParticipants([]);
+                      setShowContacts(true);
+                      loadContacts();
+                    }}
+                  >
+                    <div className="w-10 h-10 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-white">
+                      <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 4l1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"></path></svg>
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-base text-[#E9EDEF]">Add member</h2>
+                    </div>
+                  </div>
+
+                  {chats.find(c => c.id === activeChatId)?.participants?.map((p: any) => (
+                    <div key={p.userId} className="flex items-center px-6 py-3 hover:bg-[#202C33] transition-colors group">
+                      <div className="w-10 h-10 bg-[#00A884] rounded-full mr-4 flex items-center justify-center text-lg font-semibold text-white overflow-hidden">
+                        {p.user.profilePicture ? (
+                          <img src={p.user.profilePicture} alt={p.user.name} className="w-full h-full object-cover" />
+                        ) : (
+                          p.user.name?.charAt(0) || p.user.phoneNumber?.charAt(0) || 'U'
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <h2 className="text-base text-[#E9EDEF] truncate">
+                            {p.userId === user?.id ? 'You' : p.user.name || p.user.phoneNumber}
+                          </h2>
+                          {p.userId === chats.find(c => c.id === activeChatId)?.adminId && (
+                            <span className="text-[10px] text-[#00A884] border border-[#00A884] rounded px-1 ml-2 shrink-0">Group Admin</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-[#8696A0] truncate">{p.user.about}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Delete Group Button for Admin */}
+                {chats.find(c => c.id === activeChatId)?.adminId === user?.id && (
+                  <div className="mt-4 px-6 pb-6">
+                    <button 
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to delete this group for everyone?')) {
+                          useChatStore.getState().deleteGroupChat(activeChatId);
+                          setShowGroupInfo(false);
+                        }
+                      }}
+                      className="w-full bg-[#111B21] text-[#F15C6D] hover:bg-[#202C33] border border-[#202C33] font-medium py-3 rounded-lg shadow-sm transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <Trash2 size={20} />
+                      <span>Delete Group</span>
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="bg-[#111B21] mt-2 py-4 px-6 shadow-sm">
+                <div className="text-[#8696A0] text-sm mb-1">About</div>
+                <div className="text-[#E9EDEF] text-base">{chats.find(c => c.id === activeChatId)?.participants?.find((p: any) => p.userId !== user?.id)?.user?.about || 'Hey there! I am using NexusChat.'}</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Chat Area */}
@@ -642,8 +807,13 @@ export default function ChatPage() {
           <>
             {/* Chat Header */}
             <div className="h-16 bg-[#202C33] flex items-center justify-between px-2 md:px-4 z-10 w-full overflow-hidden">
-              <div className="flex items-center cursor-pointer min-w-0 flex-1">
-                <button onClick={() => window.history.back()} className="md:hidden mr-2 md:mr-4 p-2 text-[#AEBAC1] hover:text-white flex-shrink-0">
+              <div 
+                className="flex items-center cursor-pointer min-w-0 flex-1"
+                onClick={() => {
+                  setShowGroupInfo(true);
+                }}
+              >
+                <button onClick={(e) => { e.stopPropagation(); setActiveChat(null); }} className="md:hidden mr-2 md:mr-4 p-2 text-[#AEBAC1] hover:text-white flex-shrink-0">
                   <ArrowLeft size={24} />
                 </button>
                 <div className="w-10 h-10 bg-[#00A884] rounded-full mr-3 md:mr-4 flex-shrink-0 flex items-center justify-center text-lg font-semibold overflow-hidden">
@@ -665,12 +835,26 @@ export default function ChatPage() {
                 <button onClick={() => startCall('AUDIO')} className="hover:text-white transition-colors" title="Voice Call">
                   <Phone size={20} />
                 </button>
-                <button className="hover:text-white transition-colors">
-                  <Search size={20} />
-                </button>
-                <button className="hover:text-white transition-colors">
-                  <MoreVertical size={20} />
-                </button>
+                {isSearchActive && (
+                  <div className="bg-[#202C33] rounded-lg flex items-center px-2 py-1 mr-2 transition-all">
+                    <input 
+                      type="text" 
+                      autoFocus
+                      value={messageSearchQuery}
+                      onChange={(e) => setMessageSearchQuery(e.target.value)}
+                      placeholder="Search..." 
+                      className="bg-transparent w-full focus:outline-none text-sm placeholder-[#8696A0] text-[#E9EDEF] px-2 w-[120px] md:w-[200px]"
+                    />
+                    <button onClick={() => { setIsSearchActive(false); setMessageSearchQuery(''); }} className="text-[#8696A0] hover:text-[#E9EDEF]">
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+                {!isSearchActive && (
+                  <button onClick={() => setIsSearchActive(true)} className="hover:text-white transition-colors" title="Search">
+                    <Search size={20} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -687,10 +871,23 @@ export default function ChatPage() {
                   </p>
                 </div>
               ) : (
-                activeMessages.map((msg, idx) => {
-                  const isMine = msg.senderId === 'me' || msg.senderId === user?.id;
-                  return (
-                    <div 
+                (() => {
+                  const filteredMessages = messageSearchQuery.trim() 
+                    ? activeMessages.filter(msg => (msg.content || '').toLowerCase().includes(messageSearchQuery.toLowerCase()))
+                    : activeMessages;
+                  
+                  if (filteredMessages.length === 0) {
+                    return (
+                      <div className="flex justify-center mt-10">
+                        <span className="text-[#8696A0] text-sm bg-[#182229] px-4 py-2 rounded-lg">No messages found.</span>
+                      </div>
+                    );
+                  }
+
+                  return filteredMessages.map((msg, idx) => {
+                    const isMine = msg.senderId === 'me' || msg.senderId === user?.id;
+                    return (
+                      <div 
                       key={msg.id || idx} 
                       className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                       onMouseEnter={() => setHoveredMsgId(msg.id)}
@@ -846,8 +1043,8 @@ export default function ChatPage() {
                       )}
                     </div>
                   );
-                })
-              )}
+                });
+              })())}
               <div ref={messagesEndRef} />
             </div>
 
@@ -941,18 +1138,23 @@ export default function ChatPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center border-b-[6px] border-[#00A884] z-10">
-            <div className="max-w-md text-center">
-              <div className="w-72 h-72 mx-auto bg-[#202C33] rounded-full flex items-center justify-center mb-8 shadow-lg">
-                <svg viewBox="0 0 24 24" className="w-32 h-32 text-[#00A884]" fill="currentColor">
-                  <path d="M12 0a12 12 0 1 0 12 12A12.013 12.013 0 0 0 12 0zm0 22a10 10 0 1 1 10-10 10.011 10.011 0 0 1-10 10zm5-10H7v-2h10z" />
+          <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-[#0B141A] to-[#111B21] z-10 relative overflow-hidden">
+            <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#00A884]/10 via-transparent to-transparent opacity-50 blur-2xl pointer-events-none"></div>
+            <div className="max-w-lg text-center z-10 p-8 rounded-3xl bg-[#111B21]/60 backdrop-blur-md border border-[#202C33]/50 shadow-2xl">
+              <div className="w-24 h-24 mx-auto bg-gradient-to-tr from-[#00A884] to-[#00d2a0] rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-[#00A884]/20 transform hover:scale-105 transition-transform duration-300">
+                <svg viewBox="0 0 24 24" className="w-12 h-12 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                 </svg>
               </div>
-              <h1 className="text-3xl font-light text-[#E9EDEF] mb-4">WhatsApp Web Clone</h1>
-              <p className="text-[#8696A0] text-sm leading-relaxed">
-                Send and receive messages without keeping your phone online.<br/>
-                Use WhatsApp on up to 4 linked devices and 1 phone at the same time.
+              <h1 className="text-3xl font-semibold text-[#E9EDEF] mb-3 tracking-tight">NexusChat</h1>
+              <p className="text-[#8696A0] text-sm leading-relaxed mb-6">
+                Experience seamless, real-time communication.<br/>
+                Connect with your friends, groups, and the world instantly.
               </p>
+              <div className="inline-flex items-center px-4 py-2 bg-[#202C33] rounded-full text-[#AEBAC1] text-xs font-medium space-x-2">
+                <span className="w-2 h-2 bg-[#00A884] rounded-full animate-pulse"></span>
+                <span>End-to-End Encrypted</span>
+              </div>
             </div>
           </div>
         )}

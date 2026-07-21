@@ -135,16 +135,33 @@ export default function CallOverlay() {
       // but if the server relays ICE candidates, it's good to just pass it down if needed.
     };
 
+    const handleGroupCallParticipants = (data: { chatId: string, participants: string[] }) => {
+      // If we joined, we receive a list of participants already in the call.
+      // We must initiate offers to everyone in this list EXCEPT the one who called us.
+      if (!localStream || !activeCallChatId || activeCallChatId !== data.chatId) return;
+
+      const offer = useCallStore.getState().pendingOffer;
+      const callerIdToSkip = offer?.callerId;
+
+      data.participants.forEach(userId => {
+        if (userId !== currentUser?.id && userId !== callerIdToSkip && !useCallStore.getState().peers[userId]) {
+          createPeer(userId, localStream, true);
+        }
+      });
+    };
+
     socket.on('call-offer', handleCallOffer);
     socket.on('call-answer', handleCallAnswer);
     socket.on('call-end', handleCallEnd);
     socket.on('ice-candidate', handleIceCandidate);
+    socket.on('group-call-participants', handleGroupCallParticipants);
 
     return () => {
       socket.off('call-offer', handleCallOffer);
       socket.off('call-answer', handleCallAnswer);
       socket.off('call-end', handleCallEnd);
       socket.off('ice-candidate', handleIceCandidate);
+      socket.off('group-call-participants', handleGroupCallParticipants);
     };
   }, [socket, isCalling, endCall, isReceivingCall, activeCallChatId, localStream]);
 
@@ -164,8 +181,13 @@ export default function CallOverlay() {
 
   const handleEndCall = () => {
     if (socket && activeCallChatId) {
-      const duration = (callStartTime && Object.keys(remoteStreams).length > 0) ? Math.floor((Date.now() - callStartTime) / 1000) : -1;
-      socket.emit('end-call', { chatId: activeCallChatId, duration, type: callType, isInitiator });
+      socket.emit('end-call', { 
+        chatId: activeCallChatId, 
+        duration: elapsedSeconds, 
+        type: callType,
+        isInitiator 
+      });
+      socket.emit('group-call-leave', { chatId: activeCallChatId });
     }
     endCall();
   };
@@ -182,10 +204,16 @@ export default function CallOverlay() {
       const offer = useCallStore.getState().pendingOffer;
       if (offer && offer.callerId) {
         createPeer(offer.callerId, stream, false, offer);
-        useCallStore.setState({ pendingOffer: null });
       }
+      
+      // Emit group-call-join so server sends us existing participants and adds us to active list
+      if (socket && activeCallChatId) {
+        socket.emit('group-call-join', { chatId: activeCallChatId });
+      }
+      useCallStore.setState({ pendingOffer: null });
     } catch (err) {
       console.error('Failed to get media permissions', err);
+      alert('Camera/Microphone permission denied. Please allow it in your browser settings.');
       handleEndCall();
     }
   };
@@ -203,6 +231,9 @@ export default function CallOverlay() {
 
           const chat = chats.find(c => c.id === activeCallChatId);
           if (chat) {
+            if (chat.isGroup) {
+              if (socket) socket.emit('group-call-join', { chatId: activeCallChatId });
+            }
             chat.participants.forEach(p => {
               if (p.userId !== currentUser.id) {
                 createPeer(p.userId, stream, true);
@@ -211,6 +242,7 @@ export default function CallOverlay() {
           }
         } catch (err) {
           console.error('Failed to get media permissions', err);
+          alert('Camera/Microphone permission denied. Please allow it in your browser settings.');
           handleEndCall();
         }
       };

@@ -9,6 +9,7 @@ interface Chat {
   participants: any[]; // refine type later
   lastMessage?: any;
   unreadCount?: number;
+  adminId?: string | null;
 }
 
 interface Message {
@@ -37,12 +38,14 @@ interface ChatState {
   connectSocket: (token: string, userId: string) => void;
   disconnectSocket: () => void;
   setChats: (chats: Chat[]) => void;
-  setActiveChat: (chatId: string) => void;
+  setActiveChat: (chatId: string | null) => void;
   addMessage: (chatId: string, message: Message) => void;
   fetchChats: (token: string) => Promise<void>;
   fetchMessages: (chatId: string, token: string) => Promise<void>;
   createChat: (contactId: string, token: string) => Promise<string>;
   createGroupChat: (name: string, participantIds: string[], groupPicture?: string) => Promise<string>;
+  addGroupParticipants: (chatId: string, participantIds: string[]) => Promise<void>;
+  deleteGroupChat: (chatId: string) => Promise<void>;
   markChatAsRead: (chatId: string) => void;
   incrementUnreadCount: (chatId: string) => void;
   sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null, replyToId?: string | null) => void;
@@ -218,7 +221,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     return '';
   },
+
+  addGroupParticipants: async (chatId: string, participantIds: string[]) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/participants`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ participantIds })
+      });
+      if (res.ok) {
+        const updatedChat = await res.json();
+        set((state) => ({
+          chats: state.chats.map(c => c.id === chatId ? updatedChat : c)
+        }));
+      }
+    } catch (err) {
+      console.error('Error adding participants to group chat:', err);
+    }
+  },
   
+  deleteGroupChat: async (chatId: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        set((state) => {
+          const newChats = state.chats.filter(c => c.id !== chatId);
+          return {
+            chats: newChats,
+            activeChatId: state.activeChatId === chatId ? null : state.activeChatId
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Error deleting group chat:', err);
+    }
+  },
+
   markChatAsRead: (chatId) => {
     const { socket, messages } = get();
     if (socket && socket.connected) {
