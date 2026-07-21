@@ -53,3 +53,35 @@ export const createGroup = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+export const addParticipants = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const { participantIds } = req.body;
+    
+    if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+      return res.status(400).json({ error: 'participantIds are required' });
+    }
+
+    const chat = await ChatService.addParticipantsToGroup(req.user!.userId, chatId, participantIds);
+    res.json(chat);
+  } catch (error: any) {
+    console.error(error);
+    res.status(400).json({ error: error.message || 'Server error' });
+  }
+};
+
+export const deleteGroup = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    await ChatService.deleteGroupChat(req.user!.userId, chatId);
+    res.json({ success: true, message: 'Group deleted successfully' });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message === 'Chat not found' || error.message === 'Not authorized to delete this group' || error.message === 'Cannot delete a 1-on-1 chat') {
+      res.status(403).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+};

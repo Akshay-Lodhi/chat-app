@@ -15,8 +15,8 @@ export const auth = betterAuth({
     ].filter(Boolean) as string[],
     advanced: {
         defaultCookieAttributes: {
-            sameSite: "none",
-            secure: true,
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            secure: process.env.NODE_ENV === "production",
         }
     },
     database: prismaAdapter(prisma, {
@@ -30,6 +30,10 @@ export const auth = betterAuth({
             verifyOTP: async ({ phoneNumber, code }) => {
                 // Hardcode 4321 as a valid OTP for easy testing
                 return code === '4321';
+            },
+            signUpOnVerification: {
+                getTempEmail: (phoneNumber: string) => `${phoneNumber}@nexuschat.com`,
+                getTempName: (phoneNumber: string) => `User ${phoneNumber.slice(-4)}`
             }
         })
     ],

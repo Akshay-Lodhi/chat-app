@@ -143,6 +143,34 @@ export function setupSocket(server: HttpServer) {
     });
 
     // WebRTC Signaling
+    
+    // Server-side state for active group calls (chatId -> Set of userIds currently connected in the call)
+    const activeGroupCalls = new Map<string, Set<string>>();
+
+    socket.on('group-call-join', ({ chatId }) => {
+      if (!activeGroupCalls.has(chatId)) {
+        activeGroupCalls.set(chatId, new Set());
+      }
+      const participants = activeGroupCalls.get(chatId)!;
+      // Get current participants BEFORE adding the new user, so the new user initiates offers to them
+      const existingParticipants = Array.from(participants);
+      
+      participants.add(userId);
+      
+      // Tell the joined user who is already in the call so they can initiate P2P offers to them
+      socket.emit('group-call-participants', { chatId, participants: existingParticipants });
+    });
+
+    socket.on('group-call-leave', ({ chatId }) => {
+      if (activeGroupCalls.has(chatId)) {
+        const participants = activeGroupCalls.get(chatId)!;
+        participants.delete(userId);
+        if (participants.size === 0) {
+          activeGroupCalls.delete(chatId);
+        }
+      }
+    });
+
     socket.on('call-offer', async ({ chatId, signalData, type, targetUserId }) => {
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },

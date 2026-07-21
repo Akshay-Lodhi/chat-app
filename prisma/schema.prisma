@@ -14,7 +14,7 @@ model User {
   email         String?   @unique
   emailVerified Boolean   @default(false)
   name          String?
-  about         String    @default("Hey there! I am using WhatsApp.")
+  about         String    @default("Hey there! I am using NexusChat.")
   profilePicture String?
   image         String?
   lastSeen      DateTime  @default(now())

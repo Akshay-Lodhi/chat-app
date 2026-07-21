@@ -117,17 +117,97 @@ export class ChatService {
     });
   }
 
+  static async addParticipantsToGroup(userId: string, chatId: string, participantIds: string[]) {
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: { participants: true }
+    });
+
+    if (!chat || !chat.isGroup) {
+      throw new Error('Group chat not found');
+    }
+    
+    // Only admins or existing members can add people (let's allow any existing member to add for now, or just admins)
+    // WhatsApp allows any member to add unless restricted. We'll check if the requester is in the group.
+    const isMember = chat.participants.some(p => p.userId === userId);
+    if (!isMember) {
+      throw new Error('You are not a participant in this group');
+    }
+
+    // Filter out participants that are already in the group
+    const existingIds = chat.participants.map(p => p.userId);
+    const newParticipantIds = participantIds.filter(id => !existingIds.includes(id));
+
+    if (newParticipantIds.length === 0) {
+      return chat;
+    }
+
+    await prisma.chatParticipant.createMany({
+      data: newParticipantIds.map(id => ({
+        chatId,
+        userId: id
+      }))
+    });
+
+    return await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, about: true } } }
+        }
+      }
+    });
+  }
+
+  static async deleteGroupChat(userId: string, chatId: string) {
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId }
+    });
+
+    if (!chat) {
+      throw new Error('Chat not found');
+    }
+
+    if (!chat.isGroup) {
+      throw new Error('Cannot delete a 1-on-1 chat');
+    }
+
+    if (chat.adminId !== userId) {
+      throw new Error('Not authorized to delete this group');
+    }
+
+    // Delete all message statuses for messages in this chat
+    await prisma.messageStatus.deleteMany({
+      where: { message: { chatId } }
+    });
+
+    // Delete all messages in this chat
+    await prisma.message.deleteMany({
+      where: { chatId }
+    });
+
+    // Delete all participants
+    await prisma.chatParticipant.deleteMany({
+      where: { chatId }
+    });
+
+    // Delete the chat itself
+    await prisma.chat.delete({
+      where: { id: chatId }
+    });
+  }
+
   static async getMessagesForChat(chatId: string, limit = 50, cursor?: string) {
     // We will expand cursor logic in Phase 2
     const messages = await prisma.message.findMany({
       where: { chatId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       include: { statuses: true, replyTo: true }
     });
 
-    return messages.map((msg: any) => {
+    const formatted = messages.map((msg: any) => {
       let status = 'SENT';
       let deliveredAt = undefined;
       let readAt = undefined;
@@ -152,5 +232,7 @@ export class ChatService {
         statuses: undefined 
       };
     });
+
+    return formatted.reverse();
   }
 }

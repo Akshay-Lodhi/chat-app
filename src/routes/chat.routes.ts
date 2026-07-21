@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getChats, createChat, getMessages, createGroup } from '../controllers/chat.controller';
+import { getChats, createChat, getMessages, createGroup, addParticipants, deleteGroup } from '../controllers/chat.controller';
 
 const router = Router();
 
@@ -15,5 +15,11 @@ router.post('/group', requireAuth, createGroup as any);
 
 // Get messages for a chat
 router.get('/:chatId/messages', requireAuth, getMessages as any);
+
+// Add participants to a group
+router.post('/:chatId/participants', requireAuth, addParticipants as any);
+
+// Delete a group chat (Admin only)
+router.delete('/:chatId', requireAuth, deleteGroup as any);
 
 export default router;
