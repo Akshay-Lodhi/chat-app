@@ -685,6 +685,14 @@ export default function ChatPage() {
                           );
                         } catch { return 'Call'; }
                       }
+                      if (msg.type === 'LOCATION') {
+                        return (
+                          <span className="flex items-center gap-1.5">
+                            <MapPin size={14} className="text-[#AEBAC1]" />
+                            <span>Location</span>
+                          </span>
+                        );
+                      }
                       return <span className="truncate">{msg.content || (msg.type !== 'TEXT' ? msg.type : '')}</span>;
                     })()}
                   </div>
