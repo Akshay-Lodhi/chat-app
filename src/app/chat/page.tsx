@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { authClient } from '@/lib/auth';
+import { cn } from '@/lib/utils';
 
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ContactList } from '@/components/chat/ContactList';
@@ -14,6 +15,8 @@ import { MessageList } from '@/components/chat/MessageList';
 import { MessageComposer } from '@/components/chat/MessageComposer';
 import { GroupInfoOverlay } from '@/components/chat/GroupInfoOverlay';
 import { ContactInfoOverlay } from '@/components/chat/ContactInfoOverlay';
+import { MessageInfoOverlay } from '@/components/chat/MessageInfoOverlay';
+import { useWallpaperStore } from '@/store/useWallpaperStore';
 
 import CallOverlay from './CallOverlay';
 import MediaViewer from './MediaViewer';
@@ -119,6 +122,22 @@ export default function ChatPage() {
     } catch (err) {}
   };
 
+  const { getChatWallpaper, chatWallpapers } = useWallpaperStore();
+  const activeWallpaper = getChatWallpaper(activeChatId);
+
+  const getWallpaperClass = (type: string) => {
+    switch (type) {
+      case 'doodle-dark': return 'bg-[#0b141a] chat-bg-pattern';
+      case 'doodle-light': return 'bg-[#efeae2] text-text-primary';
+      case 'solid-teal': return 'bg-[#075e54]';
+      case 'solid-midnight': return 'bg-[#0d1418]';
+      case 'solid-black': return 'bg-[#000000]';
+      case 'solid-purple': return 'bg-[#1f1b24]';
+      case 'custom': return 'bg-[#0b141a]';
+      default: return 'bg-[#0b141a] chat-bg-pattern';
+    }
+  };
+
   return (
     <div className="flex h-[100dvh] bg-background text-foreground overflow-hidden relative">
       
@@ -130,11 +149,14 @@ export default function ChatPage() {
 
       <ContactList isOpen={showContacts} onClose={() => setShowContacts(false)} isAddingMembers={isAddingMembers} />
       <ProfileOverlay isOpen={showProfile} onClose={() => setShowProfile(false)} />
+      <MessageInfoOverlay />
 
       {/* Main Chat Area */}
       {activeChatId ? (
-        <div className="flex-1 flex flex-col bg-chat-bg relative">
-          {/* Glass background pattern optional here */}
+        <div 
+          className={cn("flex-1 flex flex-col relative overflow-hidden transition-colors duration-300", getWallpaperClass(activeWallpaper.wallpaper))}
+          style={activeWallpaper.wallpaper === 'custom' && activeWallpaper.customUrl ? { backgroundImage: `url(${activeWallpaper.customUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+        >
           
           <ChatHeader 
             onBack={() => setActiveChat(null as any)}

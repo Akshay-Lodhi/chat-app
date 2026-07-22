@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
-import { Video, Phone, Search, ArrowLeft, MoreVertical } from 'lucide-react';
+import { Video, Phone, Search, ArrowLeft, MoreVertical, Palette } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WallpaperModal } from './WallpaperModal';
 
 interface ChatHeaderProps {
   onBack: () => void;
@@ -62,15 +63,18 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
     useCallStore.getState().initiateCall(type, activeChat.id);
   };
 
+  const [showWallpaperModal, setShowWallpaperModal] = useState(false);
+
   return (
     <div className="h-16 bg-surface-hover flex items-center justify-between px-4 py-2 border-b border-surface-border shrink-0 shadow-sm relative z-10">
+      <WallpaperModal isOpen={showWallpaperModal} onClose={() => setShowWallpaperModal(false)} />
       <div className="flex items-center flex-1 min-w-0">
         <button onClick={onBack} className="md:hidden mr-2 p-2 -ml-2 text-text-secondary hover:text-text-primary transition-colors">
           <ArrowLeft size={24} />
         </button>
         
         <div 
-          className="flex items-center cursor-pointer group" 
+          className="flex items-center min-w-0 cursor-pointer group" 
           onClick={onGroupInfoClick}
         >
           <Avatar src={chatImage} fallback={chatName?.charAt(0) || undefined} size="md" className="mr-3 shadow-sm group-hover:opacity-80 transition-opacity" />

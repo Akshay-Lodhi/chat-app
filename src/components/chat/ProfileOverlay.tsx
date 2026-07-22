@@ -1,10 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { ArrowLeft, Search, Camera } from 'lucide-react';
+import { ArrowLeft, Search, Camera, Palette } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WallpaperModal } from './WallpaperModal';
 
 interface ProfileOverlayProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
   
   const [editName, setEditName] = useState(user?.name || '');
   const [editAbout, setEditAbout] = useState(user?.about || 'Hey there! I am using WhatsApp.');
+  const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -124,6 +126,27 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
                   placeholder="Hey there! I am using WhatsApp."
                 />
               </div>
+            </div>
+
+            <WallpaperModal isOpen={showWallpaperModal} onClose={() => setShowWallpaperModal(false)} />
+
+            <div className="w-full mb-8">
+              <p className="text-primary text-sm font-medium mb-3">Appearance</p>
+              <button 
+                type="button"
+                onClick={() => setShowWallpaperModal(true)}
+                className="w-full bg-surface-hover hover:bg-surface-active border border-surface-border rounded-2xl p-4 flex items-center justify-between text-left transition-colors cursor-pointer group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                    <Palette size={22} />
+                  </div>
+                  <div>
+                    <p className="text-text-primary text-sm font-medium">Chat Wallpaper & Theme</p>
+                    <p className="text-text-secondary text-xs mt-0.5">Customize chat background colors & wallpapers</p>
+                  </div>
+                </div>
+              </button>
             </div>
 
             <div className="mt-auto pt-8 w-full pb-4">

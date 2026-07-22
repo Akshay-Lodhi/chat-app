@@ -1,7 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Check, CheckCheck, Play, Pause, FileText, CornerUpLeft, MapPin, Phone, Video, PhoneMissed } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { Check, CheckCheck, Play, Pause, FileText, CornerUpLeft, MapPin, Phone, Video, PhoneMissed, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { motion, useDragControls } from 'framer-motion';
+import { motion, useDragControls, AnimatePresence } from 'framer-motion';
+import { useChatStore } from '@/store/useChatStore';
 
 const AudioPlayer = ({ src }: { src: string }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -86,23 +87,50 @@ const AudioPlayer = ({ src }: { src: string }) => {
 interface MessageBubbleProps {
   message: any;
   isMine: boolean;
-  onReply: () => void;
-  onMediaClick: () => void;
+  onReply?: () => void;
+  onMediaClick?: (url: string, type: 'IMAGE' | 'VIDEO') => void;
   onCallClick?: (type: 'AUDIO' | 'VIDEO') => void;
   highlight?: boolean;
+  hideInfoOption?: boolean;
 }
 
-export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallClick, highlight }: MessageBubbleProps) {
-  const [showInfo, setShowInfo] = useState(false);
+export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallClick, highlight, hideInfoOption }: MessageBubbleProps) {
+  const { toggleReaction, setMessageForInfo, chats, activeChatId } = useChatStore();
+  const activeChat = chats.find(c => c.id === activeChatId || c.id === message.chatId);
   const dragControls = useDragControls();
   const msgTime = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Long press logic
+  const [showReactions, setShowReactions] = useState(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startLongPress = useCallback(() => {
+    longPressTimerRef.current = setTimeout(() => {
+      setShowReactions(true);
+    }, 500); // 500ms long press
+  }, []);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    return clearLongPress;
+  }, [clearLongPress]);
+
+  const handleReaction = (emoji: string) => {
+    toggleReaction(message.chatId, message.id, emoji);
+    setShowReactions(false);
+  };
 
   // Swipe to reply logic
   const handleDragEnd = (event: any, info: any) => {
     if (info.offset.x > 50 && !isMine) {
-      onReply();
+      onReply?.();
     } else if (info.offset.x < -50 && isMine) {
-      onReply();
+      onReply?.();
     }
   };
 
@@ -121,7 +149,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
     switch (message.type) {
       case 'IMAGE':
         return (
-          <div className="relative group cursor-pointer" onClick={onMediaClick}>
+          <div className="relative group cursor-pointer" onClick={() => onMediaClick?.(message.mediaUrl || message.content || '', 'IMAGE')}>
             <img src={message.mediaUrl || message.content || undefined} alt="Image" className="rounded-lg max-w-[250px] md:max-w-xs object-cover" />
             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
               <span className="text-white text-xs">View</span>
@@ -130,7 +158,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
         );
       case 'VIDEO':
         return (
-          <div className="relative group cursor-pointer" onClick={onMediaClick}>
+          <div className="relative group cursor-pointer" onClick={() => onMediaClick?.(message.mediaUrl || message.content || '', 'VIDEO')}>
             <video src={message.mediaUrl || message.content || undefined} className="rounded-lg max-w-[250px] md:max-w-xs object-cover" />
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg">
               <Play className="text-white w-10 h-10 opacity-80" />
@@ -183,12 +211,18 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
         try { callData = JSON.parse(message.content); } catch (e) { callData = { action: 'ENDED', duration: 0, type: 'AUDIO' }; }
         const isMissed = callData.duration === 0 || callData.action === 'MISSED';
         const CallIcon = callData.type === 'VIDEO' ? Video : (isMissed ? PhoneMissed : Phone);
-        const formatDuration = (secs: number) => {
-          if (!secs) return 'Missed Call';
-          const m = Math.floor(secs / 60);
-          const s = secs % 60;
-          return m > 0 ? `${m}m ${s}s` : `${s}s`;
-        };
+
+        const isGroupCall = activeChat?.isGroup || callData.isGroup;
+        const baseTitle = callData.type === 'VIDEO' ? 'Video Call' : 'Voice Call';
+        const callTitle = isGroupCall ? `Group ${baseTitle}` : baseTitle;
+        const callSubtext = isMissed 
+          ? (isMine ? 'Unanswered' : 'Missed')
+          : (callData.duration ? (
+              Math.floor(callData.duration / 60) > 0 
+                ? `${Math.floor(callData.duration / 60)}m ${callData.duration % 60}s` 
+                : `${callData.duration % 60}s`
+            ) : 'Ended');
+
         return (
           <div 
             className="flex items-center space-x-3 p-1 cursor-pointer hover:opacity-80 transition-opacity"
@@ -199,10 +233,10 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-medium">
-                {callData.type === 'VIDEO' ? 'Video Call' : 'Voice Call'}
+                {callTitle}
               </span>
-              <span className={cn("text-xs", isMissed ? "text-danger" : "opacity-80")}>
-                {formatDuration(callData.duration)}
+              <span className={cn("text-xs font-medium", isMissed ? "text-danger" : "opacity-80")}>
+                {callSubtext}
               </span>
             </div>
           </div>
@@ -227,18 +261,41 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
       animate={{ opacity: 1, y: 0 }}
       className={cn("flex w-full group relative", isMine ? "justify-end" : "justify-start")}
     >
-      <div className={cn(
-        "relative max-w-[75%] md:max-w-[65%] rounded-2xl px-4 py-2 flex flex-col shadow-sm",
-        isMine ? "bg-bubble-out text-white rounded-br-sm" : "bg-bubble-in text-text-primary rounded-bl-sm",
-        message.replyToId && "pt-2",
-        message.reactions && Object.keys(message.reactions).length > 0 && "mb-3"
-      )}>
+      <div 
+        className={cn(
+          "relative max-w-[75%] md:max-w-[65%] rounded-2xl px-4 py-2 flex flex-col shadow-sm cursor-pointer",
+          isMine ? "bg-bubble-out text-white rounded-br-sm" : "bg-bubble-in text-text-primary rounded-bl-sm",
+          message.replyToId && "pt-2",
+          message.reactions && Object.keys(message.reactions).length > 0 && "mb-3"
+        )}
+        onTouchStart={startLongPress}
+        onTouchEnd={clearLongPress}
+        onTouchMove={clearLongPress}
+        onMouseDown={startLongPress}
+        onMouseUp={clearLongPress}
+        onMouseLeave={clearLongPress}
+      >
         
         {/* Reply Context */}
         {message.replyToId && (
-          <div className="bg-black/10 rounded border-l-4 border-black/30 p-2 mb-2 text-xs flex flex-col">
-            <span className="font-semibold text-black/60">Replied Message</span>
-            <span className="truncate max-w-[200px] text-black/80">
+          <div className={cn(
+            "rounded-lg p-2 mb-2 text-xs flex flex-col border-l-4",
+            isMine 
+              ? "bg-black/20 border-[#06cf9c]" 
+              : "bg-black/25 border-[#00a884]"
+          )}>
+            <span className={cn(
+              "font-medium text-[11px] mb-0.5",
+              isMine ? "text-[#06cf9c]" : "text-[#00a884]"
+            )}>
+              {message.replyTo?.senderId === message.senderId 
+                ? 'You' 
+                : (message.replyTo?.sender?.name || 'Replied Message')}
+            </span>
+            <span className={cn(
+              "truncate max-w-[240px]",
+              isMine ? "text-white/90" : "text-[#e9edef]/90"
+            )}>
               {getReplyPreview(message.replyTo)}
             </span>
           </div>
@@ -246,43 +303,69 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
 
         {/* Content */}
         {renderContent()}
-
-        {/* Metadata */}
         <div 
-          className={cn("flex items-center justify-end space-x-1 mt-1 text-[10px] cursor-pointer", isMine ? "text-white/70 hover:text-white" : "text-text-secondary hover:text-text-primary")}
-          onClick={() => isMine && setShowInfo(!showInfo)}
+          className={cn(
+            "flex items-center justify-end space-x-1 mt-1 text-[11px]",
+            isMine ? "text-white/80" : "text-text-tertiary"
+          )}
         >
           <span>{msgTime}</span>
-          {isMine && (
-            <span className="ml-1">
-              {message.status === 'READ' ? <CheckCheck size={14} className="text-[#53bdeb]" /> :
-               message.status === 'DELIVERED' ? <CheckCheck size={14} /> :
-               <Check size={14} />}
+          {isMine && message.type !== 'CALL_LOG' && (
+            <span>
+              {(message.status || 'SENT') === 'READ' ? <CheckCheck size={14} className="text-[#53bdeb]" /> :
+               (message.status || 'SENT') === 'DELIVERED' ? <CheckCheck size={14} className="text-white/80" /> :
+               <Check size={14} className="text-white/80" />}
             </span>
           )}
         </div>
 
-        {/* Message Info Dropdown */}
-        {showInfo && isMine && (
-          <div className="mt-2 pt-2 border-t border-white/20 text-[10px] flex flex-col space-y-1 bg-black/10 p-2 rounded">
-            <div className="flex justify-between">
-              <span>Sent:</span>
-              <span>{msgTime}</span>
-            </div>
-            {message.deliveredAt && (
-              <div className="flex justify-between">
-                <span>Delivered:</span>
-                <span>{new Date(message.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-            )}
-            {message.readAt && (
-              <div className="flex justify-between text-[#53bdeb]">
-                <span>Seen:</span>
-                <span>{new Date(message.readAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-            )}
-          </div>
+      <AnimatePresence>
+        {showReactions && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40" 
+              onClick={() => setShowReactions(false)} 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className={cn(
+                "absolute top-[-50px] z-50 flex items-center bg-surface border border-surface-border shadow-xl rounded-full px-3 py-2 space-x-3",
+                isMine ? "right-0" : "left-0"
+              )}
+            >
+              {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
+                <button 
+                  key={emoji}
+                  onClick={() => handleReaction(emoji)}
+                  className="hover:scale-125 transition-transform text-xl"
+                >
+                  {emoji}
+                </button>
+              ))}
+              {!hideInfoOption && isMine && message.type !== 'CALL_LOG' && (
+                <>
+                  <div className="w-[1px] h-6 bg-surface-border mx-1" />
+                  <button 
+                    onClick={() => {
+                      setMessageForInfo(message);
+                      setShowReactions(false);
+                    }}
+                    className="flex items-center text-text-secondary hover:text-text-primary px-1"
+                    title="Message Info"
+                  >
+                    <Info size={18} />
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </>
         )}
+      </AnimatePresence>
 
         {/* Reactions Display */}
         {message.reactions && Object.keys(message.reactions).length > 0 && (

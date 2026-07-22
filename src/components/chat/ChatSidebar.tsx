@@ -143,8 +143,14 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                             try {
                               const callData = JSON.parse(lastMessage.content || '{}');
                               const isMissed = callData.duration === 0 || callData.action === 'MISSED';
+                              const isCaller = lastMessage.senderId === user?.id;
                               const CallIcon = callData.type === 'VIDEO' ? Video : Phone;
-                              return <><CallIcon size={14} className="mr-1" /> {isMissed ? 'Missed Call' : (callData.type === 'VIDEO' ? 'Video Call' : 'Voice Call')}</>;
+                              const isGroupCall = chat.isGroup || callData.isGroup;
+                              const baseLabel = callData.type === 'VIDEO' ? 'Video Call' : 'Voice Call';
+                              const callLabel = isMissed 
+                                ? (isCaller ? `Unanswered ${isGroupCall ? 'Group Call' : 'Call'}` : `Missed ${isGroupCall ? 'Group Call' : 'Call'}`) 
+                                : (isGroupCall ? `Group ${baseLabel}` : baseLabel);
+                              return <><CallIcon size={14} className="mr-1" /> {callLabel}</>;
                             } catch (e) {
                               return <><Phone size={14} className="mr-1" /> Call log</>;
                             }

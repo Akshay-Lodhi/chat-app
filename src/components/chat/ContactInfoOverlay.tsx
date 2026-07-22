@@ -1,10 +1,11 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
-import { X, Search, Bell, Video, Phone, ChevronRight, Info, Ban, Flag, ArrowLeft } from 'lucide-react';
+import { X, Search, Bell, Video, Phone, ChevronRight, Info, Ban, Flag, ArrowLeft, Palette } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WallpaperModal } from './WallpaperModal';
 
 interface ContactInfoOverlayProps {
   isOpen: boolean;
@@ -16,9 +17,14 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
   const { chats, activeChatId, blockedUsers, blockUser, unblockUser, reportUser, setIsMessageSearchOpen } = useChatStore();
   
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (showWallpaperModal) return;
+      const target = event.target as HTMLElement;
+      if (target?.closest?.('.fixed') || target?.closest?.('[role="dialog"]')) return;
+
       if (overlayRef.current && overlayRef.current.contains(event.target as Node)) return;
       if (isOpen && overlayRef.current && !overlayRef.current.contains(event.target as Node)) {
         onClose();
@@ -29,7 +35,7 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
       setTimeout(() => { document.addEventListener('click', handleClickOutside); }, 0);
     }
     return () => { document.removeEventListener('click', handleClickOutside); };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showWallpaperModal]);
   
   const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
   
@@ -54,6 +60,8 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
           transition={{ type: 'tween', duration: 0.3 }}
           className="absolute inset-y-0 right-0 w-full md:w-[400px] bg-surface z-40 flex flex-col shadow-2xl border-l border-surface-border"
         >
+          <WallpaperModal isOpen={showWallpaperModal} onClose={() => setShowWallpaperModal(false)} chatId={activeChat.id} />
+
           {/* Header */}
           <div className="h-16 bg-surface-hover flex items-center px-4 py-2 border-b border-surface-border shrink-0">
             <button onClick={onClose} className="mr-4 text-text-secondary hover:text-text-primary">
@@ -97,13 +105,10 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
               </div>
               <div 
                 className="flex flex-col items-center cursor-pointer hover:opacity-80"
-                onClick={() => {
-                  setIsMessageSearchOpen(true);
-                  onClose();
-                }}
+                onClick={() => setShowWallpaperModal(true)}
               >
-                <Search size={24} className="mb-2 text-text-secondary" />
-                <span className="text-xs font-medium text-text-secondary">Search</span>
+                <Palette size={24} className="mb-2 text-primary" />
+                <span className="text-xs font-medium text-primary">Theme</span>
               </div>
             </div>
 

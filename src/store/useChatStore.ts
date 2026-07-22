@@ -26,6 +26,8 @@ interface Message {
   isDeleted?: boolean;
   replyToId?: string | null;
   replyTo?: any | null;
+  reactions?: Record<string, string>;
+  tempId?: string;
 }
 
 interface ChatState {
@@ -39,6 +41,8 @@ interface ChatState {
   blockedUsers: any[];
   isMessageSearchOpen: boolean;
   setIsMessageSearchOpen: (isOpen: boolean) => void;
+  messageForInfo: any | null;
+  setMessageForInfo: (message: any | null) => void;
   
   connectSocket: (token: string, userId: string) => void;
   disconnectSocket: () => void;
@@ -76,6 +80,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   blockedUsers: [],
   isMessageSearchOpen: false,
   setIsMessageSearchOpen: (isOpen) => set({ isMessageSearchOpen: isOpen }),
+  messageForInfo: null,
+  setMessageForInfo: (message) => set({ messageForInfo: message }),
 
   sendTypingStatus: (chatId: string, isTyping: boolean) => {
     get().socket?.emit('typing', { chatId, isTyping });
@@ -128,7 +134,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     socket.on('receive-message', (message: Message) => {
       const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id;
-      if (message.senderId === currentUserId) return; // Prevent duplicate for sender
+      if (message.senderId === currentUserId && message.type !== 'CALL_LOG') return; // Prevent duplicate for sender, except for server-generated logs
       
       get().addMessage(message.chatId, message);
       // Emit seen events
@@ -227,6 +233,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   toggleReaction: (chatId: string, messageId: string, reaction: string) => {
+    const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id;
+    if (currentUserId) {
+      set((state) => {
+        const newMessages = { ...state.messages };
+        if (newMessages[chatId]) {
+          newMessages[chatId] = newMessages[chatId].map(msg => {
+            if (msg.id === messageId) {
+              const reactions = { ...(msg.reactions || {}) };
+              if (reactions[currentUserId] === reaction) {
+                delete reactions[currentUserId];
+              } else {
+                reactions[currentUserId] = reaction;
+              }
+              return { ...msg, reactions };
+            }
+            return msg;
+          });
+        }
+        return { messages: newMessages };
+      });
+    }
+
     get().socket?.emit('message-reaction', { chatId, messageId, reaction });
   },
 
@@ -423,12 +451,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
   
-  addMessage: (chatId, message) => set((state) => ({
-    messages: {
-      ...state.messages,
-      [chatId]: [...(state.messages[chatId] || []), message]
+  addMessage: (chatId, message) => set((state) => {
+    // Also update the chat's last message so the sidebar updates instantly
+    const newChats = state.chats.map(chat => {
+      if (chat.id === chatId) {
+        return {
+          ...chat,
+          lastMessage: message
+        };
+      }
+      return chat;
+    });
+    
+    // Move the updated chat to the top
+    const chatIndex = newChats.findIndex(c => c.id === chatId);
+    if (chatIndex > 0) {
+      const chat = newChats.splice(chatIndex, 1)[0];
+      newChats.unshift(chat);
     }
-  })),
+
+    return {
+      chats: newChats,
+      messages: {
+        ...state.messages,
+        [chatId]: [...(state.messages[chatId] || []), message]
+      }
+    };
+  }),
 
   sendMessage: (chatId, content, type = 'TEXT', mediaUrl = null, replyToId = null) => {
     const { socket } = get();
@@ -440,10 +489,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         replyToObj = msgs.find(m => m.id === replyToId) || null;
       }
 
-      const tempId = Date.now().toString();
+      const tempId = `temp_${Date.now()}`;
       const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id || 'me';
       const newMessage: Message = {
         id: tempId,
+        tempId: tempId,
         chatId,
         senderId: currentUserId,
         content,
@@ -466,11 +516,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         tempId
       }, (response: any) => {
         if (response && response.message) {
+          const updatedMsg = { ...response.message, tempId: response.tempId || tempId };
           set((state) => ({
             messages: {
               ...state.messages,
               [chatId]: (state.messages[chatId] || []).map(m => 
-                m.id === response.tempId ? response.message : m
+                (m.id === response.tempId || m.tempId === response.tempId) ? updatedMsg : m
               )
             }
           }));

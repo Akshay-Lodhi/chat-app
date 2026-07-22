@@ -4,6 +4,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { motion } from 'framer-motion';
+import { Lock } from 'lucide-react';
 
 
 interface MessageListProps {
@@ -13,18 +14,17 @@ interface MessageListProps {
 }
 
 export function MessageList({ onReply, onMediaClick, searchQuery = '' }: MessageListProps) {
+  const { messages, activeChatId, chats } = useChatStore();
   const { user } = useAuthStore();
-  const { activeChatId, messages, chats } = useChatStore();
-  const initiateCall = useCallStore(state => state.initiateCall);
+  const { initiateCall } = useCallStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const activeMessages = activeChatId ? messages[activeChatId] || [] : [];
-  const activeChat = chats.find(c => c.id === activeChatId);
+  const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
+  const chatMessages = activeChatId ? (messages[activeChatId] || []) : [];
   
-  // Filter messages based on search
-  const filteredMessages = activeMessages.filter(msg => 
-    !searchQuery || (msg.content && msg.content.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredMessages = searchQuery ? chatMessages.filter(m => 
+    m.content?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) : chatMessages;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,7 +33,16 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '' }: Message
   if (!activeChatId) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border">
+      {/* End-to-End Encryption Notice */}
+      <div className="flex justify-center mb-4 px-2">
+        <div className="bg-[#182229] border border-[#222d34] rounded-xl px-4 py-2.5 max-w-sm md:max-w-md text-center shadow-sm flex items-start space-x-2">
+          <Lock size={13} className="text-[#febd2d] shrink-0 mt-0.5" />
+          <p className="text-[11px] text-[#febd2d] leading-normal font-normal">
+            Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. <span className="hover:underline cursor-pointer">Tap to learn more.</span>
+          </p>
+        </div>
+      </div>
       {filteredMessages.length === 0 ? (
         <div className="flex items-center justify-center h-full">
           <p className="text-text-tertiary bg-surface-hover px-4 py-2 rounded-full text-sm">
@@ -47,7 +56,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '' }: Message
             new Date(filteredMessages[index - 1].createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
             
           return (
-            <React.Fragment key={msg.id || index}>
+            <React.Fragment key={msg.tempId || msg.id || index}>
               {showDate && (
                 <div className="flex justify-center my-4">
                   <span className="bg-surface-hover text-text-secondary text-xs px-3 py-1 rounded-full shadow-sm">
