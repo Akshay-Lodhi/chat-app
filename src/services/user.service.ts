@@ -40,4 +40,55 @@ export class UserService {
       }
     });
   }
+
+  static async blockUser(blockerId: string, blockedId: string) {
+    return await prisma.blockedUser.upsert({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId
+        }
+      },
+      update: {},
+      create: {
+        blockerId,
+        blockedId
+      }
+    });
+  }
+
+  static async unblockUser(blockerId: string, blockedId: string) {
+    return await prisma.blockedUser.deleteMany({
+      where: {
+        blockerId,
+        blockedId
+      }
+    });
+  }
+
+  static async getBlockedUsers(userId: string) {
+    return await prisma.blockedUser.findMany({
+      where: { blockerId: userId },
+      include: {
+        blocked: {
+          select: {
+            id: true,
+            name: true,
+            phoneNumber: true,
+            profilePicture: true
+          }
+        }
+      }
+    });
+  }
+
+  static async reportUser(reporterId: string, reportedId: string, reason?: string) {
+    return await prisma.report.create({
+      data: {
+        reporterId,
+        reportedId,
+        reason
+      }
+    });
+  }
 }

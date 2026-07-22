@@ -1,6 +1,8 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
+import Redis from 'ioredis';
+import { createAdapter } from '@socket.io/redis-adapter';
 
 import { fromNodeHeaders } from 'better-auth/node';
 import { auth } from '../lib/auth';
@@ -13,11 +15,29 @@ const userSocketMap = new Map<string, string>();
 export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
     cors: {
-      origin: ['http://localhost:3000', 'http://127.0.0.1:3000', process.env.FRONTEND_URL || 'https://chat-app-two-khaki-va269vxf6w.vercel.app'].filter(Boolean),
+      origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001', process.env.FRONTEND_URL || 'https://chat-app-two-khaki-va269vxf6w.vercel.app'].filter(Boolean),
       methods: ['GET', 'POST'],
       credentials: true
     }
   });
+
+  if (process.env.REDIS_URL) {
+    try {
+      const pubClient = new Redis(process.env.REDIS_URL, {
+        maxRetriesPerRequest: null,
+        retryStrategy: (times) => Math.min(times * 50, 2000),
+      });
+      const subClient = pubClient.duplicate();
+      
+      pubClient.on('error', (err) => console.error('Redis Pub Error:', err));
+      subClient.on('error', (err) => console.error('Redis Sub Error:', err));
+
+      io.adapter(createAdapter(pubClient, subClient));
+      console.log('✅ Socket.io Redis adapter initialized successfully');
+    } catch (err) {
+      console.error('❌ Failed to initialize Redis adapter:', err);
+    }
+  }
 
   const chatNamespace = io.of('/chat');
 
@@ -50,6 +70,46 @@ export function setupSocket(server: HttpServer) {
       data: { isOnline: true }
     });
     chatNamespace.emit('user-status-changed', { userId, isOnline: true });
+
+    // Mark pending messages as delivered
+    try {
+      const userChats = await prisma.chatParticipant.findMany({
+        where: { userId },
+        select: { chatId: true }
+      });
+      const chatIds = userChats.map((c: any) => c.chatId);
+
+      if (chatIds.length > 0) {
+        const pendingMessages = await prisma.message.findMany({
+          where: {
+            chatId: { in: chatIds },
+            senderId: { not: userId },
+            NOT: {
+              statuses: {
+                some: { userId, status: { in: ['DELIVERED', 'READ'] } }
+              }
+            }
+          }
+        });
+
+        for (const msg of pendingMessages) {
+          const statusRecord = await prisma.messageStatus.upsert({
+            where: { messageId_userId: { messageId: msg.id, userId } },
+            update: { status: 'DELIVERED' },
+            create: { messageId: msg.id, userId, status: 'DELIVERED' }
+          });
+          chatNamespace.to(msg.senderId).emit('message-status-update', { 
+            messageId: msg.id, 
+            status: 'DELIVERED', 
+            by: userId, 
+            chatId: msg.chatId,
+            time: statusRecord.updatedAt 
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update pending deliveries', err);
+    }
 
     socket.on('join-room', (roomId: string) => {
       socket.join(roomId);
@@ -142,6 +202,29 @@ export function setupSocket(server: HttpServer) {
       } catch (err) {}
     });
 
+    socket.on('message-reaction', async ({ messageId, chatId, reaction }) => {
+      try {
+        const msg = await prisma.message.findUnique({ where: { id: messageId } });
+        if (!msg) return;
+        
+        let reactions = msg.reactions ? (msg.reactions as Record<string, string>) : {};
+        if (reactions[userId] === reaction) {
+          delete reactions[userId]; // Toggle off
+        } else {
+          reactions[userId] = reaction; // Set new
+        }
+
+        await prisma.message.update({
+          where: { id: messageId },
+          data: { reactions: reactions as any }
+        });
+
+        chatNamespace.to(chatId).emit('message-reaction-update', { messageId, chatId, reactions });
+      } catch (err) {
+        console.error('Failed to update reaction', err);
+      }
+    });
+
     // WebRTC Signaling
     
     // Server-side state for active group calls (chatId -> Set of userIds currently connected in the call)
@@ -172,6 +255,7 @@ export function setupSocket(server: HttpServer) {
     });
 
     socket.on('call-offer', async ({ chatId, signalData, type, targetUserId }) => {
+      if (!chatId) return;
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
         include: { participants: { include: { user: true } } }
