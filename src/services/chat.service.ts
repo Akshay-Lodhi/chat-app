@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { redis } from '../lib/redis';
 
 const prisma = new PrismaClient();
 
@@ -13,7 +14,7 @@ export class ChatService {
       include: {
         participants: {
           include: {
-            user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, isOnline: true } }
+            user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, lastSeen: true } }
           }
         },
         messages: {
@@ -34,12 +35,39 @@ export class ChatService {
       orderBy: { updatedAt: 'desc' }
     });
 
+    // Extract all unique user IDs to fetch their online status from Redis
+    const participantIds = new Set<string>();
+    chats.forEach(chat => {
+      chat.participants.forEach((p: any) => participantIds.add(p.userId));
+    });
+
+    const uniqueParticipantIds = Array.from(participantIds);
+    let onlineStatuses: Record<string, boolean> = {};
+
+    if (uniqueParticipantIds.length > 0) {
+      const redisKeys = uniqueParticipantIds.map(id => `online:${id}`);
+      const redisValues = await redis.mget(...redisKeys);
+      
+      uniqueParticipantIds.forEach((id, index) => {
+        onlineStatuses[id] = redisValues[index] !== null;
+      });
+    }
+
     return chats.map((chat: any) => {
       let name = chat.name;
       let picture = chat.groupPicture;
       
+      // Inject the true online status into the participants
+      const participantsWithOnline = chat.participants.map((p: any) => ({
+        ...p,
+        user: {
+          ...p.user,
+          isOnline: onlineStatuses[p.userId] || false
+        }
+      }));
+      
       if (!chat.isGroup) {
-        const otherParticipant = chat.participants.find((p: any) => p.userId !== userId);
+        const otherParticipant = participantsWithOnline.find((p: any) => p.userId !== userId);
         if (otherParticipant) {
           name = otherParticipant.user.name || otherParticipant.user.phoneNumber;
           picture = otherParticipant.user.profilePicture;
@@ -50,6 +78,7 @@ export class ChatService {
         ...chat,
         name,
         groupPicture: picture,
+        participants: participantsWithOnline,
         lastMessage: chat.messages[0] || null,
         unreadCount: chat._count?.messages || 0,
         messages: undefined,

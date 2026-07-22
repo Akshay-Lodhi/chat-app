@@ -6,11 +6,9 @@ import { createAdapter } from '@socket.io/redis-adapter';
 
 import { fromNodeHeaders } from 'better-auth/node';
 import { auth } from '../lib/auth';
+import { redis } from '../lib/redis';
 
 const prisma = new PrismaClient();
-
-// In-memory mapping of userId to socketId for direct routing
-const userSocketMap = new Map<string, string>();
 
 export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
@@ -62,13 +60,15 @@ export function setupSocket(server: HttpServer) {
     // Join personal room for targeted events (like seen receipts)
     socket.join(userId);
 
-    userSocketMap.set(userId, socket.id);
+    // Mark user as online in Redis with a TTL of 60 seconds
+    const markOnline = async () => {
+      await redis.set(`online:${userId}`, Date.now().toString(), 'EX', 60);
+    };
+    await markOnline();
     
-    // Mark user as online
-    await prisma.user.update({
-      where: { id: userId },
-      data: { isOnline: true }
-    });
+    // Refresh the TTL every 30 seconds
+    const interval = setInterval(markOnline, 30000);
+
     chatNamespace.emit('user-status-changed', { userId, isOnline: true });
 
     // Mark pending messages as delivered
@@ -220,6 +220,19 @@ export function setupSocket(server: HttpServer) {
         });
 
         chatNamespace.to(chatId).emit('message-reaction-update', { messageId, chatId, reactions });
+
+        // Also emit to participants' personal rooms
+        const chat = await prisma.chat.findUnique({
+          where: { id: chatId },
+          include: { participants: true }
+        });
+        if (chat) {
+          chat.participants.forEach((p: any) => {
+            if (p.userId !== userId) {
+              chatNamespace.to(p.userId).emit('message-reaction-update', { messageId, chatId, reactions });
+            }
+          });
+        }
       } catch (err) {
         console.error('Failed to update reaction', err);
       }
@@ -344,7 +357,8 @@ export function setupSocket(server: HttpServer) {
         const content = JSON.stringify({
           action: duration === -1 ? 'MISSED' : 'ENDED',
           duration: duration === -1 ? 0 : duration,
-          type: type || 'VIDEO'
+          type: type || 'VIDEO',
+          isGroup: chat.isGroup
         });
 
         const callLogMsg = await prisma.message.create({
@@ -367,8 +381,9 @@ export function setupSocket(server: HttpServer) {
           }
         });
 
-        // Broadcast the call log message to everyone
-        chatNamespace.to(chatId).emit('receive-message', callLogMsg);
+        // Broadcast the call log message to everyone with explicit status
+        const callLogWithStatus = { ...callLogMsg, status: 'SENT' };
+        chatNamespace.to(chatId).emit('receive-message', callLogWithStatus);
         
         chat.participants.forEach((p: any) => {
           if (p.userId !== userId) {
@@ -381,10 +396,12 @@ export function setupSocket(server: HttpServer) {
     });
 
     socket.on('disconnect', async () => {
-      userSocketMap.delete(userId);
+      clearInterval(interval);
+      await redis.del(`online:${userId}`);
+      
       await prisma.user.update({
         where: { id: userId },
-        data: { isOnline: false, lastSeen: new Date() }
+        data: { lastSeen: new Date() }
       });
       chatNamespace.emit('user-status-changed', { userId, isOnline: false, lastSeen: new Date() });
     });
