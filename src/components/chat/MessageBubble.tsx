@@ -3,6 +3,7 @@ import { Check, CheckCheck, Play, Pause, FileText, CornerUpLeft, MapPin, Phone, 
 import { cn } from '@/lib/utils';
 import { motion, useDragControls, AnimatePresence } from 'framer-motion';
 import { useChatStore } from '@/store/useChatStore';
+import { CallDetailsModal } from './CallDetailsModal';
 
 const AudioPlayer = ({ src }: { src: string }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -89,7 +90,7 @@ interface MessageBubbleProps {
   isMine: boolean;
   onReply?: () => void;
   onMediaClick?: (url: string, type: 'IMAGE' | 'VIDEO') => void;
-  onCallClick?: (type: 'AUDIO' | 'VIDEO') => void;
+  onCallClick?: (type: 'AUDIO' | 'VIDEO', callData?: any) => void;
   highlight?: boolean;
   hideInfoOption?: boolean;
 }
@@ -102,6 +103,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
 
   // Long press logic
   const [showReactions, setShowReactions] = useState(false);
+  const [showCallDetails, setShowCallDetails] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const startLongPress = useCallback(() => {
@@ -216,7 +218,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
         const baseTitle = callData.type === 'VIDEO' ? 'Video Call' : 'Voice Call';
         const callTitle = isGroupCall ? `Group ${baseTitle}` : baseTitle;
         const callSubtext = isMissed 
-          ? (isMine ? 'Unanswered' : 'Missed')
+          ? (isMine ? 'No answer' : 'Missed')
           : (callData.duration ? (
               Math.floor(callData.duration / 60) > 0 
                 ? `${Math.floor(callData.duration / 60)}m ${callData.duration % 60}s` 
@@ -224,22 +226,32 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
             ) : 'Ended');
 
         return (
-          <div 
-            className="flex items-center space-x-3 p-1 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => onCallClick?.(callData.type)}
-          >
-            <div className={cn("p-3 rounded-full", isMissed ? "bg-danger/20 text-danger" : "bg-success/20 text-success")}>
-              <CallIcon size={20} />
+          <>
+            <div 
+              className="flex items-center space-x-3 p-1 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => onCallClick?.(callData.type, callData)}
+            >
+              <div className={cn("p-3 rounded-full", isMissed ? "bg-danger/20 text-danger" : "bg-success/20 text-success")}>
+                <CallIcon size={20} />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">
+                  {callTitle}
+                </span>
+                <span className={cn("text-xs font-medium", isMissed ? "text-danger" : "opacity-80")}>
+                  {callSubtext}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">
-                {callTitle}
-              </span>
-              <span className={cn("text-xs font-medium", isMissed ? "text-danger" : "opacity-80")}>
-                {callSubtext}
-              </span>
-            </div>
-          </div>
+
+            <CallDetailsModal 
+              isOpen={showCallDetails} 
+              onClose={() => setShowCallDetails(false)} 
+              callData={callData} 
+              createdAt={message.createdAt}
+              onReCall={(type) => onCallClick?.(type, callData)}
+            />
+          </>
         );
       default:
         return (
@@ -347,7 +359,21 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
                   {emoji}
                 </button>
               ))}
-              {!hideInfoOption && isMine && message.type !== 'CALL_LOG' && (
+              {message.type === 'CALL_LOG' ? (
+                <>
+                  <div className="w-[1px] h-6 bg-surface-border mx-1" />
+                  <button 
+                    onClick={() => {
+                      setShowCallDetails(true);
+                      setShowReactions(false);
+                    }}
+                    className="flex items-center text-text-secondary hover:text-text-primary px-1"
+                    title="Call Details Info"
+                  >
+                    <Info size={18} />
+                  </button>
+                </>
+              ) : (!hideInfoOption && isMine) ? (
                 <>
                   <div className="w-[1px] h-6 bg-surface-border mx-1" />
                   <button 
@@ -361,7 +387,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
                     <Info size={18} />
                   </button>
                 </>
-              )}
+              ) : null}
             </motion.div>
           </>
         )}

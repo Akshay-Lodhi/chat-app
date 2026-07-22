@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
+import { useAuthStore } from './useAuthStore';
 
 interface Chat {
   id: string;
@@ -100,13 +101,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ isConnecting: false });
     });
 
+    socket.on('initial-online-users', ({ onlineUserIds }: { onlineUserIds: string[] }) => {
+      const map: Record<string, boolean> = {};
+      onlineUserIds.forEach(id => { map[id] = true; });
+      set({ onlineUsers: map });
+    });
+
     socket.on('user-status-changed', ({ userId, isOnline }) => {
       set((state) => ({
         onlineUsers: { ...state.onlineUsers, [userId]: isOnline }
       }));
     });
 
-    socket.on('typing', ({ chatId, userId, isTyping }) => {
+    socket.on('typing', ({ chatId, userId: typingUserId, isTyping }) => {
+      const authUser = useAuthStore.getState().user;
+      if (authUser && typingUserId === authUser.id) return;
+
       set((state) => {
         const currentTimer = state.typingStatuses[chatId]?.timer;
         if (currentTimer) clearTimeout(currentTimer);
@@ -120,7 +130,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 [chatId]: { isTyping: false }
               }
             }));
-          }, 3000);
+          }, 3500);
         }
         
         return {
@@ -470,11 +480,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       newChats.unshift(chat);
     }
 
+    const currentMsgs = state.messages[chatId] || [];
+    const exists = currentMsgs.some(m => 
+      m.id === message.id || 
+      (message.tempId && (m.tempId === message.tempId || m.id === message.tempId))
+    );
+
+    const updatedMsgs = exists 
+      ? currentMsgs.map(m => (m.id === message.id || (message.tempId && (m.tempId === message.tempId || m.id === message.tempId))) ? { ...m, ...message } : m)
+      : [...currentMsgs, message];
+
     return {
       chats: newChats,
       messages: {
         ...state.messages,
-        [chatId]: [...(state.messages[chatId] || []), message]
+        [chatId]: updatedMsgs
       }
     };
   }),

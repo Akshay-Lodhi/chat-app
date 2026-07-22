@@ -22,7 +22,7 @@ export function MessageComposer({
   replyingTo,
   onCancelReply
 }: MessageComposerProps) {
-  const { activeChatId, socket, chats, blockedUsers } = useChatStore();
+  const { activeChatId, socket, chats, blockedUsers, sendTypingStatus } = useChatStore();
   const [message, setMessage] = useState('');
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -53,18 +53,32 @@ export function MessageComposer({
     };
   }, [showAttachMenu]);
 
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (message.trim()) {
+      if (activeChatId) sendTypingStatus(activeChatId, false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       onSendMessage(message);
       setMessage('');
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setMessage(e.target.value);
-    if (socket && activeChatId) {
-      socket.emit('typing', { chatId: activeChatId });
+    const val = e.target.value;
+    setMessage(val);
+    if (activeChatId) {
+      if (val.trim()) {
+        sendTypingStatus(activeChatId, true);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+          sendTypingStatus(activeChatId, false);
+        }, 2500);
+      } else {
+        sendTypingStatus(activeChatId, false);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      }
     }
   };
 
@@ -246,7 +260,7 @@ export function MessageComposer({
               placeholder="Message"
               value={message}
               onChange={handleChange}
-              className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-[#e9edef] placeholder-[#8696a0] px-2 py-1 text-[15px] leading-normal"
+              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 text-[#e9edef] placeholder-[#8696a0] px-2 py-1 text-[15px] leading-normal"
             />
 
             {/* Attach Icon */}
@@ -262,15 +276,19 @@ export function MessageComposer({
               <Paperclip size={22} />
             </button>
 
-            {/* Rupee Icon */}
-            <button type="button" className="p-1.5 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex items-center justify-center" title="Payment">
-              <IndianRupee size={20} />
-            </button>
+            {/* Rupee Icon (hidden when typing, matching WhatsApp) */}
+            {!message.trim() && (
+              <button type="button" className="p-1.5 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex items-center justify-center" title="Payment">
+                <IndianRupee size={20} />
+              </button>
+            )}
 
-            {/* Camera Icon */}
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0" title="Camera">
-              <Camera size={22} />
-            </button>
+            {/* Camera Icon (hidden when typing, matching WhatsApp) */}
+            {!message.trim() && (
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0" title="Camera">
+                <Camera size={22} />
+              </button>
+            )}
           </div>
         )}
 

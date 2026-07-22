@@ -56,7 +56,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '' }: Message
             new Date(filteredMessages[index - 1].createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
             
           return (
-            <React.Fragment key={msg.tempId || msg.id || index}>
+            <React.Fragment key={`${msg.id || msg.tempId || 'msg'}_${index}`}>
               {showDate && (
                 <div className="flex justify-center my-4">
                   <span className="bg-surface-hover text-text-secondary text-xs px-3 py-1 rounded-full shadow-sm">
@@ -69,10 +69,22 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '' }: Message
                 isMine={isMine} 
                 onReply={() => onReply(msg)}
                 onMediaClick={() => onMediaClick(msg.mediaUrl || msg.content || '', msg.type as 'IMAGE' | 'VIDEO')}
-                onCallClick={(type: 'AUDIO' | 'VIDEO') => {
-                  const chatName = activeChat?.isGroup ? activeChat.name : activeChat?.participants?.find((p: any) => p.userId !== user?.id)?.user?.name || 'Unknown';
+                onCallClick={(type: 'AUDIO' | 'VIDEO', callData?: any) => {
+                  const isGroupLog = callData?.isGroup || activeChat?.isGroup;
+                  const chatName = isGroupLog
+                    ? (activeChat?.isGroup ? activeChat.name : 'Group Call')
+                    : (activeChat?.participants?.find((p: any) => p.userId !== user?.id)?.user?.name || 'Unknown');
+                  
                   useCallStore.setState({ caller: chatName });
-                  initiateCall(type, activeChatId!);
+
+                  let invitedIds: string[] = [];
+                  if (callData?.participants && Array.isArray(callData.participants)) {
+                    invitedIds = callData.participants
+                      .map((p: any) => p.userId)
+                      .filter((id: string) => id && id !== user?.id);
+                  }
+
+                  initiateCall(type, activeChatId!, invitedIds);
                 }}
                 highlight={searchQuery !== '' && msg.content?.toLowerCase().includes(searchQuery.toLowerCase())}
               />

@@ -14,6 +14,8 @@ interface CallState {
   pendingOffer: any | null;
   callStartTime: number | null;
 
+  invitedUserIds: string[];
+
   setIncomingCall: (caller: any, callType: 'AUDIO' | 'VIDEO', chatId: string, offer: any) => void;
   setLocalStream: (stream: MediaStream | null) => void;
   addRemoteStream: (userId: string, stream: MediaStream) => void;
@@ -23,7 +25,7 @@ interface CallState {
   setCallStartTime: (time: number | null) => void;
   acceptCall: () => void;
   endCall: () => void;
-  initiateCall: (callType: 'AUDIO' | 'VIDEO', chatId: string) => void;
+  initiateCall: (callType: 'AUDIO' | 'VIDEO', chatId: string, invitedUserIds?: string[]) => void;
 }
 
 export const useCallStore = create<CallState>((set, get) => ({
@@ -38,6 +40,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   peers: {},
   pendingOffer: null,
   callStartTime: null,
+  invitedUserIds: [],
 
   setIncomingCall: (caller, callType, chatId, offer) => set({
     isReceivingCall: true,
@@ -91,14 +94,16 @@ export const useCallStore = create<CallState>((set, get) => ({
       remoteStreams: {}, 
       peers: {},
       pendingOffer: null,
-      callStartTime: null
+      callStartTime: null,
+      invitedUserIds: []
     });
   },
 
-  initiateCall: (type, chatId) => set({
+  initiateCall: (type, chatId, invitedUserIds = []) => set({
     isCalling: true,
     isInitiator: true,
     callType: type,
-    activeCallChatId: chatId
+    activeCallChatId: chatId,
+    invitedUserIds
   })
 }));
