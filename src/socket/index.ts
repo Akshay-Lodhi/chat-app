@@ -54,9 +54,21 @@ export function setupSocket(server: HttpServer) {
     }
   });
 
+  const activeUserSockets = new Map<string, Set<string>>();
+
   chatNamespace.on('connection', async (socket: Socket) => {
     const userId = socket.data.userId;
     
+    // Track active user sockets
+    if (!activeUserSockets.has(userId)) {
+      activeUserSockets.set(userId, new Set());
+    }
+    activeUserSockets.get(userId)!.add(socket.id);
+
+    // Send currently online users to newly connected socket
+    const onlineUserIds = Array.from(activeUserSockets.keys());
+    socket.emit('initial-online-users', { onlineUserIds });
+
     // Join personal room for targeted events (like seen receipts)
     socket.join(userId);
 
@@ -71,13 +83,14 @@ export function setupSocket(server: HttpServer) {
 
     chatNamespace.emit('user-status-changed', { userId, isOnline: true });
 
-    // Mark pending messages as delivered
+    // Mark pending messages as delivered & auto-join chat rooms
     try {
       const userChats = await prisma.chatParticipant.findMany({
         where: { userId },
         select: { chatId: true }
       });
       const chatIds = userChats.map((c: any) => c.chatId);
+      chatIds.forEach(id => socket.join(id));
 
       if (chatIds.length > 0) {
         const pendingMessages = await prisma.message.findMany({
@@ -238,26 +251,38 @@ export function setupSocket(server: HttpServer) {
       }
     });
 
+    // Real-time typing indicators (Instant <5ms delivery without DB bottleneck)
+    socket.on('typing', ({ chatId, isTyping }) => {
+      if (!chatId) return;
+      socket.to(chatId).emit('typing', { chatId, userId, isTyping });
+    });
+
     // WebRTC Signaling
     
     // Server-side state for active group calls (chatId -> Set of userIds currently connected in the call)
     const activeGroupCalls = new Map<string, Set<string>>();
 
     socket.on('group-call-join', ({ chatId }) => {
+      if (!chatId) return;
       if (!activeGroupCalls.has(chatId)) {
         activeGroupCalls.set(chatId, new Set());
       }
       const participants = activeGroupCalls.get(chatId)!;
-      // Get current participants BEFORE adding the new user, so the new user initiates offers to them
       const existingParticipants = Array.from(participants);
       
       participants.add(userId);
-      
-      // Tell the joined user who is already in the call so they can initiate P2P offers to them
+      socket.join(`group-call-${chatId}`);
+
+      // 1. Tell the joined user who is already in the call so they initiate offers to them
       socket.emit('group-call-participants', { chatId, participants: existingParticipants });
+
+      // 2. Notify existing participants in call that a new member joined
+      socket.to(`group-call-${chatId}`).emit('group-call-user-joined', { chatId, userId });
     });
 
     socket.on('group-call-leave', ({ chatId }) => {
+      if (!chatId) return;
+      socket.leave(`group-call-${chatId}`);
       if (activeGroupCalls.has(chatId)) {
         const participants = activeGroupCalls.get(chatId)!;
         participants.delete(userId);
@@ -265,6 +290,7 @@ export function setupSocket(server: HttpServer) {
           activeGroupCalls.delete(chatId);
         }
       }
+      socket.to(`group-call-${chatId}`).emit('group-call-user-left', { chatId, userId });
     });
 
     socket.on('call-offer', async ({ chatId, signalData, type, targetUserId }) => {
@@ -276,28 +302,31 @@ export function setupSocket(server: HttpServer) {
       if (!chat) return;
 
       const callerParticipant = chat.participants.find((p: any) => p.userId === userId);
-      
+      const callerName = callerParticipant?.user.name || callerParticipant?.user.phoneNumber || 'Someone';
+
       if (targetUserId) {
         // Targeted offer (for group mesh)
         chatNamespace.to(targetUserId).emit('call-offer', {
           callerId: userId,
-          callerName: callerParticipant?.user.name || callerParticipant?.user.phoneNumber,
+          callerName,
           signalData,
           chatId,
           type
         });
       } else {
-        // 1:1 fallback
-        const otherParticipant = chat.participants.find((p: any) => p.userId !== userId);
-        if (otherParticipant) {
-          chatNamespace.to(otherParticipant.userId).emit('call-offer', {
-            callerId: userId,
-            callerName: callerParticipant?.user.name || callerParticipant?.user.phoneNumber,
-            signalData,
-            chatId,
-            type
-          });
-        }
+        // Group or 1:1 broadcast offer to all other participants
+        chat.participants.forEach((p: any) => {
+          if (p.userId !== userId) {
+            chatNamespace.to(p.userId).emit('call-offer', {
+              callerId: userId,
+              callerName: chat.isGroup ? `${chat.name} (${callerName})` : callerName,
+              signalData,
+              chatId,
+              type,
+              isGroup: chat.isGroup
+            });
+          }
+        });
       }
     });
 
@@ -333,7 +362,7 @@ export function setupSocket(server: HttpServer) {
       }
     });
 
-    socket.on('end-call', async ({ chatId, duration, type, isInitiator, targetUserId }) => {
+    socket.on('end-call', async ({ chatId, duration, type, isInitiator, targetUserId, isGroup, participantsInfo }) => {
       if (targetUserId) {
         // Targeted end-call for mesh network (just drop connection)
         chatNamespace.to(targetUserId).emit('call-end', { callerId: userId });
@@ -354,11 +383,13 @@ export function setupSocket(server: HttpServer) {
       
       // Log the call as a message
       try {
+        const isMulti = Boolean(isGroup || chat.isGroup);
         const content = JSON.stringify({
           action: duration === -1 ? 'MISSED' : 'ENDED',
           duration: duration === -1 ? 0 : duration,
           type: type || 'VIDEO',
-          isGroup: chat.isGroup
+          isGroup: isMulti,
+          participants: participantsInfo || []
         });
 
         const callLogMsg = await prisma.message.create({
@@ -386,6 +417,7 @@ export function setupSocket(server: HttpServer) {
         chatNamespace.to(chatId).emit('receive-message', callLogWithStatus);
         
         chat.participants.forEach((p: any) => {
+          chatNamespace.to(p.userId).emit('receive-message', callLogWithStatus);
           if (p.userId !== userId) {
             chatNamespace.to(p.userId).emit('call-end', { callerId: userId });
           }
@@ -397,13 +429,23 @@ export function setupSocket(server: HttpServer) {
 
     socket.on('disconnect', async () => {
       clearInterval(interval);
-      await redis.del(`online:${userId}`);
       
-      await prisma.user.update({
-        where: { id: userId },
-        data: { lastSeen: new Date() }
-      });
-      chatNamespace.emit('user-status-changed', { userId, isOnline: false, lastSeen: new Date() });
+      const userSockets = activeUserSockets.get(userId);
+      if (userSockets) {
+        userSockets.delete(socket.id);
+        if (userSockets.size === 0) {
+          activeUserSockets.delete(userId);
+          await redis.del(`online:${userId}`);
+          
+          const now = new Date();
+          await prisma.user.update({
+            where: { id: userId },
+            data: { lastSeen: now }
+          }).catch(() => {});
+          
+          chatNamespace.emit('user-status-changed', { userId, isOnline: false, lastSeen: now });
+        }
+      }
     });
   });
 }
