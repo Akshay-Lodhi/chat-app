@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="nexusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00A884" />
+      <stop offset="100%" stop-color="#005C4B" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#nexusGrad)" />
+  <path d="M7 17V7h2.5l3.5 6V7h2.5v10h-2.5l-3.5-6v6H7z" fill="#FFFFFF" />
+</svg>

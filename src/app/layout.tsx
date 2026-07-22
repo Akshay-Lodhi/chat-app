@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "WhatsApp Clone",
   description: "A real-time chat application clone",
+  icons: {
+    icon: '/logo.svg',
+  },
 };
 
 export default function RootLayout({

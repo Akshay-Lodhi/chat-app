@@ -36,6 +36,9 @@ interface ChatState {
   isConnecting: boolean;
   onlineUsers: Record<string, boolean>;
   typingStatuses: Record<string, { isTyping: boolean, timer?: NodeJS.Timeout }>;
+  blockedUsers: any[];
+  isMessageSearchOpen: boolean;
+  setIsMessageSearchOpen: (isOpen: boolean) => void;
   
   connectSocket: (token: string, userId: string) => void;
   disconnectSocket: () => void;
@@ -44,8 +47,8 @@ interface ChatState {
   addMessage: (chatId: string, message: Message) => void;
   fetchChats: (token: string) => Promise<void>;
   fetchMessages: (chatId: string, token: string) => Promise<void>;
-  createChat: (contactId: string, token: string) => Promise<string>;
-  createGroupChat: (name: string, participantIds: string[], groupPicture?: string) => Promise<string>;
+  createChat: (contactId: string, token: string) => Promise<string | null>;
+  createGroupChat: (name: string, participantIds: string[]) => Promise<string | null>;
   addGroupParticipants: (chatId: string, participantIds: string[]) => Promise<void>;
   updateGroupPicture: (chatId: string, pictureUrl: string) => Promise<void>;
   deleteGroupChat: (chatId: string) => Promise<void>;
@@ -54,6 +57,12 @@ interface ChatState {
   sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null, replyToId?: string | null) => void;
   deleteMessage: (chatId: string, messageId: string) => void;
   sendTypingStatus: (chatId: string, isTyping: boolean) => void;
+  toggleReaction: (chatId: string, messageId: string, reaction: string) => void;
+
+  fetchBlockedUsers: () => Promise<void>;
+  blockUser: (userId: string) => Promise<boolean>;
+  unblockUser: (userId: string) => Promise<boolean>;
+  reportUser: (userId: string, reason?: string) => Promise<boolean>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -64,6 +73,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isConnecting: false,
   onlineUsers: {},
   typingStatuses: {},
+  blockedUsers: [],
+  isMessageSearchOpen: false,
+  setIsMessageSearchOpen: (isOpen) => set({ isMessageSearchOpen: isOpen }),
 
   sendTypingStatus: (chatId: string, isTyping: boolean) => {
     get().socket?.emit('typing', { chatId, isTyping });
@@ -115,6 +127,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     socket.on('receive-message', (message: Message) => {
+      const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id;
+      if (message.senderId === currentUserId) return; // Prevent duplicate for sender
+      
       get().addMessage(message.chatId, message);
       // Emit seen events
       if (get().activeChatId === message.chatId) {
@@ -144,6 +159,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const msgs = newMessages[cid];
             const idx = msgs.findIndex(m => m.id === messageId);
             if (idx !== -1) {
+              chatId = cid;
               newMessages[cid] = [...msgs];
               newMessages[cid][idx] = { 
                 ...msgs[idx], 
@@ -155,7 +171,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
           }
         }
-        return { messages: newMessages };
+        
+        let newChats = state.chats;
+        if (chatId) {
+          const chatIdx = newChats.findIndex(c => c.id === chatId);
+          if (chatIdx !== -1 && newChats[chatIdx].lastMessage?.id === messageId) {
+            newChats = [...newChats];
+            newChats[chatIdx] = {
+              ...newChats[chatIdx],
+              lastMessage: {
+                ...newChats[chatIdx].lastMessage,
+                status
+              }
+            };
+          }
+        }
+        
+        return { messages: newMessages, chats: newChats };
       });
     });
 
@@ -171,6 +203,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     });
 
+    socket.on('message-reaction-update', ({ messageId, chatId, reactions }) => {
+      set((state) => {
+        const newMessages = { ...state.messages };
+        if (newMessages[chatId]) {
+          newMessages[chatId] = newMessages[chatId].map(msg => 
+            msg.id === messageId ? { ...msg, reactions } : msg
+          );
+        }
+        return { messages: newMessages };
+      });
+    });
+
     set({ socket });
   },
 
@@ -180,6 +224,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       socket.disconnect();
       set({ socket: null });
     }
+  },
+
+  toggleReaction: (chatId: string, messageId: string, reaction: string) => {
+    get().socket?.emit('message-reaction', { chatId, messageId, reaction });
   },
 
   setChats: (chats) => set({ chats }),
@@ -252,18 +300,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (err) {
       console.error('Error creating chat:', err);
     }
-    return '';
+    return null;
   },
 
-  createGroupChat: async (name: string, participantIds: string[], groupPicture?: string) => {
+  createGroupChat: async (name: string, participantIds: string[]) => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/group`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name, participantIds, groupPicture })
+        body: JSON.stringify({ name, participantIds })
       });
       if (res.ok) {
         const newChat = await res.json();
@@ -271,19 +317,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return newChat.id;
       }
     } catch (err) {
-      console.error('Error creating group chat:', err);
+      console.error(err);
     }
-    return '';
+    return null;
   },
 
-  addGroupParticipants: async (chatId, participantIds) => {
+  addGroupParticipants: async (chatId: string, participantIds: string[]) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/participants`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ participantIds }),
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ participantIds })
       });
       if (res.ok) {
         const updatedChat = await res.json();
@@ -302,10 +347,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   updateGroupPicture: async (chatId, pictureUrl) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/picture`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupPicture: pictureUrl }),
         credentials: 'include'
       });
@@ -397,10 +441,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       const tempId = Date.now().toString();
+      const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id || 'me';
       const newMessage: Message = {
         id: tempId,
         chatId,
-        senderId: 'me', // Will be replaced by actual logic later
+        senderId: currentUserId,
         content,
         type: type as any,
         mediaUrl: mediaUrl,
@@ -438,6 +483,67 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { socket } = get();
     if (socket && socket.connected) {
       socket.emit('delete-message', { chatId, messageId });
+    }
+  },
+
+  fetchBlockedUsers: async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/blocked`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set({ blockedUsers: data });
+      }
+    } catch (err) {
+      console.error('Error fetching blocked users:', err);
+    }
+  },
+
+  blockUser: async (userId: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/block/${userId}`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        await get().fetchBlockedUsers();
+        return true;
+      }
+    } catch (err) {
+      console.error('Error blocking user:', err);
+    }
+    return false;
+  },
+
+  unblockUser: async (userId: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/block/${userId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        await get().fetchBlockedUsers();
+        return true;
+      }
+    } catch (err) {
+      console.error('Error unblocking user:', err);
+    }
+    return false;
+  },
+
+  reportUser: async (userId: string, reason?: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/report/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+        credentials: 'include'
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Error reporting user:', err);
+      return false;
     }
   }
 }));
