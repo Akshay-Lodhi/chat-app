@@ -259,30 +259,28 @@ export function setupSocket(server: HttpServer) {
 
     // WebRTC Signaling
     
-    // Server-side state for active group calls (chatId -> Set of userIds currently connected in the call)
+    // Server-side state for active group/mesh calls (chatId -> Set of userIds currently connected in the call)
     const activeGroupCalls = new Map<string, Set<string>>();
 
-    socket.on('group-call-join', ({ chatId }) => {
+    socket.on('join-call-room', ({ chatId }) => {
       if (!chatId) return;
+      socket.join(`call-room-${chatId}`);
       if (!activeGroupCalls.has(chatId)) {
         activeGroupCalls.set(chatId, new Set());
       }
       const participants = activeGroupCalls.get(chatId)!;
       const existingParticipants = Array.from(participants);
-      
       participants.add(userId);
-      socket.join(`group-call-${chatId}`);
 
-      // 1. Tell the joined user who is already in the call so they initiate offers to them
-      socket.emit('group-call-participants', { chatId, participants: existingParticipants });
-
-      // 2. Notify existing participants in call that a new member joined
-      socket.to(`group-call-${chatId}`).emit('group-call-user-joined', { chatId, userId });
+      // Notify caller of existing participants in call room
+      socket.emit('call-room-participants', { chatId, participants: existingParticipants });
+      // Notify all existing participants in call room that this user has joined
+      socket.to(`call-room-${chatId}`).emit('call-room-user-joined', { chatId, userId });
     });
 
-    socket.on('group-call-leave', ({ chatId }) => {
+    socket.on('leave-call-room', ({ chatId }) => {
       if (!chatId) return;
-      socket.leave(`group-call-${chatId}`);
+      socket.leave(`call-room-${chatId}`);
       if (activeGroupCalls.has(chatId)) {
         const participants = activeGroupCalls.get(chatId)!;
         participants.delete(userId);
@@ -290,7 +288,35 @@ export function setupSocket(server: HttpServer) {
           activeGroupCalls.delete(chatId);
         }
       }
-      socket.to(`group-call-${chatId}`).emit('group-call-user-left', { chatId, userId });
+      socket.to(`call-room-${chatId}`).emit('call-room-user-left', { chatId, userId });
+    });
+
+    socket.on('group-call-join', ({ chatId }) => {
+      if (!chatId) return;
+      socket.join(`call-room-${chatId}`);
+      if (!activeGroupCalls.has(chatId)) {
+        activeGroupCalls.set(chatId, new Set());
+      }
+      const participants = activeGroupCalls.get(chatId)!;
+      const existingParticipants = Array.from(participants);
+      
+      participants.add(userId);
+
+      socket.emit('group-call-participants', { chatId, participants: existingParticipants });
+      socket.to(`call-room-${chatId}`).emit('group-call-user-joined', { chatId, userId });
+    });
+
+    socket.on('group-call-leave', ({ chatId }) => {
+      if (!chatId) return;
+      socket.leave(`call-room-${chatId}`);
+      if (activeGroupCalls.has(chatId)) {
+        const participants = activeGroupCalls.get(chatId)!;
+        participants.delete(userId);
+        if (participants.size === 0) {
+          activeGroupCalls.delete(chatId);
+        }
+      }
+      socket.to(`call-room-${chatId}`).emit('group-call-user-left', { chatId, userId });
     });
 
     socket.on('call-offer', async ({ chatId, signalData, type, targetUserId }) => {
@@ -364,7 +390,6 @@ export function setupSocket(server: HttpServer) {
 
     socket.on('end-call', async ({ chatId, duration, type, isInitiator, targetUserId, isGroup, participantsInfo }) => {
       if (targetUserId) {
-        // Targeted end-call for mesh network (just drop connection)
         chatNamespace.to(targetUserId).emit('call-end', { callerId: userId });
         return;
       }
@@ -378,12 +403,10 @@ export function setupSocket(server: HttpServer) {
       const otherParticipant = chat.participants.find((p: any) => p.userId !== userId);
       if (!otherParticipant && !chat.isGroup) return;
 
-      // Determine who actually initiated the call for the chat history log
       const actualCallerId = isInitiator ? userId : (otherParticipant ? otherParticipant.userId : userId);
       
-      // Log the call as a message
       try {
-        const isMulti = Boolean(isGroup || chat.isGroup);
+        const isMulti = Boolean(isGroup || chat.isGroup || (participantsInfo && participantsInfo.length > 2));
         const content = JSON.stringify({
           action: duration === -1 ? 'MISSED' : 'ENDED',
           duration: duration === -1 ? 0 : duration,
