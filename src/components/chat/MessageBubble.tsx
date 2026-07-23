@@ -3,6 +3,7 @@ import { Check, CheckCheck, Play, Pause, FileText, CornerUpLeft, MapPin, Phone, 
 import { cn } from '@/lib/utils';
 import { motion, useDragControls, AnimatePresence } from 'framer-motion';
 import { useChatStore } from '@/store/useChatStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { CallDetailsModal } from './CallDetailsModal';
 
 const AudioPlayer = ({ src }: { src: string }) => {
@@ -97,6 +98,7 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallClick, highlight, hideInfoOption }: MessageBubbleProps) {
   const { toggleReaction, setMessageForInfo, chats, activeChatId } = useChatStore();
+  const { user: currentUser } = useAuthStore();
   const activeChat = chats.find(c => c.id === activeChatId || c.id === message.chatId);
   const dragControls = useDragControls();
   const msgTime = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -260,6 +262,8 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
               callData={callData} 
               createdAt={message.createdAt}
               onReCall={(type) => onCallClick?.(type, callData)}
+              isMine={isMine}
+              currentUserId={currentUser?.id}
             />
           </>
         );

@@ -157,9 +157,18 @@ export default function CallOverlay() {
   }, [isCalling, isReceivingCall]);
 
   // Sync initial invited user ids when call starts (e.g. from Call Log)
+  // IMPORTANT: We MERGE store IDs into local state, never replace, to avoid losing
+  // participants that were added manually via the "Add Person" button during the call.
   useEffect(() => {
     if (isCalling && storeInvitedUserIds.length > 0) {
-      setInvitedUserIds(storeInvitedUserIds);
+      setInvitedUserIds(prev => {
+        const existing = new Set(prev);
+        const merged = [...prev];
+        storeInvitedUserIds.forEach(id => {
+          if (!existing.has(id)) merged.push(id);
+        });
+        return merged;
+      });
     }
   }, [isCalling, storeInvitedUserIds]);
 

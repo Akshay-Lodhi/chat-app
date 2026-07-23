@@ -22,12 +22,15 @@ interface CallDetailsModalProps {
     type?: 'AUDIO' | 'VIDEO';
     isGroup?: boolean;
     participants?: ParticipantInfo[];
+    initiatorId?: string;
   };
   createdAt: string | Date;
   onReCall?: (type: 'AUDIO' | 'VIDEO') => void;
+  isMine?: boolean;
+  currentUserId?: string;
 }
 
-export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCall }: CallDetailsModalProps) {
+export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCall, isMine, currentUserId }: CallDetailsModalProps) {
   if (!isOpen) return null;
 
   const isVideo = callData.type === 'VIDEO';
@@ -122,8 +125,15 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                           )}
                         </div>
                         <div>
-                          <p className="text-white text-sm font-medium">{p.name}</p>
-                          <p className="text-emerald-400 text-xs font-medium">Joined • Connected</p>
+                          <p className="text-white text-sm font-medium flex items-center gap-1.5">
+                            {p.name}
+                            {currentUserId && p.userId === currentUserId && (
+                              <span className="text-[10px] font-semibold text-white/50 bg-white/10 px-1.5 py-0.5 rounded-full">You</span>
+                            )}
+                          </p>
+                          <p className="text-emerald-400 text-xs font-medium">
+                            {isMine && currentUserId && p.userId === currentUserId ? 'Initiator • Host' : 'Joined • Connected'}
+                          </p>
                         </div>
                       </div>
                       <span className="text-[11px] bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full font-medium">Joined</span>
@@ -152,7 +162,12 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                           )}
                         </div>
                         <div>
-                          <p className="text-white/80 text-sm font-medium">{p.name}</p>
+                          <p className="text-white/80 text-sm font-medium flex items-center gap-1.5">
+                            {p.name}
+                            {currentUserId && p.userId === currentUserId && (
+                              <span className="text-[10px] font-semibold text-white/50 bg-white/10 px-1.5 py-0.5 rounded-full">You</span>
+                            )}
+                          </p>
                           <p className="text-white/40 text-xs">Invited • No Answer</p>
                         </div>
                       </div>

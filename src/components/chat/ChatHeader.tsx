@@ -56,7 +56,10 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
 
   const startCall = (type: 'AUDIO' | 'VIDEO') => {
     useCallStore.setState({ caller: chatName });
-    useCallStore.getState().initiateCall(type, activeChat.id);
+    // For 1-to-1 calls, pass the other participant's ID as the first invited user.
+    // This ensures they always appear on screen even when more people are added later.
+    const initialInvitedIds = otherParticipant ? [otherParticipant.userId] : [];
+    useCallStore.getState().initiateCall(type, activeChat.id, initialInvitedIds);
   };
 
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
