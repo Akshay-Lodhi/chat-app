@@ -42,6 +42,9 @@ export class UserService {
   }
 
   static async blockUser(blockerId: string, blockedId: string) {
+    const targetUser = await prisma.user.findUnique({ where: { id: blockedId } });
+    if (!targetUser) throw new Error('User not found');
+
     return await prisma.blockedUser.upsert({
       where: {
         blockerId_blockedId: {
@@ -83,6 +86,9 @@ export class UserService {
   }
 
   static async reportUser(reporterId: string, reportedId: string, reason?: string) {
+    const targetUser = await prisma.user.findUnique({ where: { id: reportedId } });
+    if (!targetUser) throw new Error('User not found');
+
     return await prisma.report.create({
       data: {
         reporterId,

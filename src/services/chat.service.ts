@@ -45,12 +45,16 @@ export class ChatService {
     let onlineStatuses: Record<string, boolean> = {};
 
     if (uniqueParticipantIds.length > 0) {
-      const redisKeys = uniqueParticipantIds.map(id => `online:${id}`);
-      const redisValues = await redis.mget(...redisKeys);
-      
-      uniqueParticipantIds.forEach((id, index) => {
-        onlineStatuses[id] = redisValues[index] !== null;
-      });
+      try {
+        const redisKeys = uniqueParticipantIds.map(id => `online:${id}`);
+        const redisValues = await redis.mget(...redisKeys);
+        
+        uniqueParticipantIds.forEach((id, index) => {
+          onlineStatuses[id] = redisValues[index] !== null;
+        });
+      } catch (error) {
+        console.error('Failed to fetch online statuses from Redis:', error);
+      }
     }
 
     return chats.map((chat: any) => {
@@ -252,7 +256,10 @@ export class ChatService {
     // We will expand cursor logic in Phase 2
     const messages = await prisma.message.findMany({
       where: { chatId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { createdAt: 'desc' },
+        { id: 'desc' }
+      ],
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       include: { statuses: true, replyTo: true }
