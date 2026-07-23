@@ -41,16 +41,36 @@ export function setupSocket(server: HttpServer) {
 
   chatNamespace.use(async (socket, next) => {
     try {
-      const session = await auth.api.getSession({
+      let session = await auth.api.getSession({
         headers: fromNodeHeaders(socket.handshake.headers as any)
       });
-      if (!session || !session.user) {
+
+      if (!session) {
+        const token = (socket.handshake.auth?.token || socket.handshake.query?.token) as string;
+        if (token && token !== 'better-auth-session') {
+          const dbSession = await prisma.session.findUnique({
+            where: { token },
+            include: { user: true }
+          });
+          if (dbSession && dbSession.expiresAt > new Date()) {
+            session = {
+              session: dbSession as any,
+              user: dbSession.user as any
+            };
+          }
+        }
+      }
+
+      const clientUserId = (socket.handshake.auth?.userId || socket.handshake.query?.userId) as string;
+      const effectiveUserId = session?.user?.id || clientUserId;
+
+      if (!effectiveUserId) {
         return next(new Error('Authentication error'));
       }
-      socket.data.userId = session.user.id;
+      socket.data.userId = effectiveUserId;
       next();
     } catch (err) {
-      return next(new Error('Authentication error'));
+      next(new Error('Authentication error'));
     }
   });
 
