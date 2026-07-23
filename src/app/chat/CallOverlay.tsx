@@ -290,6 +290,15 @@ export default function CallOverlay() {
       }
     };
 
+    const handleActiveCallUpdate = (data: any) => {
+      if (data?.chatId) {
+        useCallStore.getState().setActiveCallInfo(
+          data.chatId, 
+          data.activeCount > 0 ? { chatId: data.chatId, activeCount: data.activeCount, callType: data.callType || 'VIDEO' } : null
+        );
+      }
+    };
+
     socket.on('call-offer', handleCallOffer);
     socket.on('call-answer', handleCallAnswer);
     socket.on('ice-candidate', handleIceCandidate);
@@ -300,6 +309,7 @@ export default function CallOverlay() {
     socket.on('call-room-participants', handleGroupParticipants);
     socket.on('call-room-user-joined', handleGroupUserJoined);
     socket.on('call-room-user-left', handleGroupUserLeft);
+    socket.on('active-call-update', handleActiveCallUpdate);
 
     return () => {
       socket.off('call-offer', handleCallOffer);
@@ -312,6 +322,7 @@ export default function CallOverlay() {
       socket.off('call-room-participants', handleGroupParticipants);
       socket.off('call-room-user-joined', handleGroupUserJoined);
       socket.off('call-room-user-left', handleGroupUserLeft);
+      socket.off('active-call-update', handleActiveCallUpdate);
     };
   }, [socket, createPeer, endCall, removePeer, removeRemoteStream, currentUser]);
 
@@ -331,25 +342,30 @@ export default function CallOverlay() {
 
   const handleEndCall = () => {
     if (socket && activeCallChatId) {
-      socket.emit('leave-call-room', { chatId: activeCallChatId });
-      
-      const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 1));
-      
-      const participantsInfo = allCallParticipants.map(p => ({
-        userId: p.userId,
-        name: p.name,
-        avatar: p.avatar,
-        status: p.stream ? 'JOINED' : 'INVITED'
-      }));
+      const remainingRemoteCount = Object.keys(remoteStreams).length;
 
-      socket.emit('end-call', {
-        chatId: activeCallChatId,
-        duration: isReceivingCall && !isCalling ? -1 : elapsedSeconds,
-        type: callType,
-        isInitiator,
-        isGroup: isMulti,
-        participantsInfo
-      });
+      if (remainingRemoteCount >= 2) {
+        socket.emit('leave-call-room', { chatId: activeCallChatId });
+      } else {
+        const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 1));
+        
+        const participantsInfo = allCallParticipants.map(p => ({
+          userId: p.userId,
+          name: p.name,
+          avatar: p.avatar,
+          status: p.stream ? 'JOINED' : 'INVITED'
+        }));
+
+        socket.emit('end-call', {
+          chatId: activeCallChatId,
+          duration: isReceivingCall && !isCalling ? -1 : elapsedSeconds,
+          type: callType,
+          isInitiator,
+          isGroup: isMulti,
+          participantsInfo
+        });
+      }
+
       if (activeChat?.isGroup) {
         socket.emit('group-call-leave', { chatId: activeCallChatId });
       }

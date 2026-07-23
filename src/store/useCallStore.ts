@@ -111,13 +111,27 @@ export const useCallStore = create<CallState>((set, get) => ({
     });
   },
 
-  initiateCall: (type, chatId, invitedUserIds = []) => set({
-    isCalling: true,
-    isInitiator: true,
-    callType: type,
-    activeCallChatId: chatId,
-    invitedUserIds
-  }),
+  initiateCall: (type, chatId, invitedUserIds = []) => {
+    const { peers, localStream } = get();
+    Object.values(peers).forEach(peer => {
+      try { peer.destroy(); } catch(e) {}
+    });
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+    }
+    set({
+      isCalling: true,
+      isInitiator: true,
+      callType: type,
+      activeCallChatId: chatId,
+      localStream: null,
+      remoteStreams: {},
+      peers: {},
+      pendingOffer: null,
+      callStartTime: null,
+      invitedUserIds
+    });
+  },
 
   joinOngoingCall: (chatId, type) => set({
     isCalling: true,
