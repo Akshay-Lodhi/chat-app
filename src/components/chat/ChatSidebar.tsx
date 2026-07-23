@@ -148,15 +148,27 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                                 const callData = JSON.parse(lastMessage.content || '{}');
                                 const isMissed = callData.duration === 0 || callData.action === 'MISSED';
                                 const isCaller = lastMessage.senderId === user?.id;
+                                
+                                // Proper icon with Red (Missed/Unanswered) or Green (Answered) color
                                 const CallIcon = callData.type === 'VIDEO' ? Video : Phone;
+                                const iconColor = isMissed ? "text-danger" : "text-[#25D366]";
+                                
                                 const isGroupCall = chat.isGroup || callData.isGroup || (callData.participants && callData.participants.length > 2);
-                                const baseLabel = callData.type === 'VIDEO' ? 'Video Call' : 'Voice Call';
-                                const callLabel = isMissed 
-                                  ? (isCaller ? `Unanswered ${isGroupCall ? 'Group Call' : 'Call'}` : `Missed ${isGroupCall ? 'Group Call' : 'Call'}`) 
-                                  : (isGroupCall ? `Group ${baseLabel}` : baseLabel);
-                                return <><CallIcon size={14} className="mr-1 shrink-0" /> {callLabel}</>;
+                                const baseLabel = callData.type === 'VIDEO' ? 'Video call' : 'Voice call';
+                                const callLabel = isGroupCall ? `Group ${baseLabel.toLowerCase()}` : baseLabel;
+                                
+                                return (
+                                  <span className="flex items-center">
+                                    <CallIcon size={14} className={cn("mr-1 shrink-0", iconColor)} />
+                                    {callLabel}
+                                  </span>
+                                );
                               } catch (e) {
-                                return <><Phone size={14} className="mr-1 shrink-0" /> Call log</>;
+                                return (
+                                  <span className="flex items-center">
+                                    <Phone size={14} className="mr-1 shrink-0" /> Call log
+                                  </span>
+                                );
                               }
                             }
                             return lastMessage.content;

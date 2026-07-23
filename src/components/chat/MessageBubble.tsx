@@ -146,9 +146,12 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
     if (msg.type === 'CALL_LOG') {
       try {
         const callData = JSON.parse(msg.content);
-        return callData.type === 'VIDEO' ? '📹 Video Call' : '📞 Voice Call';
+        if (callData.type === 'VIDEO') {
+          return <span className="flex items-center"><Video size={13} className="mr-1 inline" /> Video Call</span>;
+        }
+        return <span className="flex items-center"><Phone size={13} className="mr-1 inline" /> Voice Call</span>;
       } catch (e) {
-        return '📞 Call History';
+        return <span className="flex items-center"><Phone size={13} className="mr-1 inline" /> Call History</span>;
       }
     }
     return msg.content;

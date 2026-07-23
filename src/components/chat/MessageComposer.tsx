@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee } from 'lucide-react';
+import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useChatStore } from '@/store/useChatStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -186,7 +186,17 @@ export function MessageComposer({
                   if (msg.type === 'AUDIO') return '🎤 Voice message';
                   if (msg.type === 'LOCATION') return '📍 Location';
                   if (msg.type === 'DOCUMENT') return '📄 Document';
-                  if (msg.type === 'CALL_LOG') return '📞 Call History';
+                  if (msg.type === 'CALL_LOG') {
+                    try {
+                      const callData = JSON.parse(msg.content);
+                      if (callData.type === 'VIDEO') {
+                        return <span className="flex items-center"><Video size={13} className="mr-1 inline" /> Video Call</span>;
+                      }
+                      return <span className="flex items-center"><Phone size={13} className="mr-1 inline" /> Voice Call</span>;
+                    } catch (e) {
+                      return <span className="flex items-center"><Phone size={13} className="mr-1 inline" /> Call History</span>;
+                    }
+                  }
                   return msg.content;
                 })()}
               </span>

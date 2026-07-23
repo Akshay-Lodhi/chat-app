@@ -901,13 +901,22 @@ export default function CallOverlay() {
                 /* RINGING STATE (NO ONE CONNECTED YET) - AUDIO */
                 <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 pt-16 pb-28">
                   <div className="relative flex items-center justify-center">
-                    <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center relative">
-                      {allCallParticipants[0]?.avatar ? (
-                        <img src={allCallParticipants[0].avatar} alt="" className="w-full h-full object-cover relative z-10" />
-                      ) : (
-                        <span className="text-5xl text-white/90 font-semibold relative z-10">{(allCallParticipants[0]?.name || 'U').charAt(0)}</span>
+                    <div className="flex -space-x-4 mb-2 justify-center">
+                      {allCallParticipants.slice(0, 3).map((p) => (
+                        <div key={p.userId} className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center z-10 relative">
+                          {p.avatar ? (
+                            <img src={p.avatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-5xl text-white/90 font-semibold">{(p.name || 'U').charAt(0)}</span>
+                          )}
+                          <div className="absolute inset-0 rounded-full border border-emerald-500/30 animate-ping" style={{ animationDuration: '2.5s' }} />
+                        </div>
+                      ))}
+                      {allCallParticipants.length > 3 && (
+                        <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full border-4 border-emerald-500/40 shadow-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center z-10 text-3xl font-semibold">
+                          +{allCallParticipants.length - 3}
+                        </div>
                       )}
-                      <div className="absolute inset-0 rounded-full border border-emerald-500/30 animate-ping" style={{ animationDuration: '2.5s' }} />
                     </div>
                   </div>
 
@@ -918,22 +927,22 @@ export default function CallOverlay() {
                     <p className="text-emerald-400 text-xs font-medium">NexusChat Voice Call</p>
                   </div>
                 </div>
-              ) : allCallParticipants.length === 1 ? (
+              ) : gridParticipants.length === 1 ? (
                 /* CONNECTED: SINGLE REMOTE PARTICIPANT (FULL BLEED) */
                 <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
                   {callType === 'VIDEO' ? (
-                    allCallParticipants[0].stream ? (
-                      <VideoPlayer stream={allCallParticipants[0].stream} avatar={allCallParticipants[0].avatar || ''} name={allCallParticipants[0].name || ''} isVideoOff={allCallParticipants[0].isVideoOff} />
+                    gridParticipants[0].stream ? (
+                      <VideoPlayer stream={gridParticipants[0].stream} avatar={gridParticipants[0].avatar || ''} name={gridParticipants[0].name || ''} isVideoOff={gridParticipants[0].isVideoOff} />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a]">
                         <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500/30 shadow-2xl mb-4 flex items-center justify-center bg-surface">
-                          {allCallParticipants[0].avatar ? (
-                            <img src={allCallParticipants[0].avatar} className="w-full h-full object-cover" />
+                          {gridParticipants[0].avatar ? (
+                            <img src={gridParticipants[0].avatar} className="w-full h-full object-cover" />
                           ) : (
-                            <span className="text-5xl text-white font-semibold">{allCallParticipants[0].name.charAt(0)}</span>
+                            <span className="text-5xl text-white font-semibold">{gridParticipants[0].name.charAt(0)}</span>
                           )}
                         </div>
-                        <h3 className="text-white text-xl font-semibold">{allCallParticipants[0].name}</h3>
+                        <h3 className="text-white text-xl font-semibold">{gridParticipants[0].name}</h3>
                         <p className="text-emerald-400 text-xs font-medium animate-pulse mt-1">Connecting...</p>
                       </div>
                     )
@@ -941,36 +950,58 @@ export default function CallOverlay() {
                     /* Audio mode full bleed (same as ringing but without pulse) */
                     <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 pt-16 pb-28 bg-[#0b141a]">
                       <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center">
-                        {allCallParticipants[0].avatar ? (
-                          <img src={allCallParticipants[0].avatar} alt="" className="w-full h-full object-cover" />
+                        {gridParticipants[0].avatar ? (
+                          <img src={gridParticipants[0].avatar} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <span className="text-5xl text-white/90 font-semibold">{allCallParticipants[0].name.charAt(0)}</span>
+                          <span className="text-5xl text-white/90 font-semibold">{gridParticipants[0].name.charAt(0)}</span>
                         )}
                       </div>
                       <div className="space-y-1">
                         <h3 className="text-2xl font-semibold text-white flex items-center justify-center gap-2">
-                          {allCallParticipants[0].name}
-                          {allCallParticipants[0].isMuted && <MicOff size={18} className="text-danger" />}
+                          {gridParticipants[0].name}
+                          {gridParticipants[0].isMuted && <MicOff size={18} className="text-danger" />}
                         </h3>
                         <p className="text-emerald-400 text-xs font-medium">NexusChat Voice Call</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Contact Name Label Badge */}
-                  <div className="absolute top-20 left-4 z-20 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white shadow-lg border border-white/10 flex items-center space-x-2">
-                    <span>{allCallParticipants[0].name}</span>
-                    {allCallParticipants[0].isMuted && <MicOff size={14} className="text-danger" />}
+                  {/* Contact Name Label Badge + Calling Indicators */}
+                  <div className="absolute top-20 left-4 z-20 flex flex-col space-y-2">
+                    <div className="bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white shadow-lg border border-white/10 flex items-center space-x-2 w-max">
+                      <span>{gridParticipants[0].name}</span>
+                      {gridParticipants[0].isMuted && <MicOff size={14} className="text-danger" />}
+                    </div>
+                    {/* Show who else is being called */}
+                    {allCallParticipants.filter(p => p.isConnecting).map(p => (
+                      <div key={p.userId} className="bg-emerald-500/20 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-[11px] font-semibold text-emerald-400 shadow-lg border border-emerald-500/20 flex items-center space-x-2 w-max animate-pulse">
+                        <Phone size={12} className="animate-bounce" />
+                        <span>Calling {p.name}...</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (
                 /* CONNECTED: MULTI PARTICIPANT GRID */
-                <div className={cn(
-                  "w-full h-full grid gap-3 max-w-4xl mx-auto items-center justify-center pt-20 pb-36 px-4",
-                  gridParticipants.length <= 2 && "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1",
-                  (gridParticipants.length === 3 || gridParticipants.length === 4) && "grid-cols-2 grid-rows-2",
-                  gridParticipants.length > 4 && "grid-cols-2 sm:grid-cols-3 overflow-y-auto"
-                )}>
+                <div className="relative w-full h-full flex flex-col pt-20 pb-36 px-4">
+                  {/* Show who else is being called in Grid view */}
+                  {allCallParticipants.some(p => p.isConnecting) && (
+                    <div className="absolute top-20 left-4 z-20 flex flex-col space-y-2">
+                      {allCallParticipants.filter(p => p.isConnecting).map(p => (
+                        <div key={p.userId} className="bg-emerald-500/20 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-[11px] font-semibold text-emerald-400 shadow-lg border border-emerald-500/20 flex items-center space-x-2 w-max animate-pulse">
+                          <Phone size={12} className="animate-bounce" />
+                          <span>Calling {p.name}...</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className={cn(
+                    "w-full h-full grid gap-3 max-w-4xl mx-auto items-center justify-center",
+                    gridParticipants.length <= 2 && "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1",
+                    (gridParticipants.length === 3 || gridParticipants.length === 4) && "grid-cols-2 grid-rows-2",
+                    gridParticipants.length > 4 && "grid-cols-2 sm:grid-cols-3 overflow-y-auto"
+                  )}>
                   {gridParticipants.map((item) => (
                     <div 
                       key={item.userId} 
@@ -1005,6 +1036,7 @@ export default function CallOverlay() {
                       </div>
                     </div>
                   ))}
+                </div>
                 </div>
               )}
 
