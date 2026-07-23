@@ -424,9 +424,10 @@ export default function CallOverlay() {
     }
   };
 
+  // UNIFIED MEDIA INITIALIZATION EFFECT (FOR INITIATOR, RECEIVER & RE-JOINER)
   useEffect(() => {
-    if (isCalling && isInitiator && activeCallChatId && currentUser && Object.keys(peers).length === 0) {
-      const startCall = async () => {
+    if (isCalling && activeCallChatId && currentUser && !localStreamRef.current) {
+      const initializeCallMedia = async () => {
         try {
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             alert('Camera and Microphone access requires a secure connection (HTTPS) or localhost.');
@@ -440,25 +441,29 @@ export default function CallOverlay() {
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
           setLocalStream(stream);
           localStreamRef.current = stream;
+
           if (socket && activeCallChatId) {
             socket.emit('join-call-room', { chatId: activeCallChatId, type: callType });
           }
-          const chat = chats.find(c => c.id === activeCallChatId);
-          if (chat) {
-            if (chat.isGroup) socket?.emit('group-call-join', { chatId: activeCallChatId });
-            chat.participants?.forEach((p: any) => {
-              if (p.userId !== currentUser.id) createPeer(p.userId, stream, true);
-            });
+
+          if (isInitiator) {
+            const chat = chats.find(c => c.id === activeCallChatId);
+            if (chat) {
+              if (chat.isGroup) socket?.emit('group-call-join', { chatId: activeCallChatId });
+              chat.participants?.forEach((p: any) => {
+                if (p.userId !== currentUser.id) createPeer(p.userId, stream, true);
+              });
+            }
           }
         } catch (err) { 
-          console.error('Failed to start call', err);
+          console.error('Failed to initialize call media:', err);
           alert('Failed to access camera/microphone. Please ensure permissions are granted.');
           handleEndCall(); 
         }
       };
-      startCall();
+      initializeCallMedia();
     }
-  }, [isCalling, isInitiator, activeCallChatId, currentUser]);
+  }, [isCalling, isInitiator, activeCallChatId, currentUser, callType]);
 
   const switchCamera = async () => {
     if (callType !== 'VIDEO' || !localStreamRef.current) return;
@@ -605,7 +610,7 @@ export default function CallOverlay() {
       >
         {callType === 'VIDEO' && isConnected ? (
           <div className="w-full h-full relative">
-            <VideoPlayer stream={remoteStreamEntries[0][1]} avatar={allCallParticipants[0]?.avatar || ''} name={allCallParticipants[0]?.name || ''} />
+            <VideoPlayer stream={remoteStreamEntries[0][1]} avatar={allCallParticipants[0]?.avatar || ''} name={allCallParticipants[0]?.name || ''} isVideoOff={allCallParticipants[0]?.isVideoOff} />
             {localStream && (
               <div className="absolute top-2 right-2 w-12 h-16 rounded-lg overflow-hidden border border-white/20 shadow-lg">
                 <VideoPlayer stream={localStream} isLocal isVideoOff={isVideoOff} avatar={currentUser?.profilePicture || ''} name={currentUser?.name || ''} />
