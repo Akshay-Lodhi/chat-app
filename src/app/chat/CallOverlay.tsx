@@ -18,10 +18,11 @@ const AudioPlayer = ({ stream }: { stream: MediaStream }) => {
     let isMounted = true;
     if (audioRef.current && stream) {
       audioRef.current.srcObject = stream;
+      audioRef.current.volume = 1.0;
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch(err => {
-          if (err.name !== 'AbortError' && isMounted) {
+          if (err.name !== 'NotAllowedError' && isMounted) {
             console.error("Audio playback error:", err);
           }
         });
@@ -29,10 +30,18 @@ const AudioPlayer = ({ stream }: { stream: MediaStream }) => {
     }
     return () => { isMounted = false; };
   }, [stream]);
-  return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
+  return <audio ref={audioRef} autoPlay playsInline controls={false} className="hidden" />;
 };
 
-const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false }: { stream: MediaStream; isLocal?: boolean, isVideoOff?: boolean }) => {
+interface VideoPlayerProps {
+  stream: MediaStream;
+  isLocal?: boolean;
+  isVideoOff?: boolean;
+  avatar?: string;
+  name?: string;
+}
+
+const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false, avatar, name }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     let isMounted = true;
@@ -49,12 +58,20 @@ const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false }: { stream: 
     }
     return () => { isMounted = false; };
   }, [stream]);
+
   return (
     <>
       <video ref={videoRef} autoPlay playsInline muted={isLocal} className={cn("w-full h-full object-cover", isVideoOff && "hidden")} />
       {isVideoOff && (
-        <div className="w-full h-full flex items-center justify-center bg-[#1f2c34]">
-          <VideoOff size={32} className="text-text-tertiary" />
+        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a] p-4">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-xl flex items-center justify-center bg-surface">
+            {avatar ? (
+              <img src={avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-3xl font-semibold text-white">{(name || 'U').charAt(0)}</span>
+            )}
+          </div>
+          <span className="text-xs text-white/60 font-medium mt-2">Camera Off</span>
         </div>
       )}
     </>
@@ -314,6 +331,8 @@ export default function CallOverlay() {
 
   const handleEndCall = () => {
     if (socket && activeCallChatId) {
+      socket.emit('leave-call-room', { chatId: activeCallChatId });
+      
       const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 1));
       
       const participantsInfo = allCallParticipants.map(p => ({
@@ -404,7 +423,6 @@ export default function CallOverlay() {
     try {
       const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
       
-      // Stop old video track FIRST to release hardware lock on mobile Android
       if (oldVideoTrack) {
         oldVideoTrack.stop();
       }
@@ -456,14 +474,39 @@ export default function CallOverlay() {
     const list: Array<{ userId: string; name: string; avatar?: string | null; stream?: MediaStream | null; isConnecting?: boolean }> = [];
     const addedIds = new Set<string>();
 
+    const getParticipantInfo = (uId: string) => {
+      const activePart = activeChat?.participants?.find((p: any) => p.userId === uId);
+      if (activePart?.user) {
+        return {
+          name: activePart.user.name || activePart.user.phoneNumber || 'Contact',
+          avatar: activePart.user.profilePicture || null
+        };
+      }
+
+      for (const chat of chats) {
+        const found = chat.participants?.find((p: any) => p.userId === uId);
+        if (found?.user) {
+          return {
+            name: found.user.name || found.user.phoneNumber || 'Contact',
+            avatar: found.user.profilePicture || null
+          };
+        }
+      }
+
+      return {
+        name: caller || 'Participant',
+        avatar: null
+      };
+    };
+
     Object.entries(remoteStreams).forEach(([uId, stream]) => {
       if (!addedIds.has(uId) && uId !== currentUser?.id) {
         addedIds.add(uId);
-        const pUser = chats.flatMap(c => c.participants || []).find((p: any) => p.userId === uId)?.user;
+        const info = getParticipantInfo(uId);
         list.push({
           userId: uId,
-          name: pUser?.name || pUser?.phoneNumber || caller || 'Participant',
-          avatar: pUser?.profilePicture || null,
+          name: info.name,
+          avatar: info.avatar,
           stream,
           isConnecting: false
         });
@@ -473,11 +516,11 @@ export default function CallOverlay() {
     invitedUserIds.forEach((uId) => {
       if (!addedIds.has(uId) && uId !== currentUser?.id) {
         addedIds.add(uId);
-        const pUser = chats.flatMap(c => c.participants || []).find((p: any) => p.userId === uId)?.user;
+        const info = getParticipantInfo(uId);
         list.push({
           userId: uId,
-          name: pUser?.name || pUser?.phoneNumber || 'Invited Contact',
-          avatar: pUser?.profilePicture || null,
+          name: info.name,
+          avatar: info.avatar,
           stream: null,
           isConnecting: true
         });
@@ -488,10 +531,11 @@ export default function CallOverlay() {
       const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id);
       if (other && !addedIds.has(other.userId)) {
         addedIds.add(other.userId);
+        const info = getParticipantInfo(other.userId);
         list.push({
           userId: other.userId,
-          name: other.user?.name || other.user?.phoneNumber || caller || 'Contact',
-          avatar: other.user?.profilePicture || null,
+          name: info.name,
+          avatar: info.avatar,
           stream: null,
           isConnecting: true
         });
@@ -534,10 +578,10 @@ export default function CallOverlay() {
       >
         {callType === 'VIDEO' && isConnected ? (
           <div className="w-full h-full relative">
-            <VideoPlayer stream={remoteStreamEntries[0][1]} />
+            <VideoPlayer stream={remoteStreamEntries[0][1]} avatar={allCallParticipants[0]?.avatar || ''} name={allCallParticipants[0]?.name || ''} />
             {localStream && (
               <div className="absolute top-2 right-2 w-12 h-16 rounded-lg overflow-hidden border border-white/20 shadow-lg">
-                <VideoPlayer stream={localStream} isLocal isVideoOff={isVideoOff} />
+                <VideoPlayer stream={localStream} isLocal isVideoOff={isVideoOff} avatar={currentUser?.profilePicture || ''} name={currentUser?.name || ''} />
               </div>
             )}
           </div>
@@ -706,7 +750,7 @@ export default function CallOverlay() {
               {allCallParticipants.length === 1 && callType === 'VIDEO' ? (
                 <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
                   {allCallParticipants[0].stream ? (
-                    <VideoPlayer stream={allCallParticipants[0].stream} />
+                    <VideoPlayer stream={allCallParticipants[0].stream} avatar={allCallParticipants[0].avatar || ''} name={allCallParticipants[0].name || ''} />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a]">
                       <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500/30 shadow-2xl mb-4 flex items-center justify-center bg-surface">
@@ -763,7 +807,7 @@ export default function CallOverlay() {
                       className="relative w-full h-full bg-[#1f2c34] rounded-2xl overflow-hidden border border-white/10 shadow-xl flex items-center justify-center min-h-[140px]"
                     >
                       {callType === 'VIDEO' && item.stream ? (
-                        <VideoPlayer stream={item.stream} />
+                        <VideoPlayer stream={item.stream} avatar={item.avatar || ''} name={item.name || ''} />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a] p-4">
                           <div className={cn(
@@ -805,7 +849,7 @@ export default function CallOverlay() {
                   style={{ touchAction: 'none' }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <VideoPlayer stream={localStream} isLocal={true} isVideoOff={isVideoOff} />
+                  <VideoPlayer stream={localStream} isLocal={true} isVideoOff={isVideoOff} avatar={currentUser?.profilePicture || ''} name={currentUser?.name || ''} />
                   
                   <button 
                     onClick={switchCamera}
@@ -920,8 +964,12 @@ export default function CallOverlay() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between p-3 rounded-2xl bg-surface/50 border border-surface-border">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-semibold">
-                            {currentUser?.name?.charAt(0) || 'Y'}
+                          <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-semibold overflow-hidden">
+                            {currentUser?.profilePicture ? (
+                              <img src={currentUser.profilePicture} className="w-full h-full object-cover" />
+                            ) : (
+                              currentUser?.name?.charAt(0) || 'Y'
+                            )}
                           </div>
                           <div>
                             <p className="text-white text-sm font-medium">{currentUser?.name || 'You'} (You)</p>
