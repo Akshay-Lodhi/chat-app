@@ -11,11 +11,23 @@ interface WallpaperState {
   chatWallpapers: Record<string, ChatWallpaperConfig>;
   setChatWallpaper: (chatId: string, wallpaper: WallpaperType, customUrl?: string) => void;
   getChatWallpaper: (chatId: string | null) => ChatWallpaperConfig;
+  hydrate: () => void;
 }
 
 export const useWallpaperStore = create<WallpaperState>((set, get) => ({
-  chatWallpapers: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('chat_wallpapers') || '{}')) || {},
+  chatWallpapers: {},
   
+  hydrate: () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = JSON.parse(localStorage.getItem('chat_wallpapers') || '{}');
+        set({ chatWallpapers: stored });
+      } catch (e) {
+        console.error("Failed to parse wallpapers from local storage", e);
+      }
+    }
+  },
+
   setChatWallpaper: (chatId, wallpaper, customUrl = '') => {
     if (!chatId) return;
     const current = get().chatWallpapers;

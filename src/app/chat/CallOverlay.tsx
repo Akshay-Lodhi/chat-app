@@ -5,10 +5,12 @@ import Peer, { Instance } from 'simple-peer';
 import { useCallStore } from '@/store/useCallStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Maximize2, Minimize2, SwitchCamera, X, UserPlus, Check, Users, Lock, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { 
+  Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Maximize2, 
+  SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users 
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
 
 const AudioPlayer = ({ stream }: { stream: MediaStream }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -51,7 +53,7 @@ const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false }: { stream: 
     <>
       <video ref={videoRef} autoPlay playsInline muted={isLocal} className={cn("w-full h-full object-cover", isVideoOff && "hidden")} />
       {isVideoOff && (
-        <div className="w-full h-full flex items-center justify-center bg-[#1a2730]">
+        <div className="w-full h-full flex items-center justify-center bg-[#1f2c34]">
           <VideoOff size={32} className="text-text-tertiary" />
         </div>
       )}
@@ -75,6 +77,7 @@ export default function CallOverlay() {
   const [isPIP, setIsPIP] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [showAddParticipant, setShowAddParticipant] = useState(false);
+  const [showControls, setShowControls] = useState(true);
   const [invitedUserIds, setInvitedUserIds] = useState<string[]>([]);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -181,7 +184,6 @@ export default function CallOverlay() {
       peer.signal(offerSignalData);
     }
 
-    // Flush buffered ICE candidates
     if (pendingIceCandidatesRef.current[targetUserId]) {
       pendingIceCandidatesRef.current[targetUserId].forEach(cand => {
         try { peer.signal(cand); } catch(e) {}
@@ -409,50 +411,34 @@ export default function CallOverlay() {
   const activeChat = chats.find(c => c.id === activeCallChatId);
   const isGroupCall = Boolean((activeChat?.isGroup) || (remoteStreamEntries.length > 1) || (invitedUserIds.length > 1));
 
-  // Complete List of All Participants in the Group/Multi Call (hook must be called unconditionally)
+  // Dynamically calculate only active & connected remote participants (no phantom tiles for passive group members)
   const allCallParticipants = useMemo(() => {
     const list: Array<{ userId: string; name: string; avatar?: string | null; stream?: MediaStream | null; isConnecting?: boolean }> = [];
     const addedIds = new Set<string>();
 
-    if (activeChat?.isGroup) {
-      activeChat.participants?.forEach((p: any) => {
-        if (p.userId !== currentUser?.id) {
-          const stream = remoteStreams[p.userId] || null;
-          addedIds.add(p.userId);
-          list.push({
-            userId: p.userId,
-            name: p.user?.name || p.user?.phoneNumber || 'Group Member',
-            avatar: p.user?.profilePicture || null,
-            stream,
-            isConnecting: !stream
-          });
-        }
-      });
-    }
-
-    // Add any connected remote streams not in group participants
-    Object.keys(remoteStreams).forEach((uId) => {
-      if (!addedIds.has(uId)) {
+    // 1. Add participants with active remote streams
+    Object.entries(remoteStreams).forEach(([uId, stream]) => {
+      if (!addedIds.has(uId) && uId !== currentUser?.id) {
         addedIds.add(uId);
         const pUser = chats.flatMap(c => c.participants || []).find((p: any) => p.userId === uId)?.user;
         list.push({
           userId: uId,
-          name: pUser?.name || pUser?.phoneNumber || 'Contact',
+          name: pUser?.name || pUser?.phoneNumber || caller || 'Participant',
           avatar: pUser?.profilePicture || null,
-          stream: remoteStreams[uId],
+          stream,
           isConnecting: false
         });
       }
     });
 
-    // Add invited users if not yet connected
+    // 2. Add users explicitly invited during this call
     invitedUserIds.forEach((uId) => {
-      if (!addedIds.has(uId)) {
+      if (!addedIds.has(uId) && uId !== currentUser?.id) {
         addedIds.add(uId);
         const pUser = chats.flatMap(c => c.participants || []).find((p: any) => p.userId === uId)?.user;
         list.push({
           userId: uId,
-          name: pUser?.name || pUser?.phoneNumber || 'Invited User',
+          name: pUser?.name || pUser?.phoneNumber || 'Invited Contact',
           avatar: pUser?.profilePicture || null,
           stream: null,
           isConnecting: true
@@ -460,8 +446,23 @@ export default function CallOverlay() {
       }
     });
 
+    // 3. For 1-to-1 calls or group call initial ringing, if list is empty, show the primary contact as connecting
+    if (list.length === 0) {
+      const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id);
+      if (other && !addedIds.has(other.userId)) {
+        addedIds.add(other.userId);
+        list.push({
+          userId: other.userId,
+          name: other.user?.name || other.user?.phoneNumber || caller || 'Contact',
+          avatar: other.user?.profilePicture || null,
+          stream: null,
+          isConnecting: true
+        });
+      }
+    }
+
     return list;
-  }, [activeChat, currentUser, remoteStreams, invitedUserIds, chats]);
+  }, [activeChat, currentUser, remoteStreams, invitedUserIds, chats, caller]);
 
   if (!isCalling && !isReceivingCall) return null;
 
@@ -470,6 +471,7 @@ export default function CallOverlay() {
     const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id);
     return (other as any)?.user?.profilePicture || null;
   };
+
   const getCallName = () => {
     if (activeChat?.isGroup) return activeChat.name || 'Group Call';
     if (isGroupCall) return 'Group Call';
@@ -482,7 +484,7 @@ export default function CallOverlay() {
   const isConnected = remoteStreamEntries.length > 0;
   const timerDisplay = `${Math.floor(elapsedSeconds / 60).toString().padStart(2, '0')}:${(elapsedSeconds % 60).toString().padStart(2, '0')}`;
 
-  // ─── PIP (Picture-in-Picture) Mode ───
+  // PIP Mode
   if (isPIP && isCalling) {
     return (
       <motion.div
@@ -490,14 +492,12 @@ export default function CallOverlay() {
         dragMomentum={false}
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="fixed bottom-24 right-4 z-[200] w-[160px] h-[220px] rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/40 cursor-move bg-black"
+        className="fixed bottom-20 right-4 z-[200] w-[140px] h-[200px] sm:w-[160px] sm:h-[220px] rounded-2xl overflow-hidden shadow-2xl border-2 border-emerald-500/40 cursor-move bg-black select-none"
         style={{ touchAction: 'none' }}
       >
-        {/* Remote Video or Avatar */}
         {callType === 'VIDEO' && isConnected ? (
           <div className="w-full h-full relative">
             <VideoPlayer stream={remoteStreamEntries[0][1]} />
-            {/* Mini local video */}
             {localStream && (
               <div className="absolute top-2 right-2 w-12 h-16 rounded-lg overflow-hidden border border-white/20 shadow-lg">
                 <VideoPlayer stream={localStream} isLocal isVideoOff={isVideoOff} />
@@ -506,22 +506,21 @@ export default function CallOverlay() {
           </div>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a]">
-            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-primary/40 mb-2 flex items-center justify-center bg-surface">
-              {callAvatar ? <img src={callAvatar} className="w-full h-full object-cover" /> : <span className="text-xl text-text-secondary">{callDisplayName.charAt(0)}</span>}
+            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-500/40 mb-2 flex items-center justify-center bg-surface">
+              {callAvatar ? <img src={callAvatar} className="w-full h-full object-cover" /> : <span className="text-xl text-white">{callDisplayName.charAt(0)}</span>}
             </div>
-            <p className="text-white text-xs font-medium truncate max-w-[140px] px-2">{callDisplayName}</p>
+            <p className="text-white text-xs font-medium truncate max-w-[120px] px-2">{callDisplayName}</p>
           </div>
         )}
 
-        {/* PIP bottom bar */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-sm flex items-center justify-between px-3 py-2">
+        <div className="absolute bottom-0 left-0 right-0 bg-black/75 backdrop-blur-md flex items-center justify-between px-2.5 py-1.5">
           <span className="text-white/80 text-[10px] font-mono">{isConnected ? timerDisplay : '...'}</span>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1.5">
             <button onClick={() => setIsPIP(false)} className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
-              <Maximize2 size={14} />
+              <Maximize2 size={13} />
             </button>
-            <button onClick={handleEndCall} className="p-1 rounded-full bg-danger hover:bg-danger/80 text-white transition-colors">
-              <PhoneOff size={14} />
+            <button onClick={handleEndCall} className="p-1 rounded-full bg-danger text-white transition-colors">
+              <PhoneOff size={13} />
             </button>
           </div>
         </div>
@@ -529,14 +528,14 @@ export default function CallOverlay() {
     );
   }
 
-  // ─── Full-Screen Mode ───
+  // Full-Screen Mode
   return (
     <AnimatePresence>
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-[#0b141a] flex flex-col"
+        className="fixed inset-0 z-[100] bg-[#0b141a] flex flex-col select-none overflow-hidden"
       >
         <audio 
           ref={ringtoneRef} 
@@ -545,266 +544,331 @@ export default function CallOverlay() {
           autoPlay={((isReceivingCall && !isCalling) || (isCalling && isInitiator && !callStartTime)) ? true : false}
         />
 
-        {/* Remote audio playback */}
         {remoteStreamEntries.map(([uId, s]) => (
           <AudioPlayer key={uId} stream={s} />
         ))}
         
         {/* ─── Incoming Call Screen ─── */}
         {isReceivingCall && !isCalling && (
-          <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-[#005c4b]/30 via-[#0b141a] to-[#0b141a] relative">
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-80 h-80 rounded-full border border-primary/10 animate-ping" style={{ animationDuration: '3s' }} />
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-60 h-60 rounded-full border border-primary/5 animate-ping" style={{ animationDuration: '2s' }} />
+          <div 
+            className="flex-1 flex flex-col items-center justify-between relative overflow-hidden bg-[#0b141a]"
+            style={{ 
+              paddingTop: 'max(24px, env(safe-area-inset-top))', 
+              paddingBottom: 'max(36px, env(safe-area-inset-bottom))', 
+              paddingLeft: 'max(16px, env(safe-area-inset-left))', 
+              paddingRight: 'max(16px, env(safe-area-inset-right))' 
+            }}
+          >
+            {callAvatar && (
+              <div className="absolute inset-0 z-0 opacity-25 filter blur-3xl scale-125">
+                <img src={callAvatar} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+            
+            <div className="relative z-10 flex flex-col items-center mt-4 text-center space-y-2">
+              <div className="flex items-center space-x-1.5 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 mb-2">
+                <Lock size={12} className="text-emerald-400" />
+                <span className="text-xs text-white/80 font-medium">End-to-end encrypted</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-wide">{callDisplayName}</h2>
+              <p className="text-emerald-400 text-sm font-medium animate-pulse flex items-center gap-2 justify-center">
+                {callType === 'VIDEO' ? <Video size={16} /> : <Phone size={16} />}
+                {callType === 'VIDEO' ? 'Incoming NexusChat video call...' : 'Incoming NexusChat voice call...'}
+              </p>
             </div>
 
-            <div className="relative z-10 flex flex-col items-center space-y-8">
-              <div className="relative">
-                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/30 shadow-[0_0_60px_rgba(0,168,132,0.2)]">
+            <div className="relative z-10 flex items-center justify-center my-auto">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute w-44 h-44 rounded-full border-2 border-emerald-500/30 animate-ping" style={{ animationDuration: '2.5s' }} />
+                <div className="absolute w-56 h-56 rounded-full border border-emerald-500/15 animate-ping" style={{ animationDuration: '3.5s' }} />
+                
+                <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_50px_rgba(0,168,132,0.3)] bg-[#1f2c34] flex items-center justify-center relative z-10">
                   {callAvatar ? (
                     <img src={callAvatar} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-surface flex items-center justify-center">
-                      <span className="text-5xl text-text-secondary">{callDisplayName.charAt(0)}</span>
-                    </div>
+                    <span className="text-6xl text-white/90 font-semibold">{callDisplayName.charAt(0)}</span>
                   )}
                 </div>
               </div>
+            </div>
 
-              <div className="text-center">
-                {isGroupCall && (
-                  <span className="bg-primary/20 text-primary text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">
-                    Group {callType === 'VIDEO' ? 'Video' : 'Voice'} Call
-                  </span>
-                )}
-                <h2 className="text-2xl font-semibold text-white mb-2">{callDisplayName}</h2>
-                <p className="text-primary/90 text-sm font-medium animate-pulse">
-                  {callType === 'VIDEO' ? 'Incoming WhatsApp video call...' : 'Incoming WhatsApp voice call...'}
-                </p>
+            <div className="relative z-10 w-full max-w-xs mx-auto flex items-center justify-around">
+              <div className="flex flex-col items-center space-y-2">
+                <button
+                  onClick={handleEndCall}
+                  className="w-16 h-16 rounded-full bg-danger hover:bg-danger/90 text-white flex items-center justify-center shadow-[0_0_30px_rgba(234,0,56,0.4)] transition-transform active:scale-90 cursor-pointer"
+                >
+                  <PhoneOff size={28} />
+                </button>
+                <span className="text-xs text-white/80 font-medium">Decline</span>
               </div>
 
-              <p className="text-text-tertiary text-xs mt-8">Swipe up to answer</p>
-
-              <div className="flex items-center space-x-12 mt-4">
-                <div className="flex flex-col items-center space-y-2">
-                  <Button size="icon" onClick={handleEndCall} className="w-16 h-16 bg-danger hover:bg-danger/90 rounded-full shadow-[0_0_30px_rgba(234,0,56,0.3)]">
-                    <PhoneOff size={28} />
-                  </Button>
-                  <span className="text-xs text-text-secondary">Decline</span>
-                </div>
-                <div className="flex flex-col items-center space-y-2">
-                  <Button size="icon" onClick={answerCall} className="w-16 h-16 bg-success hover:bg-success/90 rounded-full shadow-[0_0_30px_rgba(48,209,88,0.3)] animate-bounce">
-                    <Phone size={28} />
-                  </Button>
-                  <span className="text-xs text-text-secondary">Accept</span>
-                </div>
+              <div className="flex flex-col items-center space-y-2">
+                <button
+                  onClick={answerCall}
+                  className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-[0_0_30px_rgba(0,168,132,0.4)] transition-transform active:scale-90 animate-bounce cursor-pointer"
+                >
+                  {callType === 'VIDEO' ? <Video size={28} /> : <Phone size={28} />}
+                </button>
+                <span className="text-xs text-white/80 font-medium">Accept</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* ─── Active Call Screen (WhatsApp Mobile Style) ─── */}
+        {/* ─── Active Call Screen ─── */}
         {isCalling && (
-          <div className="flex-1 flex flex-col relative bg-[#0b141a]">
-            
+          <div 
+            className="flex-1 flex flex-col relative bg-[#0b141a] overflow-hidden"
+            onClick={() => setShowControls(prev => !prev)}
+          >
             {/* Top Bar Header */}
-            <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/90 via-black/50 to-transparent p-4 pt-6">
-              <div className="flex items-center justify-between">
-                <button onClick={() => setIsPIP(true)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-sm cursor-pointer">
-                  <ChevronDown size={22} />
+            <div 
+              className={cn(
+                "absolute top-0 left-0 right-0 z-30 transition-all duration-300 bg-gradient-to-b from-black/80 via-black/40 to-transparent p-4 pt-6",
+                !showControls && callType === 'VIDEO' && allCallParticipants.length === 1 && "opacity-0 -translate-y-4 pointer-events-none"
+              )}
+              style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between max-w-4xl mx-auto">
+                <button 
+                  onClick={() => setIsPIP(true)} 
+                  className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-md cursor-pointer"
+                  title="Minimize Call"
+                >
+                  <ChevronDown size={20} />
                 </button>
                 
-                <div className="flex items-center space-x-1.5 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-                  <Lock size={12} className="text-emerald-400" />
-                  <span className="text-xs text-white/90 font-medium">End-to-end encrypted</span>
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center space-x-1.5 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+                    <Lock size={12} className="text-emerald-400" />
+                    <span className="text-xs text-white/90 font-medium">End-to-end encrypted</span>
+                  </div>
+                  <span className="text-xs text-white/70 font-mono mt-1">
+                    {isConnected ? timerDisplay : (isInitiator ? 'Calling...' : 'Ringing...')}
+                  </span>
                 </div>
 
-                <button onClick={() => setShowAddParticipant(true)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-sm cursor-pointer">
+                <button 
+                  onClick={() => setShowAddParticipant(true)} 
+                  className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-md cursor-pointer"
+                  title="Add Person"
+                >
                   <UserPlus size={20} />
                 </button>
               </div>
             </div>
 
-            {/* Main Grid Content Area */}
-            <div ref={videoContainerRef} className="flex-1 relative pt-16 pb-32 px-3 overflow-hidden flex items-center justify-center">
-              {allCallParticipants.length > 0 ? (
-                /* Participant Tiles Grid */
+            {/* Main Content View (1-to-1 or Group Grid) */}
+            <div 
+              ref={videoContainerRef} 
+              className="flex-1 relative pt-20 pb-36 px-4 overflow-hidden flex items-center justify-center"
+            >
+              {/* Single Remote Participant Video Mode */}
+              {allCallParticipants.length === 1 && callType === 'VIDEO' && isConnected ? (
+                <div className="w-full h-full relative flex items-center justify-center rounded-3xl overflow-hidden bg-black">
+                  <VideoPlayer stream={allCallParticipants[0].stream!} />
+
+                  <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-semibold text-white">
+                    {allCallParticipants[0].name}
+                  </div>
+                </div>
+              ) : allCallParticipants.length === 1 && callType === 'AUDIO' ? (
+                /* Single Remote Participant Audio Mode */
+                <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6">
+                  <div className="relative flex items-center justify-center">
+                    {isConnected && (
+                      <div className="absolute w-44 h-44 rounded-full border border-emerald-500/20 animate-pulse" />
+                    )}
+                    <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center">
+                      {allCallParticipants[0].avatar ? (
+                        <img src={allCallParticipants[0].avatar} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-5xl text-white/90 font-semibold">{allCallParticipants[0].name.charAt(0)}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-2xl font-semibold text-white">{allCallParticipants[0].name}</h3>
+                    <p className="text-emerald-400 text-xs font-medium">
+                      {isConnected ? 'NexusChat Voice Call' : (isInitiator ? 'Calling...' : 'Ringing...')}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Multi Participant Grid Layout */
                 <div className={cn(
-                  "w-full h-full grid gap-2.5 max-w-4xl mx-auto",
-                  allCallParticipants.length === 1 && "grid-cols-1 grid-rows-1",
+                  "w-full h-full grid gap-3 max-w-4xl mx-auto items-center justify-center",
                   allCallParticipants.length === 2 && "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1",
                   (allCallParticipants.length === 3 || allCallParticipants.length === 4) && "grid-cols-2 grid-rows-2",
                   allCallParticipants.length > 4 && "grid-cols-2 sm:grid-cols-3 overflow-y-auto"
                 )}>
                   {allCallParticipants.map((item) => (
-                    <div key={item.userId} className="relative w-full h-full bg-[#1f2c34] rounded-2xl overflow-hidden border border-white/10 shadow-lg flex items-center justify-center min-h-[160px]">
-                      {/* Video Player or Profile Picture Avatar */}
+                    <div 
+                      key={item.userId} 
+                      className="relative w-full h-full bg-[#1f2c34] rounded-2xl overflow-hidden border border-white/10 shadow-xl flex items-center justify-center min-h-[140px]"
+                    >
                       {callType === 'VIDEO' && item.stream ? (
                         <VideoPlayer stream={item.stream} />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a]">
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a] p-4">
                           <div className={cn(
-                            "w-20 h-20 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 shadow-xl flex items-center justify-center bg-surface",
-                            item.isConnecting ? "border-primary/40 animate-pulse" : "border-primary/60"
+                            "w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 shadow-lg flex items-center justify-center bg-surface",
+                            item.isConnecting ? "border-emerald-500/30 animate-pulse" : "border-emerald-500/60"
                           )}>
                             {item.avatar ? (
                               <img src={item.avatar} className="w-full h-full object-cover" />
                             ) : (
-                              <span className="text-3xl sm:text-5xl text-white/80 font-semibold">{item.name.charAt(0)}</span>
+                              <span className="text-2xl sm:text-3xl text-white font-semibold">{item.name.charAt(0)}</span>
                             )}
                           </div>
                           {item.isConnecting && (
-                            <p className="text-white/60 text-xs mt-3 animate-pulse">Connecting...</p>
+                            <p className="text-white/60 text-xs mt-2 animate-pulse">Connecting...</p>
                           )}
                         </div>
                       )}
 
-                      {/* Bottom-Left Name Pill (e.g. Aman, Neha, Rahul, Priya) */}
                       <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-semibold text-white shadow-md">
                         {item.name}
                       </div>
 
-                      {/* Bottom-Right Mic Status Badge */}
                       <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white shadow-md">
                         {item.isConnecting ? <MicOff size={14} className="text-white/50" /> : <Mic size={14} className="text-emerald-400" />}
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                /* Connecting Fallback */
-                <div className="w-full h-full flex flex-col items-center justify-center">
-                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/30 shadow-[0_0_60px_rgba(0,168,132,0.2)] mb-4 flex items-center justify-center bg-surface">
-                    {callAvatar ? <img src={callAvatar} className="w-full h-full object-cover" /> : <span className="text-5xl text-white">{callDisplayName.charAt(0)}</span>}
-                  </div>
-                  <h3 className="text-white font-semibold text-lg">{callDisplayName}</h3>
-                  <p className="text-primary text-xs font-medium animate-pulse mt-1">Connecting call...</p>
-                </div>
               )}
 
-              {/* Local User Floating Video PIP (Bottom Right) */}
-              {localStream && (
+              {/* Local Video PIP Window */}
+              {localStream && callType === 'VIDEO' && (
                 <motion.div 
                   drag
                   dragMomentum={false}
                   dragConstraints={videoContainerRef}
                   dragElastic={0.1}
-                  className="absolute bottom-28 right-4 w-[110px] h-[160px] sm:w-[130px] sm:h-[190px] bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 z-20 cursor-move"
+                  className="absolute bottom-32 right-4 w-[110px] h-[160px] sm:w-[130px] sm:h-[190px] bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 z-20 cursor-move"
                   style={{ touchAction: 'none' }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <VideoPlayer stream={localStream} isLocal={true} isVideoOff={isVideoOff} />
                   
-                  {/* Camera switch icon badge */}
-                  {callType === 'VIDEO' && (
-                    <button 
-                      onClick={switchCamera}
-                      className="absolute bottom-2 right-2 p-1.5 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-black/80 transition-colors"
-                      title="Switch Camera"
-                    >
-                      <SwitchCamera size={14} />
-                    </button>
-                  )}
+                  <button 
+                    onClick={switchCamera}
+                    className="absolute bottom-2 right-2 p-1.5 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-black/80 transition-colors"
+                    title="Switch Camera"
+                  >
+                    <SwitchCamera size={14} />
+                  </button>
                 </motion.div>
               )}
             </div>
 
-            {/* Bottom Controls Bar */}
-            <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-12 pb-6 px-4">
-              <div className="flex items-center justify-evenly max-w-md mx-auto">
-                {/* Camera Switch */}
-                {callType === 'VIDEO' && (
-                  <div className="flex flex-col items-center space-y-1">
-                    <button 
+            {/* Bottom Controls Floating Glassmorphism Bar */}
+            <div 
+              className={cn(
+                "absolute bottom-0 left-0 right-0 z-30 transition-all duration-300 pb-4 pt-10 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none",
+                !showControls && callType === 'VIDEO' && allCallParticipants.length === 1 && "opacity-0 translate-y-6"
+              )}
+              style={{ 
+                paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+                paddingLeft: 'max(16px, env(safe-area-inset-left))',
+                paddingRight: 'max(16px, env(safe-area-inset-right))'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="pointer-events-auto max-w-sm sm:max-w-md mx-auto px-2">
+                <div className="bg-black/60 backdrop-blur-xl border border-white/15 rounded-full px-4 py-3 flex items-center justify-evenly shadow-2xl">
+                  {callType === 'VIDEO' && (
+                    <button
                       onClick={switchCamera}
-                      className="w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition-all cursor-pointer"
+                      className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                      title="Switch Camera"
                     >
-                      <SwitchCamera size={22} />
+                      <SwitchCamera size={20} />
                     </button>
-                    <span className="text-[11px] text-white/70 font-medium">Camera</span>
-                  </div>
-                )}
+                  )}
 
-                {/* Video Off toggle */}
-                {callType === 'VIDEO' && (
-                  <div className="flex flex-col items-center space-y-1">
-                    <button 
+                  {callType === 'VIDEO' && (
+                    <button
                       onClick={toggleVideo}
                       className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer",
+                        "w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer",
                         isVideoOff ? "bg-white text-[#0b141a]" : "bg-white/10 text-white hover:bg-white/20"
                       )}
+                      title={isVideoOff ? "Turn Video On" : "Turn Video Off"}
                     >
-                      {isVideoOff ? <VideoOff size={22} /> : <Video size={22} />}
+                      {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
                     </button>
-                    <span className="text-[11px] text-white/70 font-medium">{isVideoOff ? 'Video on' : 'Video off'}</span>
-                  </div>
-                )}
+                  )}
 
-                {/* Mute toggle */}
-                <div className="flex flex-col items-center space-y-1">
-                  <button 
+                  <button
                     onClick={toggleMute}
                     className={cn(
-                      "w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer",
+                      "w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer",
                       isMuted ? "bg-white text-[#0b141a]" : "bg-white/10 text-white hover:bg-white/20"
                     )}
+                    title={isMuted ? "Unmute" : "Mute"}
                   >
-                    {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
+                    {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
                   </button>
-                  <span className="text-[11px] text-white/70 font-medium">{isMuted ? 'Unmute' : 'Mute'}</span>
-                </div>
 
-                {/* More / Info */}
-                <div className="flex flex-col items-center space-y-1">
-                  <button 
+                  <button
                     onClick={() => setShowAddParticipant(true)}
-                    className="w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition-all cursor-pointer"
+                    className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                    title="Add Contact"
                   >
-                    <MoreHorizontal size={22} />
+                    <UserPlus size={20} />
                   </button>
-                  <span className="text-[11px] text-white/70 font-medium">More</span>
-                </div>
 
-                {/* End call */}
-                <div className="flex flex-col items-center space-y-1">
-                  <button 
+                  <button
                     onClick={handleEndCall}
-                    className="w-14 h-14 rounded-full bg-danger hover:bg-danger/80 flex items-center justify-center shadow-[0_0_20px_rgba(234,0,56,0.4)] transition-all active:scale-95 cursor-pointer"
+                    className="w-13 h-13 rounded-full bg-danger hover:bg-danger/90 text-white flex items-center justify-center shadow-[0_0_25px_rgba(234,0,56,0.5)] transition-all active:scale-90 cursor-pointer ml-1"
+                    title="End Call"
                   >
-                    <PhoneOff size={24} className="text-white" />
+                    <PhoneOff size={22} />
                   </button>
-                  <span className="text-[11px] text-white/70 font-medium">End</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Call Info & Add Participant Modal */}
+        {/* ─── Add Participant Modal Sheet ─── */}
         <AnimatePresence>
           {showAddParticipant && (
             <div className="fixed inset-0 z-[250] flex items-end md:items-center justify-center p-0 md:p-4">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowAddParticipant(false)} />
-              <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="bg-[#111b21] border border-surface-border w-full max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden z-10 relative max-h-[80vh] flex flex-col">
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }} 
+                className="fixed inset-0 bg-black/70 backdrop-blur-md" 
+                onClick={() => setShowAddParticipant(false)} 
+              />
+              <motion.div 
+                initial={{ y: '100%' }} 
+                animate={{ y: 0 }} 
+                exit={{ y: '100%' }} 
+                className="bg-[#111b21] border border-surface-border w-full max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden z-10 relative max-h-[80vh] flex flex-col"
+              >
                 <div className="flex items-center justify-between p-4 border-b border-surface-border bg-[#182229]">
                   <div className="flex items-center space-x-2">
-                    <UserPlus size={20} className="text-primary" />
+                    <UserPlus size={20} className="text-emerald-400" />
                     <h3 className="text-white font-medium text-base">Add person to call</h3>
                   </div>
                   <button onClick={() => setShowAddParticipant(false)} className="p-1 rounded-full text-white/60 hover:text-white cursor-pointer"><X size={20} /></button>
                 </div>
                 
-                <div className="p-4 overflow-y-auto flex-1 space-y-3">
+                <div className="p-4 overflow-y-auto flex-1 space-y-4">
                   {/* Connected Section */}
                   <div>
-                    <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">Connected Participants ({remoteStreamEntries.length + 1})</p>
+                    <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">Connected Participants ({remoteStreamEntries.length + 1})</p>
                     <div className="space-y-2">
-                      {/* You */}
                       <div className="flex items-center justify-between p-3 rounded-2xl bg-surface/50 border border-surface-border">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold">
+                          <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-semibold">
                             {currentUser?.name?.charAt(0) || 'Y'}
                           </div>
                           <div>
@@ -812,18 +876,21 @@ export default function CallOverlay() {
                             <p className="text-emerald-400 text-xs font-medium">Active • Speaker</p>
                           </div>
                         </div>
-                        <span className="text-xs bg-primary/20 text-primary px-3 py-1 rounded-full font-medium">You</span>
+                        <span className="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full font-medium">You</span>
                       </div>
 
-                      {/* Remote Connected */}
                       {remoteStreamEntries.map(([userId]) => {
                         const member = chats.flatMap(c => c.participants || []).find((p: any) => p.userId === userId)?.user;
                         const mName = member?.name || member?.phoneNumber || 'Participant';
                         return (
                           <div key={userId} className="flex items-center justify-between p-3 rounded-2xl bg-surface/50 border border-surface-border">
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-semibold">
-                                {mName.charAt(0)}
+                              <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-semibold overflow-hidden">
+                                {member?.profilePicture ? (
+                                  <img src={member.profilePicture} className="w-full h-full object-cover" />
+                                ) : (
+                                  mName.charAt(0)
+                                )}
                               </div>
                               <div>
                                 <p className="text-white text-sm font-medium">{mName}</p>
@@ -837,7 +904,7 @@ export default function CallOverlay() {
                     </div>
                   </div>
 
-                  {/* Add Individual People Section */}
+                  {/* Contacts Section */}
                   <div className="pt-2">
                     <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Invite Contacts</p>
                     <div className="space-y-2">
@@ -873,7 +940,7 @@ export default function CallOverlay() {
                               }}
                               className={cn(
                                 "px-4 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer",
-                                isInvited ? "bg-white/10 text-white/60 cursor-default" : "bg-primary hover:bg-primary-hover text-white"
+                                isInvited ? "bg-white/10 text-white/60 cursor-default" : "bg-emerald-500 hover:bg-emerald-600 text-white"
                               )}
                             >
                               {isInvited ? 'Invited' : 'Add'}

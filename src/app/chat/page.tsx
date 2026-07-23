@@ -90,7 +90,9 @@ export default function ChatPage() {
         sendMessage(activeChatId, '', data.type, data.url, replyingTo?.id || null);
         setReplyingTo(null);
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error('Failed to send media', err);
+    }
   };
 
   const handleSendLocation = () => {
@@ -102,7 +104,10 @@ export default function ChatPage() {
         sendMessage(activeChatId, JSON.stringify({ lat: latitude, lng: longitude }), 'LOCATION', null, replyingTo?.id || null);
         setReplyingTo(null);
       },
-      () => alert('Unable to retrieve location')
+      (error) => {
+        console.error('Location error:', error);
+        alert('Unable to retrieve location');
+      }
     );
   };
 
@@ -119,11 +124,17 @@ export default function ChatPage() {
         sendMessage(activeChatId, '', 'AUDIO', data.url, replyingTo?.id || null);
         setReplyingTo(null);
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error('Failed to send voice', err);
+    }
   };
 
-  const { getChatWallpaper, chatWallpapers } = useWallpaperStore();
+  const { getChatWallpaper, chatWallpapers, hydrate } = useWallpaperStore();
   const activeWallpaper = getChatWallpaper(activeChatId);
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
 
   const getWallpaperClass = (type: string) => {
     switch (type) {
@@ -139,7 +150,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-[100dvh] bg-background text-foreground overflow-hidden relative">
+    <div className="flex h-[100dvh] w-full max-w-[100vw] bg-background text-foreground overflow-hidden relative">
       
       {/* Sidebar Area */}
       <ChatSidebar 

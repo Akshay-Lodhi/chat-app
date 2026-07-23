@@ -66,7 +66,13 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
   return (
-    <div className="h-16 bg-surface-hover flex items-center justify-between px-4 py-2 border-b border-surface-border shrink-0 shadow-sm relative z-10">
+    <div 
+      className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative z-10"
+      style={{
+        paddingLeft: 'max(16px, env(safe-area-inset-left))',
+        paddingRight: 'max(16px, env(safe-area-inset-right))'
+      }}
+    >
       <WallpaperModal isOpen={showWallpaperModal} onClose={() => setShowWallpaperModal(false)} />
       <div className="flex items-center flex-1 min-w-0">
         <button onClick={onBack} className="md:hidden mr-2 p-2 -ml-2 text-text-secondary hover:text-text-primary transition-colors">

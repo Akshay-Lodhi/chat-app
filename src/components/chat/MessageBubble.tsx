@@ -399,8 +399,8 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
             "absolute -bottom-3 flex items-center space-x-1 bg-surface-hover rounded-full px-2 py-0.5 shadow-sm border border-surface-border text-xs",
             isMine ? "right-2" : "left-2"
           )}>
-            {Array.from(new Set(Object.values(message.reactions))).map((r: any, i: number) => (
-              <span key={i}>{r}</span>
+            {Array.from(new Set(Object.values(message.reactions))).map((r: any) => (
+              <span key={r}>{r}</span>
             ))}
             <span className="text-text-secondary ml-1">{Object.keys(message.reactions).length}</span>
           </div>

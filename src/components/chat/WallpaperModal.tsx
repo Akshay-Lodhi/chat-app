@@ -11,8 +11,8 @@ interface WallpaperModalProps {
 }
 
 const PRESETS: { type: WallpaperType; label: string; bgClass: string; color: string }[] = [
-  { type: 'doodle-dark', label: 'Default WhatsApp Dark', bgClass: 'bg-[#0b141a] chat-bg-pattern', color: '#0b141a' },
-  { type: 'doodle-light', label: 'WhatsApp Light Doodle', bgClass: 'bg-[#efeae2] chat-bg-pattern-light text-black', color: '#efeae2' },
+  { type: 'doodle-dark', label: 'Default NexusChat Dark', bgClass: 'bg-[#0b141a] chat-bg-pattern', color: '#0b141a' },
+  { type: 'doodle-light', label: 'NexusChat Light Doodle', bgClass: 'bg-[#efeae2] chat-bg-pattern-light text-black', color: '#efeae2' },
   { type: 'solid-teal', label: 'Emerald Teal', bgClass: 'bg-[#075e54]', color: '#075e54' },
   { type: 'solid-midnight', label: 'Midnight Blue', bgClass: 'bg-[#0d1418]', color: '#0d1418' },
   { type: 'solid-black', label: 'AMOLED Pitch Black', bgClass: 'bg-[#000000]', color: '#000000' },

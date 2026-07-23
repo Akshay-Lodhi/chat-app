@@ -156,7 +156,14 @@ export function MessageComposer({
     }
 
   return (
-    <div className="bg-transparent px-3 py-2 relative shrink-0 z-20">
+    <div 
+      className="bg-transparent py-2 relative shrink-0 z-20 w-full"
+      style={{
+        paddingLeft: 'max(16px, env(safe-area-inset-left))',
+        paddingRight: 'max(20px, env(safe-area-inset-right))',
+        paddingBottom: 'max(8px, env(safe-area-inset-bottom))'
+      }}
+    >
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
 
       {/* Reply Context */}

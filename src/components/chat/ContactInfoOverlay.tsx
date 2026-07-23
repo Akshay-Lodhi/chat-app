@@ -47,7 +47,7 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
   const contactUser = otherParticipant.user;
   const contactName = contactUser?.name || contactUser?.phoneNumber || 'Unknown';
   const contactPhone = contactUser?.phoneNumber || '';
-  const contactAbout = contactUser?.about || 'Hey there! I am using WhatsApp.';
+  const contactAbout = contactUser?.about || 'Hey there! I am using NexusChat.';
 
   return (
     <AnimatePresence>

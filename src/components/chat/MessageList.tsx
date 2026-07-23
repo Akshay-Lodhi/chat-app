@@ -33,13 +33,19 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '' }: Message
   if (!activeChatId) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border">
+    <div 
+      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border"
+      style={{
+        paddingLeft: 'max(16px, env(safe-area-inset-left))',
+        paddingRight: 'max(16px, env(safe-area-inset-right))'
+      }}
+    >
       {/* End-to-End Encryption Notice */}
       <div className="flex justify-center mb-4 px-2">
         <div className="bg-[#182229] border border-[#222d34] rounded-xl px-4 py-2.5 max-w-sm md:max-w-md text-center shadow-sm flex items-start space-x-2">
           <Lock size={13} className="text-[#febd2d] shrink-0 mt-0.5" />
           <p className="text-[11px] text-[#febd2d] leading-normal font-normal">
-            Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. <span className="hover:underline cursor-pointer">Tap to learn more.</span>
+            Messages and calls are end-to-end encrypted. No one outside of this chat, not even NexusChat, can read or listen to them. <span className="hover:underline cursor-pointer">Tap to learn more.</span>
           </p>
         </div>
       </div>

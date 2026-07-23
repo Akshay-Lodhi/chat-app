@@ -17,7 +17,7 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
   const profilePicRef = useRef<HTMLInputElement>(null);
   
   const [editName, setEditName] = useState(user?.name || '');
-  const [editAbout, setEditAbout] = useState(user?.about || 'Hey there! I am using WhatsApp.');
+  const [editAbout, setEditAbout] = useState(user?.about || 'Hey there! I am using NexusChat.');
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
                 />
               </div>
               <p className="text-text-secondary text-xs mt-3 leading-relaxed">
-                This is not your username or pin. This name will be visible to your WhatsApp contacts.
+                This is not your username or pin. This name will be visible to your contacts.
               </p>
             </div>
 
@@ -123,7 +123,7 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
                   onChange={(e) => setEditAbout(e.target.value)}
                   onBlur={() => updateProfile({ about: editAbout })}
                   className="w-full bg-transparent text-text-primary text-lg focus:outline-none pb-2 placeholder-text-tertiary"
-                  placeholder="Hey there! I am using WhatsApp."
+                  placeholder="Hey there! I am using NexusChat."
                 />
               </div>
             </div>
