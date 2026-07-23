@@ -259,66 +259,109 @@ export function setupSocket(server: HttpServer) {
 
     // WebRTC Signaling
     
-    // Server-side state for active group/mesh calls (chatId -> Set of userIds currently connected in the call)
-    const activeGroupCalls = new Map<string, Set<string>>();
+    // Server-side authoritative state for active call rooms
+    interface CallParticipantState {
+      userId: string;
+      name: string;
+      avatar: string | null;
+      status: 'INVITED' | 'RINGING' | 'CONNECTED' | 'LEFT';
+      isMuted: boolean;
+      isVideoOff: boolean;
+    }
 
-    socket.on('join-call-room', ({ chatId, type }) => {
+    interface ServerCallRoom {
+      chatId: string;
+      callType: 'AUDIO' | 'VIDEO';
+      initiatorId: string;
+      participants: Map<string, CallParticipantState>;
+      everJoinedUserIds: Set<string>;
+    }
+
+    const activeCallRooms = new Map<string, ServerCallRoom>();
+
+    const broadcastRoomState = (chatId: string) => {
+      const room = activeCallRooms.get(chatId);
+      if (!room) return;
+      const participantsList = Array.from(room.participants.values());
+      const activeCount = participantsList.filter(p => p.status === 'CONNECTED').length;
+      
+      chatNamespace.to(`call-room-${chatId}`).emit('call-room-state-updated', {
+        chatId,
+        callType: room.callType,
+        participants: participantsList,
+        activeCount
+      });
+
+      chatNamespace.emit('active-call-update', {
+        chatId,
+        activeCount,
+        callType: room.callType
+      });
+    };
+
+    socket.on('join-call-room', async ({ chatId, type }) => {
       if (!chatId) return;
       socket.join(`call-room-${chatId}`);
-      if (!activeGroupCalls.has(chatId)) {
-        activeGroupCalls.set(chatId, new Set());
+
+      let room = activeCallRooms.get(chatId);
+      if (!room) {
+        room = {
+          chatId,
+          callType: type || 'VIDEO',
+          initiatorId: userId,
+          participants: new Map(),
+          everJoinedUserIds: new Set()
+        };
+        activeCallRooms.set(chatId, room);
       }
-      const participants = activeGroupCalls.get(chatId)!;
-      const existingParticipants = Array.from(participants);
-      participants.add(userId);
+
+      const existingParticipants = Array.from(room.participants.keys()).filter(id => room!.participants.get(id)?.status === 'CONNECTED');
+      
+      // Fetch user profile info
+      let userObj = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, phoneNumber: true, profilePicture: true } });
+      const uName = userObj?.name || userObj?.phoneNumber || 'User';
+      const uAvatar = userObj?.profilePicture || null;
+
+      room.participants.set(userId, {
+        userId,
+        name: uName,
+        avatar: uAvatar,
+        status: 'CONNECTED',
+        isMuted: false,
+        isVideoOff: false
+      });
+      room.everJoinedUserIds.add(userId);
 
       socket.emit('call-room-participants', { chatId, participants: existingParticipants });
       socket.to(`call-room-${chatId}`).emit('call-room-user-joined', { chatId, userId });
-      chatNamespace.emit('active-call-update', { chatId, activeCount: participants.size, callType: type || 'VIDEO' });
+      broadcastRoomState(chatId);
     });
 
     socket.on('leave-call-room', ({ chatId }) => {
       if (!chatId) return;
       socket.leave(`call-room-${chatId}`);
-      let remainingCount = 0;
-      if (activeGroupCalls.has(chatId)) {
-        const participants = activeGroupCalls.get(chatId)!;
-        participants.delete(userId);
-        remainingCount = participants.size;
-        if (participants.size === 0) {
-          activeGroupCalls.delete(chatId);
+      const room = activeCallRooms.get(chatId);
+      if (room && room.participants.has(userId)) {
+        room.participants.get(userId)!.status = 'LEFT';
+        const connectedCount = Array.from(room.participants.values()).filter(p => p.status === 'CONNECTED').length;
+        if (connectedCount === 0) {
+          activeCallRooms.delete(chatId);
         }
       }
       socket.to(`call-room-${chatId}`).emit('call-room-user-left', { chatId, userId });
-      chatNamespace.emit('active-call-update', { chatId, activeCount: remainingCount, callType: 'VIDEO' });
+      broadcastRoomState(chatId);
     });
 
-    socket.on('group-call-join', ({ chatId }) => {
+    socket.on('toggle-media-status', ({ chatId, isMuted, isVideoOff }) => {
       if (!chatId) return;
-      socket.join(`call-room-${chatId}`);
-      if (!activeGroupCalls.has(chatId)) {
-        activeGroupCalls.set(chatId, new Set());
+      const room = activeCallRooms.get(chatId);
+      if (room && room.participants.has(userId)) {
+        const p = room.participants.get(userId)!;
+        p.isMuted = Boolean(isMuted);
+        p.isVideoOff = Boolean(isVideoOff);
+        socket.to(`call-room-${chatId}`).emit('participant-media-toggled', { userId, isMuted: p.isMuted, isVideoOff: p.isVideoOff });
+        broadcastRoomState(chatId);
       }
-      const participants = activeGroupCalls.get(chatId)!;
-      const existingParticipants = Array.from(participants);
-      
-      participants.add(userId);
-
-      socket.emit('group-call-participants', { chatId, participants: existingParticipants });
-      socket.to(`call-room-${chatId}`).emit('group-call-user-joined', { chatId, userId });
-    });
-
-    socket.on('group-call-leave', ({ chatId }) => {
-      if (!chatId) return;
-      socket.leave(`call-room-${chatId}`);
-      if (activeGroupCalls.has(chatId)) {
-        const participants = activeGroupCalls.get(chatId)!;
-        participants.delete(userId);
-        if (participants.size === 0) {
-          activeGroupCalls.delete(chatId);
-        }
-      }
-      socket.to(`call-room-${chatId}`).emit('group-call-user-left', { chatId, userId });
     });
 
     socket.on('call-offer', async ({ chatId, signalData, type, targetUserId }) => {
@@ -396,22 +439,23 @@ export function setupSocket(server: HttpServer) {
         return;
       }
 
-      // Check remaining members in active call room
-      const activeMembers = activeGroupCalls.get(chatId);
-      if (activeMembers && activeMembers.size > 1) {
-        // Multi-party call: user is just leaving, other members stay connected!
-        activeMembers.delete(userId);
-        socket.leave(`call-room-${chatId}`);
-        socket.to(`call-room-${chatId}`).emit('call-room-user-left', { chatId, userId });
-        chatNamespace.emit('active-call-update', { chatId, activeCount: activeMembers.size, callType: type || 'VIDEO' });
-        return;
+      const room = activeCallRooms.get(chatId);
+      if (room) {
+        if (room.participants.has(userId)) {
+          room.participants.get(userId)!.status = 'LEFT';
+        }
+        const connectedCount = Array.from(room.participants.values()).filter(p => p.status === 'CONNECTED').length;
+        if (connectedCount > 1) {
+          socket.leave(`call-room-${chatId}`);
+          socket.to(`call-room-${chatId}`).emit('call-room-user-left', { chatId, userId });
+          broadcastRoomState(chatId);
+          return;
+        }
       }
 
-      if (activeMembers) {
-        activeMembers.delete(userId);
-        if (activeMembers.size === 0) {
-          activeGroupCalls.delete(chatId);
-        }
+      const isMultiGroup = Boolean(room ? room.everJoinedUserIds.size > 2 : isGroup);
+      if (room) {
+        activeCallRooms.delete(chatId);
       }
       chatNamespace.emit('active-call-update', { chatId, activeCount: 0, callType: type || 'VIDEO' });
 
@@ -427,13 +471,17 @@ export function setupSocket(server: HttpServer) {
       const actualCallerId = isInitiator ? userId : (otherParticipant ? otherParticipant.userId : userId);
       
       try {
-        const isMulti = Boolean(isGroup || chat.isGroup || (participantsInfo && participantsInfo.length > 2));
+        const finalizedParticipants = (participantsInfo || []).map((p: any) => ({
+          ...p,
+          status: (room && room.everJoinedUserIds.has(p.userId)) ? 'JOINED' : p.status
+        }));
+
         const content = JSON.stringify({
           action: duration === -1 ? 'MISSED' : 'ENDED',
           duration: duration === -1 ? 0 : duration,
           type: type || 'VIDEO',
-          isGroup: isMulti,
-          participants: participantsInfo || []
+          isGroup: isMultiGroup || chat.isGroup,
+          participants: finalizedParticipants
         });
 
         const callLogMsg = await prisma.message.create({
