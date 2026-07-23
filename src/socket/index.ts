@@ -453,7 +453,17 @@ export function setupSocket(server: HttpServer) {
         }
       }
 
-      const isMultiGroup = Boolean(room ? room.everJoinedUserIds.size > 2 : isGroup);
+      const isMultiGroup = Boolean(room ? (room.everJoinedUserIds.size > 2 || room.participants.size > 2) : isGroup);
+      
+      const roomParticipantsList = room && room.participants.size > 0
+        ? Array.from(room.participants.values()).map(p => ({
+            userId: p.userId,
+            name: p.name,
+            avatar: p.avatar,
+            status: room.everJoinedUserIds.has(p.userId) ? 'JOINED' : (p.status === 'CONNECTED' ? 'JOINED' : p.status)
+          }))
+        : (participantsInfo || []);
+
       if (room) {
         activeCallRooms.delete(chatId);
       }
@@ -471,17 +481,12 @@ export function setupSocket(server: HttpServer) {
       const actualCallerId = isInitiator ? userId : (otherParticipant ? otherParticipant.userId : userId);
       
       try {
-        const finalizedParticipants = (participantsInfo || []).map((p: any) => ({
-          ...p,
-          status: (room && room.everJoinedUserIds.has(p.userId)) ? 'JOINED' : p.status
-        }));
-
         const content = JSON.stringify({
           action: duration === -1 ? 'MISSED' : 'ENDED',
           duration: duration === -1 ? 0 : duration,
           type: type || 'VIDEO',
-          isGroup: isMultiGroup || chat.isGroup,
-          participants: finalizedParticipants
+          isGroup: isMultiGroup || chat.isGroup || roomParticipantsList.length > 2,
+          participants: roomParticipantsList
         });
 
         const callLogMsg = await prisma.message.create({
