@@ -280,6 +280,9 @@ export default function CallOverlay() {
     socket.on('group-call-participants', handleGroupParticipants);
     socket.on('group-call-user-joined', handleGroupUserJoined);
     socket.on('group-call-user-left', handleGroupUserLeft);
+    socket.on('call-room-participants', handleGroupParticipants);
+    socket.on('call-room-user-joined', handleGroupUserJoined);
+    socket.on('call-room-user-left', handleGroupUserLeft);
 
     return () => {
       socket.off('call-offer', handleCallOffer);
@@ -289,6 +292,9 @@ export default function CallOverlay() {
       socket.off('group-call-participants', handleGroupParticipants);
       socket.off('group-call-user-joined', handleGroupUserJoined);
       socket.off('group-call-user-left', handleGroupUserLeft);
+      socket.off('call-room-participants', handleGroupParticipants);
+      socket.off('call-room-user-joined', handleGroupUserJoined);
+      socket.off('call-room-user-left', handleGroupUserLeft);
     };
   }, [socket, createPeer, endCall, removePeer, removeRemoteStream, currentUser]);
 
@@ -345,6 +351,9 @@ export default function CallOverlay() {
       setLocalStream(stream);
       localStreamRef.current = stream;
       acceptCall();
+      if (socket && state.activeCallChatId) {
+        socket.emit('join-call-room', { chatId: state.activeCallChatId });
+      }
       createPeer(state.pendingOffer.callerId, stream, false, state.pendingOffer.signalData);
     } catch (err) {
       console.error("Failed to answer call:", err);
@@ -368,6 +377,9 @@ export default function CallOverlay() {
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
           setLocalStream(stream);
           localStreamRef.current = stream;
+          if (socket && activeCallChatId) {
+            socket.emit('join-call-room', { chatId: activeCallChatId });
+          }
           const chat = chats.find(c => c.id === activeCallChatId);
           if (chat) {
             if (chat.isGroup) socket?.emit('group-call-join', { chatId: activeCallChatId });
@@ -976,6 +988,9 @@ export default function CallOverlay() {
                                 if (localStream && !isInvited) {
                                   setInvitedUserIds(prev => [...prev, targetId]);
                                   createPeer(targetId, localStream, true);
+                                  if (socket && activeCallChatId) {
+                                    socket.emit('join-call-room', { chatId: activeCallChatId });
+                                  }
                                 }
                               }}
                               className={cn(
