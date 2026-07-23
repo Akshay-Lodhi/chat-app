@@ -141,27 +141,27 @@ export function MessageComposer({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-    const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
-    const isGroup = activeChat?.isGroup || false;
-    const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id;
-    const otherParticipant = !isGroup && activeChat?.participants.find(p => p.userId !== currentUserId);
-    const isBlocked = otherParticipant ? blockedUsers.some(b => b.blockedId === otherParticipant.userId) : false;
+  const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
+  const isGroup = activeChat?.isGroup || false;
+  const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id;
+  const otherParticipant = !isGroup && activeChat?.participants.find(p => p.userId !== currentUserId);
+  const isBlocked = otherParticipant ? blockedUsers.some(b => b.blockedId === otherParticipant.userId) : false;
 
-    if (isBlocked) {
-      return (
-        <div className="bg-transparent px-4 py-4 relative shrink-0 z-20 flex justify-center text-text-secondary text-sm">
-          You have blocked this contact.
-        </div>
-      );
-    }
+  if (isBlocked) {
+    return (
+      <div className="bg-transparent px-4 py-4 relative shrink-0 z-20 flex justify-center text-text-secondary text-sm">
+        You have blocked this contact.
+      </div>
+    );
+  }
 
   return (
     <div 
-      className="bg-transparent py-2 relative shrink-0 z-20 w-full"
+      className="bg-transparent py-1.5 px-2 sm:px-3 relative shrink-0 z-20 w-full max-w-[100vw] box-border"
       style={{
-        paddingLeft: 'max(16px, env(safe-area-inset-left))',
-        paddingRight: 'max(20px, env(safe-area-inset-right))',
-        paddingBottom: 'max(8px, env(safe-area-inset-bottom))'
+        paddingLeft: 'max(6px, env(safe-area-inset-left))',
+        paddingRight: 'max(6px, env(safe-area-inset-right))',
+        paddingBottom: 'max(6px, env(safe-area-inset-bottom))'
       }}
     >
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
@@ -233,10 +233,10 @@ export function MessageComposer({
         onSelectEmoji={(emoji) => setMessage(prev => prev + emoji)} 
       />
 
-      <form onSubmit={handleSubmit} className="flex items-center space-x-2 relative z-10">
+      <form onSubmit={handleSubmit} className="flex items-center space-x-1.5 relative z-10 w-full min-w-0 flex-nowrap">
         
         {isRecording ? (
-          <div className="flex-1 flex items-center justify-between bg-[#1f2c34] rounded-full px-4 py-2.5 shadow-md">
+          <div className="flex-1 min-w-0 flex items-center justify-between bg-[#1f2c34] rounded-full px-4 py-2.5 shadow-md">
             <div className="flex items-center space-x-3">
               <div className="w-3 h-3 bg-danger rounded-full animate-pulse" />
               <span className="text-danger font-medium text-sm">{formatDuration(recordingDuration)}</span>
@@ -247,7 +247,7 @@ export function MessageComposer({
           </div>
         ) : (
           /* WhatsApp-style Input Pill */
-          <div className="flex-1 bg-[#1f2c34] rounded-full flex items-center px-3 py-1.5 shadow-md min-h-[46px] border border-transparent focus-within:border-primary/30 transition-all">
+          <div className="flex-1 min-w-0 bg-[#1f2c34] rounded-full flex items-center px-2.5 py-1 shadow-md min-h-[44px] border border-transparent focus-within:border-primary/30 transition-all overflow-hidden">
             {/* Smile / Emoji */}
             <button 
               type="button" 
@@ -255,10 +255,10 @@ export function MessageComposer({
                 e.stopPropagation();
                 setShowEmojiPicker(!showEmojiPicker);
               }}
-              className="p-1.5 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0" 
+              className="p-1 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0" 
               title="Emoji"
             >
-              <Smile size={24} />
+              <Smile size={22} />
             </button>
 
             {/* Input field */}
@@ -267,7 +267,7 @@ export function MessageComposer({
               placeholder="Message"
               value={message}
               onChange={handleChange}
-              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 text-[#e9edef] placeholder-[#8696a0] px-2 py-1 text-[15px] leading-normal"
+              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 text-[#e9edef] placeholder-[#8696a0] px-1.5 py-1 text-[15px] leading-normal"
             />
 
             {/* Attach Icon */}
@@ -277,23 +277,23 @@ export function MessageComposer({
                 e.stopPropagation();
                 setShowAttachMenu(!showAttachMenu);
               }} 
-              className="p-1.5 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 rotate-45" 
+              className="p-1 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 rotate-45" 
               title="Attach file"
             >
-              <Paperclip size={22} />
+              <Paperclip size={20} />
             </button>
 
             {/* Rupee Icon (hidden when typing, matching WhatsApp) */}
             {!message.trim() && (
-              <button type="button" className="p-1.5 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex items-center justify-center" title="Payment">
-                <IndianRupee size={20} />
+              <button type="button" className="p-1 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex items-center justify-center" title="Payment">
+                <IndianRupee size={18} />
               </button>
             )}
 
             {/* Camera Icon (hidden when typing, matching WhatsApp) */}
             {!message.trim() && (
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0" title="Camera">
-                <Camera size={22} />
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex" title="Camera">
+                <Camera size={20} />
               </button>
             )}
           </div>
@@ -301,16 +301,16 @@ export function MessageComposer({
 
         {/* WhatsApp Green Standalone Action Circle */}
         {message.trim() ? (
-          <button type="submit" className="w-12 h-12 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shrink-0 shadow-lg transition-transform active:scale-95" title="Send">
-            <Send size={22} className="ml-0.5" />
+          <button type="submit" className="w-11 h-11 shrink-0 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shadow-lg transition-transform active:scale-95 cursor-pointer ml-0.5" title="Send">
+            <Send size={20} className="ml-0.5" />
           </button>
         ) : isRecording ? (
-          <button type="button" onClick={stopRecording} className="w-12 h-12 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shrink-0 shadow-lg transition-transform active:scale-95" title="Send Voice">
-            <Send size={22} className="ml-0.5" />
+          <button type="button" onClick={stopRecording} className="w-11 h-11 shrink-0 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shadow-lg transition-transform active:scale-95 cursor-pointer ml-0.5" title="Send Voice">
+            <Send size={20} className="ml-0.5" />
           </button>
         ) : (
-          <button type="button" onMouseDown={startRecording} className="w-12 h-12 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shrink-0 shadow-lg transition-transform active:scale-95" title="Record Voice">
-            <Mic size={24} />
+          <button type="button" onMouseDown={startRecording} className="w-11 h-11 shrink-0 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shadow-lg transition-transform active:scale-95 cursor-pointer ml-0.5" title="Record Voice">
+            <Mic size={22} />
           </button>
         )}
       </form>
