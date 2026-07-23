@@ -52,15 +52,22 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (isPending) return;
-    if (!session) {
+    const currentUser = useAuthStore.getState().user;
+    
+    // Only redirect if both session AND local persisted user are absent
+    if (!session?.user && !currentUser) {
       router.push('/login');
       return;
     }
-    connectSocket('better-auth-session', session.user.id);
-    fetchChats('better-auth-session');
-    fetchBlockedUsers();
+
+    const effectiveUserId = session?.user?.id || currentUser?.id;
+    if (effectiveUserId) {
+      connectSocket('better-auth-session', effectiveUserId);
+      fetchChats('better-auth-session');
+      fetchBlockedUsers();
+    }
     
-    if (!session.user.name) setShowProfile(true);
+    if (session?.user && !session.user.name) setShowProfile(true);
 
     return () => disconnectSocket();
   }, [session, isPending, connectSocket, disconnectSocket, fetchChats, fetchBlockedUsers, router]);

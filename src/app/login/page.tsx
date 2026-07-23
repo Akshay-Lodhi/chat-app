@@ -48,10 +48,9 @@ export default function LoginPage() {
       if (error) {
         setError(error.message || 'Invalid OTP');
       } else if (data) {
-        // We no longer manually manage tokens since Better Auth sets secure cookies.
-        // We just update the Zustand store with the user data for UI purposes.
         setAuth('better-auth-session', data.user as any);
-        router.push('/chat');
+        // Force full page reload to /chat so Better Auth initializes session with fresh cookies
+        window.location.href = '/chat';
       }
     } catch (err) {
       setError('Network error');
