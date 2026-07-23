@@ -81,7 +81,7 @@ const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false, avatar, name
 export default function CallOverlay() {
   const { 
     isCalling, isReceivingCall, isInitiator, caller, callType, activeCallChatId, 
-    localStream, remoteStreams, peers, callStartTime,
+    localStream, remoteStreams, peers, callStartTime, roomParticipants,
     setLocalStream, addRemoteStream, removeRemoteStream, addPeer, removePeer, acceptCall, endCall 
   } = useCallStore();
   
@@ -283,10 +283,14 @@ export default function CallOverlay() {
     };
 
     const handleGroupUserLeft = (data: any) => {
-      if (data.chatId === activeCallChatIdRef.current && peersRef.current[data.userId]) {
-        peersRef.current[data.userId].destroy();
+      if (data.userId && peersRef.current[data.userId]) {
+        try { peersRef.current[data.userId].destroy(); } catch(e) {}
+        delete peersRef.current[data.userId];
         removePeer(data.userId);
         removeRemoteStream(data.userId);
+      }
+      if (data.userId && pendingIceCandidatesRef.current[data.userId]) {
+        delete pendingIceCandidatesRef.current[data.userId];
       }
     };
 
@@ -296,6 +300,18 @@ export default function CallOverlay() {
           data.chatId, 
           data.activeCount > 0 ? { chatId: data.chatId, activeCount: data.activeCount, callType: data.callType || 'VIDEO' } : null
         );
+      }
+    };
+
+    const handleCallRoomStateUpdated = (data: any) => {
+      if (data?.participants && Array.isArray(data.participants)) {
+        useCallStore.getState().setRoomParticipants(data.participants);
+      }
+    };
+
+    const handleParticipantMediaToggled = (data: { userId: string; isMuted: boolean; isVideoOff: boolean }) => {
+      if (data?.userId) {
+        useCallStore.getState().updateParticipantMedia(data.userId, data.isMuted, data.isVideoOff);
       }
     };
 
@@ -310,6 +326,8 @@ export default function CallOverlay() {
     socket.on('call-room-user-joined', handleGroupUserJoined);
     socket.on('call-room-user-left', handleGroupUserLeft);
     socket.on('active-call-update', handleActiveCallUpdate);
+    socket.on('call-room-state-updated', handleCallRoomStateUpdated);
+    socket.on('participant-media-toggled', handleParticipantMediaToggled);
 
     return () => {
       socket.off('call-offer', handleCallOffer);
@@ -323,20 +341,30 @@ export default function CallOverlay() {
       socket.off('call-room-user-joined', handleGroupUserJoined);
       socket.off('call-room-user-left', handleGroupUserLeft);
       socket.off('active-call-update', handleActiveCallUpdate);
+      socket.off('call-room-state-updated', handleCallRoomStateUpdated);
+      socket.off('participant-media-toggled', handleParticipantMediaToggled);
     };
   }, [socket, createPeer, endCall, removePeer, removeRemoteStream, currentUser]);
 
   const toggleMute = () => {
     if (localStream) {
-      localStream.getAudioTracks().forEach(t => t.enabled = !t.enabled);
-      setIsMuted(!localStream.getAudioTracks()[0].enabled);
+      const newMuted = !isMuted;
+      localStream.getAudioTracks().forEach(t => t.enabled = !newMuted);
+      setIsMuted(newMuted);
+      if (socket && activeCallChatId) {
+        socket.emit('toggle-media-status', { chatId: activeCallChatId, isMuted: newMuted, isVideoOff });
+      }
     }
   };
 
   const toggleVideo = () => {
     if (localStream) {
-      localStream.getVideoTracks().forEach(t => t.enabled = !t.enabled);
-      setIsVideoOff(!localStream.getVideoTracks()[0].enabled);
+      const newVideoOff = !isVideoOff;
+      localStream.getVideoTracks().forEach(t => t.enabled = !newVideoOff);
+      setIsVideoOff(newVideoOff);
+      if (socket && activeCallChatId) {
+        socket.emit('toggle-media-status', { chatId: activeCallChatId, isMuted, isVideoOff: newVideoOff });
+      }
     }
   };
 
@@ -387,7 +415,7 @@ export default function CallOverlay() {
       localStreamRef.current = stream;
       acceptCall();
       if (socket && state.activeCallChatId) {
-        socket.emit('join-call-room', { chatId: state.activeCallChatId });
+        socket.emit('join-call-room', { chatId: state.activeCallChatId, type: state.callType });
       }
       createPeer(state.pendingOffer.callerId, stream, false, state.pendingOffer.signalData);
     } catch (err) {
@@ -413,7 +441,7 @@ export default function CallOverlay() {
           setLocalStream(stream);
           localStreamRef.current = stream;
           if (socket && activeCallChatId) {
-            socket.emit('join-call-room', { chatId: activeCallChatId });
+            socket.emit('join-call-room', { chatId: activeCallChatId, type: callType });
           }
           const chat = chats.find(c => c.id === activeCallChatId);
           if (chat) {
@@ -487,79 +515,62 @@ export default function CallOverlay() {
   const isGroupCall = Boolean((activeChat?.isGroup) || (remoteStreamEntries.length > 1) || (invitedUserIds.length > 1));
 
   const allCallParticipants = useMemo(() => {
-    const list: Array<{ userId: string; name: string; avatar?: string | null; stream?: MediaStream | null; isConnecting?: boolean }> = [];
+    const list: Array<{ userId: string; name: string; avatar?: string | null; stream?: MediaStream | null; isConnecting?: boolean; isMuted?: boolean; isVideoOff?: boolean }> = [];
     const addedIds = new Set<string>();
 
-    const getParticipantInfo = (uId: string) => {
-      const activePart = activeChat?.participants?.find((p: any) => p.userId === uId);
-      if (activePart?.user) {
-        return {
-          name: activePart.user.name || activePart.user.phoneNumber || 'Contact',
-          avatar: activePart.user.profilePicture || null
-        };
-      }
-
-      for (const chat of chats) {
-        const found = chat.participants?.find((p: any) => p.userId === uId);
-        if (found?.user) {
-          return {
-            name: found.user.name || found.user.phoneNumber || 'Contact',
-            avatar: found.user.profilePicture || null
-          };
-        }
-      }
-
-      return {
-        name: caller || 'Participant',
-        avatar: null
-      };
-    };
-
+    // 1. Connected remote streams with server roomParticipants info
     Object.entries(remoteStreams).forEach(([uId, stream]) => {
       if (!addedIds.has(uId) && uId !== currentUser?.id) {
         addedIds.add(uId);
-        const info = getParticipantInfo(uId);
+        const pInfo = roomParticipants[uId];
+        const fallbackChat = chats.flatMap(c => c.participants || []).find((p: any) => p.userId === uId)?.user;
         list.push({
           userId: uId,
-          name: info.name,
-          avatar: info.avatar,
+          name: pInfo?.name || fallbackChat?.name || fallbackChat?.phoneNumber || caller || 'Participant',
+          avatar: pInfo?.avatar || fallbackChat?.profilePicture || null,
           stream,
-          isConnecting: false
+          isConnecting: false,
+          isMuted: pInfo?.isMuted || false,
+          isVideoOff: pInfo?.isVideoOff || false
         });
       }
     });
 
-    invitedUserIds.forEach((uId) => {
-      if (!addedIds.has(uId) && uId !== currentUser?.id) {
-        addedIds.add(uId);
-        const info = getParticipantInfo(uId);
+    // 2. Authoritative server room participants (EXCLUDE ANY WITH STATUS === 'LEFT')
+    Object.values(roomParticipants).forEach((pInfo) => {
+      if (!addedIds.has(pInfo.userId) && pInfo.userId !== currentUser?.id && pInfo.status !== 'LEFT') {
+        addedIds.add(pInfo.userId);
         list.push({
-          userId: uId,
-          name: info.name,
-          avatar: info.avatar,
+          userId: pInfo.userId,
+          name: pInfo.name,
+          avatar: pInfo.avatar,
           stream: null,
-          isConnecting: true
+          isConnecting: pInfo.status === 'INVITED' || pInfo.status === 'RINGING',
+          isMuted: pInfo.isMuted,
+          isVideoOff: pInfo.isVideoOff
         });
       }
     });
 
+    // 3. Fallback for 1-to-1 initial ringing before room state is populated
     if (list.length === 0) {
       const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id);
       if (other && !addedIds.has(other.userId)) {
         addedIds.add(other.userId);
-        const info = getParticipantInfo(other.userId);
         list.push({
           userId: other.userId,
-          name: info.name,
-          avatar: info.avatar,
+          name: other.user?.name || other.user?.phoneNumber || caller || 'Contact',
+          avatar: other.user?.profilePicture || null,
           stream: null,
-          isConnecting: true
+          isConnecting: true,
+          isMuted: false,
+          isVideoOff: false
         });
       }
     }
 
     return list;
-  }, [activeChat, currentUser, remoteStreams, invitedUserIds, chats, caller]);
+  }, [activeChat, currentUser, remoteStreams, roomParticipants, chats, caller]);
 
   if (!isCalling && !isReceivingCall) return null;
 
@@ -766,7 +777,7 @@ export default function CallOverlay() {
               {allCallParticipants.length === 1 && callType === 'VIDEO' ? (
                 <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
                   {allCallParticipants[0].stream ? (
-                    <VideoPlayer stream={allCallParticipants[0].stream} avatar={allCallParticipants[0].avatar || ''} name={allCallParticipants[0].name || ''} />
+                    <VideoPlayer stream={allCallParticipants[0].stream} avatar={allCallParticipants[0].avatar || ''} name={allCallParticipants[0].name || ''} isVideoOff={allCallParticipants[0].isVideoOff} />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a]">
                       <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500/30 shadow-2xl mb-4 flex items-center justify-center bg-surface">
@@ -782,8 +793,9 @@ export default function CallOverlay() {
                   )}
 
                   {/* Contact Name Label Badge */}
-                  <div className="absolute top-20 left-4 z-20 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white shadow-lg border border-white/10">
-                    {allCallParticipants[0].name}
+                  <div className="absolute top-20 left-4 z-20 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white shadow-lg border border-white/10 flex items-center space-x-2">
+                    <span>{allCallParticipants[0].name}</span>
+                    {allCallParticipants[0].isMuted && <MicOff size={14} className="text-danger" />}
                   </div>
                 </div>
               ) : allCallParticipants.length === 1 && callType === 'AUDIO' ? (
@@ -803,7 +815,10 @@ export default function CallOverlay() {
                   </div>
 
                   <div className="space-y-1">
-                    <h3 className="text-2xl font-semibold text-white">{allCallParticipants[0].name}</h3>
+                    <h3 className="text-2xl font-semibold text-white flex items-center justify-center gap-2">
+                      {allCallParticipants[0].name}
+                      {allCallParticipants[0].isMuted && <MicOff size={18} className="text-danger" />}
+                    </h3>
                     <p className="text-emerald-400 text-xs font-medium">
                       {isConnected ? 'NexusChat Voice Call' : (isInitiator ? 'Calling...' : 'Ringing...')}
                     </p>
@@ -823,7 +838,7 @@ export default function CallOverlay() {
                       className="relative w-full h-full bg-[#1f2c34] rounded-2xl overflow-hidden border border-white/10 shadow-xl flex items-center justify-center min-h-[140px]"
                     >
                       {callType === 'VIDEO' && item.stream ? (
-                        <VideoPlayer stream={item.stream} avatar={item.avatar || ''} name={item.name || ''} />
+                        <VideoPlayer stream={item.stream} avatar={item.avatar || ''} name={item.name || ''} isVideoOff={item.isVideoOff} />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a] p-4">
                           <div className={cn(
@@ -847,7 +862,7 @@ export default function CallOverlay() {
                       </div>
 
                       <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white shadow-md">
-                        {item.isConnecting ? <MicOff size={14} className="text-white/50" /> : <Mic size={14} className="text-emerald-400" />}
+                        {item.isMuted ? <MicOff size={14} className="text-danger" /> : <Mic size={14} className="text-emerald-400" />}
                       </div>
                     </div>
                   ))}
@@ -1053,7 +1068,7 @@ export default function CallOverlay() {
                                   setInvitedUserIds(prev => [...prev, targetId]);
                                   createPeer(targetId, localStream, true);
                                   if (socket && activeCallChatId) {
-                                    socket.emit('join-call-room', { chatId: activeCallChatId });
+                                    socket.emit('join-call-room', { chatId: activeCallChatId, type: callType });
                                   }
                                 }
                               }}

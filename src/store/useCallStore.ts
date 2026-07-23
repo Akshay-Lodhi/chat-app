@@ -7,6 +7,15 @@ export interface ActiveCallInfo {
   callType: 'AUDIO' | 'VIDEO';
 }
 
+export interface ParticipantInfo {
+  userId: string;
+  name: string;
+  avatar: string | null;
+  status: 'INVITED' | 'RINGING' | 'CONNECTED' | 'LEFT';
+  isMuted: boolean;
+  isVideoOff: boolean;
+}
+
 interface CallState {
   isCalling: boolean;
   isReceivingCall: boolean;
@@ -21,6 +30,7 @@ interface CallState {
   callStartTime: number | null;
   invitedUserIds: string[];
 
+  roomParticipants: Record<string, ParticipantInfo>;
   activeCalls: Record<string, ActiveCallInfo>;
 
   setIncomingCall: (caller: any, callType: 'AUDIO' | 'VIDEO', chatId: string, offer: any) => void;
@@ -29,6 +39,8 @@ interface CallState {
   removeRemoteStream: (userId: string) => void;
   addPeer: (userId: string, peer: Instance) => void;
   removePeer: (userId: string) => void;
+  setRoomParticipants: (participants: ParticipantInfo[]) => void;
+  updateParticipantMedia: (userId: string, isMuted: boolean, isVideoOff: boolean) => void;
   setCallStartTime: (time: number | null) => void;
   acceptCall: () => void;
   endCall: () => void;
@@ -50,6 +62,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   pendingOffer: null,
   callStartTime: null,
   invitedUserIds: [],
+  roomParticipants: {},
   activeCalls: {},
 
   setIncomingCall: (caller, callType, chatId, offer) => set({
@@ -81,6 +94,28 @@ export const useCallStore = create<CallState>((set, get) => ({
     }
     return { peers: newPeers };
   }),
+
+  setRoomParticipants: (participants) => set(() => {
+    const map: Record<string, ParticipantInfo> = {};
+    participants.forEach(p => {
+      map[p.userId] = p;
+    });
+    return { roomParticipants: map };
+  }),
+
+  updateParticipantMedia: (userId, isMuted, isVideoOff) => set((state) => {
+    if (!state.roomParticipants[userId]) return state;
+    return {
+      roomParticipants: {
+        ...state.roomParticipants,
+        [userId]: {
+          ...state.roomParticipants[userId],
+          isMuted,
+          isVideoOff
+        }
+      }
+    };
+  }),
   
   setCallStartTime: (time) => set({ callStartTime: time }),
 
@@ -107,7 +142,8 @@ export const useCallStore = create<CallState>((set, get) => ({
       peers: {},
       pendingOffer: null,
       callStartTime: null,
-      invitedUserIds: []
+      invitedUserIds: [],
+      roomParticipants: {}
     });
   },
 
@@ -129,7 +165,8 @@ export const useCallStore = create<CallState>((set, get) => ({
       peers: {},
       pendingOffer: null,
       callStartTime: null,
-      invitedUserIds
+      invitedUserIds,
+      roomParticipants: {}
     });
   },
 
