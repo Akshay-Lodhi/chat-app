@@ -4,7 +4,6 @@ import { useChatStore } from '@/store/useChatStore';
 import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 import { authClient } from '@/lib/auth';
 
@@ -86,6 +85,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
           const otherParticipant = chat.isGroup ? null : (chat.participants.find((p: any) => p.userId !== user?.id) || chat.participants[0]);
           const isOnline = otherParticipant ? onlineUsers[otherParticipant.userId] : false;
           const typingStatus = typingStatuses[chat.id];
+          const unreadCount = chat.unreadCount || 0;
 
           let chatName = chat.name;
           let chatImage = chat.groupPicture;
@@ -114,53 +114,64 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                 <div className="flex justify-between items-center mb-1">
                   <h2 className="text-base font-medium text-text-primary truncate">{chatName}</h2>
                   {lastMessage && (
-                    <span className="text-xs text-text-secondary whitespace-nowrap ml-2">
+                    <span className={cn(
+                      "text-xs whitespace-nowrap ml-2 font-mono",
+                      unreadCount > 0 ? "text-[#25D366] font-semibold" : "text-text-secondary"
+                    )}>
                       {new Date(lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
                 </div>
                 
-                <div className="flex items-center text-sm text-text-secondary">
-                  {typingStatus?.isTyping ? (
-                    <span className="text-primary animate-pulse">typing...</span>
-                  ) : lastMessage ? (
-                    <div className="flex items-center space-x-1 overflow-hidden">
-                      {lastMessage.senderId === user?.id && (
-                        <span className="mr-1">
-                          {lastMessage.status === 'READ' ? <CheckCheck size={16} className="text-[#53bdeb]" /> :
-                           lastMessage.status === 'DELIVERED' ? <CheckCheck size={16} className="text-text-secondary" /> :
-                           <Check size={16} className="text-text-secondary" />}
-                        </span>
-                      )}
-                      <span className="truncate flex items-center">
-                        {(() => {
-                          if (lastMessage.type === 'IMAGE') return <><ImageIcon size={14} className="mr-1" /> Photo</>;
-                          if (lastMessage.type === 'VIDEO') return <><Video size={14} className="mr-1" /> Video</>;
-                          if (lastMessage.type === 'AUDIO') return <><Mic size={14} className="mr-1" /> Voice message</>;
-                          if (lastMessage.type === 'LOCATION') return <><MapPin size={14} className="mr-1" /> Location</>;
-                          if (lastMessage.type === 'DOCUMENT') return <><FileText size={14} className="mr-1" /> Document</>;
-                          if (lastMessage.type === 'CALL_LOG') {
-                            try {
-                              const callData = JSON.parse(lastMessage.content || '{}');
-                              const isMissed = callData.duration === 0 || callData.action === 'MISSED';
-                              const isCaller = lastMessage.senderId === user?.id;
-                              const CallIcon = callData.type === 'VIDEO' ? Video : Phone;
-                              const isGroupCall = chat.isGroup || callData.isGroup;
-                              const baseLabel = callData.type === 'VIDEO' ? 'Video Call' : 'Voice Call';
-                              const callLabel = isMissed 
-                                ? (isCaller ? `Unanswered ${isGroupCall ? 'Group Call' : 'Call'}` : `Missed ${isGroupCall ? 'Group Call' : 'Call'}`) 
-                                : (isGroupCall ? `Group ${baseLabel}` : baseLabel);
-                              return <><CallIcon size={14} className="mr-1" /> {callLabel}</>;
-                            } catch (e) {
-                              return <><Phone size={14} className="mr-1" /> Call log</>;
+                <div className="flex items-center justify-between text-sm text-text-secondary">
+                  <div className="flex items-center space-x-1 overflow-hidden flex-1 min-w-0 pr-1">
+                    {typingStatus?.isTyping ? (
+                      <span className="text-[#25D366] font-medium animate-pulse">typing...</span>
+                    ) : lastMessage ? (
+                      <div className="flex items-center space-x-1 overflow-hidden">
+                        {lastMessage.senderId === user?.id && (
+                          <span className="mr-1 shrink-0">
+                            {lastMessage.status === 'READ' ? <CheckCheck size={16} className="text-[#53bdeb]" /> :
+                             lastMessage.status === 'DELIVERED' ? <CheckCheck size={16} className="text-text-secondary" /> :
+                             <Check size={16} className="text-text-secondary" />}
+                          </span>
+                        )}
+                        <span className="truncate flex items-center">
+                          {(() => {
+                            if (lastMessage.type === 'IMAGE') return <><ImageIcon size={14} className="mr-1 shrink-0" /> Photo</>;
+                            if (lastMessage.type === 'VIDEO') return <><Video size={14} className="mr-1 shrink-0" /> Video</>;
+                            if (lastMessage.type === 'AUDIO') return <><Mic size={14} className="mr-1 shrink-0" /> Voice message</>;
+                            if (lastMessage.type === 'LOCATION') return <><MapPin size={14} className="mr-1 shrink-0" /> Location</>;
+                            if (lastMessage.type === 'DOCUMENT') return <><FileText size={14} className="mr-1 shrink-0" /> Document</>;
+                            if (lastMessage.type === 'CALL_LOG') {
+                              try {
+                                const callData = JSON.parse(lastMessage.content || '{}');
+                                const isMissed = callData.duration === 0 || callData.action === 'MISSED';
+                                const isCaller = lastMessage.senderId === user?.id;
+                                const CallIcon = callData.type === 'VIDEO' ? Video : Phone;
+                                const isGroupCall = chat.isGroup || callData.isGroup || (callData.participants && callData.participants.length > 2);
+                                const baseLabel = callData.type === 'VIDEO' ? 'Video Call' : 'Voice Call';
+                                const callLabel = isMissed 
+                                  ? (isCaller ? `Unanswered ${isGroupCall ? 'Group Call' : 'Call'}` : `Missed ${isGroupCall ? 'Group Call' : 'Call'}`) 
+                                  : (isGroupCall ? `Group ${baseLabel}` : baseLabel);
+                                return <><CallIcon size={14} className="mr-1 shrink-0" /> {callLabel}</>;
+                              } catch (e) {
+                                return <><Phone size={14} className="mr-1 shrink-0" /> Call log</>;
+                              }
                             }
-                          }
-                          return lastMessage.content;
-                        })()}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="italic">No messages yet</span>
+                            return lastMessage.content;
+                          })()}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="italic">No messages yet</span>
+                    )}
+                  </div>
+
+                  {unreadCount > 0 && (
+                    <span className="ml-2 shrink-0 bg-[#25D366] text-[#111b21] text-xs font-bold px-1.5 min-w-[20px] h-5 rounded-full flex items-center justify-center shadow-sm">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
                   )}
                 </div>
               </div>

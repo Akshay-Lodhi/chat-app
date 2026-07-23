@@ -375,7 +375,7 @@ export default function CallOverlay() {
       if (remainingRemoteCount >= 2) {
         socket.emit('leave-call-room', { chatId: activeCallChatId });
       } else {
-        const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 1));
+        const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 1) || Object.keys(roomParticipants).length > 2);
         
         const participantsInfo = allCallParticipants.map(p => ({
           userId: p.userId,
@@ -463,7 +463,7 @@ export default function CallOverlay() {
       };
       initializeCallMedia();
     }
-  }, [isCalling, isInitiator, activeCallChatId, currentUser, callType]);
+  }, [isCalling, isInitiator, activeCallChatId, currentUser, callType, chats, createPeer, setLocalStream, socket]);
 
   const switchCamera = async () => {
     if (callType !== 'VIDEO' || !localStreamRef.current) return;
@@ -517,7 +517,18 @@ export default function CallOverlay() {
 
   const remoteStreamEntries = Object.entries(remoteStreams);
   const activeChat = chats.find(c => c.id === activeCallChatId);
-  const isGroupCall = Boolean((activeChat?.isGroup) || (remoteStreamEntries.length > 1) || (invitedUserIds.length > 1));
+
+  const isGroupCall = useMemo(() => {
+    const roomParticipantCount = Object.keys(roomParticipants).length;
+    const everJoinedCount = Object.values(roomParticipants).filter(p => p.status === 'CONNECTED' || p.status === 'LEFT').length;
+    return Boolean(
+      activeChat?.isGroup || 
+      remoteStreamEntries.length > 1 || 
+      invitedUserIds.length > 0 || 
+      roomParticipantCount > 2 ||
+      everJoinedCount > 2
+    );
+  }, [activeChat, remoteStreamEntries, invitedUserIds, roomParticipants]);
 
   const allCallParticipants = useMemo(() => {
     const list: Array<{ userId: string; name: string; avatar?: string | null; stream?: MediaStream | null; isConnecting?: boolean; isMuted?: boolean; isVideoOff?: boolean }> = [];
@@ -739,7 +750,7 @@ export default function CallOverlay() {
             <div 
               className={cn(
                 "absolute top-0 left-0 right-0 z-30 transition-all duration-300 bg-gradient-to-b from-black/80 via-black/40 to-transparent p-4 pt-6",
-                !showControls && callType === 'VIDEO' && allCallParticipants.length === 1 && "opacity-0 -translate-y-4 pointer-events-none"
+                !showControls && callType === 'VIDEO' && allCallParticipants.length === 1 && !isGroupCall && "opacity-0 -translate-y-4 pointer-events-none"
               )}
               style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
               onClick={(e) => e.stopPropagation()}
@@ -778,8 +789,8 @@ export default function CallOverlay() {
               ref={videoContainerRef} 
               className="flex-1 relative w-full h-full overflow-hidden flex items-center justify-center"
             >
-              {/* Single Remote Participant Video Mode (FULL BLEED) */}
-              {allCallParticipants.length === 1 && callType === 'VIDEO' ? (
+              {/* Single Remote Participant Video Mode (FULL BLEED FOR 1-TO-1 ONLY) */}
+              {!isGroupCall && allCallParticipants.length === 1 && callType === 'VIDEO' ? (
                 <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
                   {allCallParticipants[0].stream ? (
                     <VideoPlayer stream={allCallParticipants[0].stream} avatar={allCallParticipants[0].avatar || ''} name={allCallParticipants[0].name || ''} isVideoOff={allCallParticipants[0].isVideoOff} />
@@ -803,7 +814,7 @@ export default function CallOverlay() {
                     {allCallParticipants[0].isMuted && <MicOff size={14} className="text-danger" />}
                   </div>
                 </div>
-              ) : allCallParticipants.length === 1 && callType === 'AUDIO' ? (
+              ) : !isGroupCall && allCallParticipants.length === 1 && callType === 'AUDIO' ? (
                 /* Single Remote Participant Audio Mode */
                 <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 pt-16 pb-28">
                   <div className="relative flex items-center justify-center">
@@ -833,7 +844,7 @@ export default function CallOverlay() {
                 /* Multi Participant Grid Layout */
                 <div className={cn(
                   "w-full h-full grid gap-3 max-w-4xl mx-auto items-center justify-center pt-20 pb-36 px-4",
-                  allCallParticipants.length === 2 && "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1",
+                  allCallParticipants.length <= 2 && "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1",
                   (allCallParticipants.length === 3 || allCallParticipants.length === 4) && "grid-cols-2 grid-rows-2",
                   allCallParticipants.length > 4 && "grid-cols-2 sm:grid-cols-3 overflow-y-auto"
                 )}>
@@ -902,7 +913,7 @@ export default function CallOverlay() {
             <div 
               className={cn(
                 "absolute bottom-0 left-0 right-0 z-30 transition-all duration-300 pb-4 pt-10 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none",
-                !showControls && callType === 'VIDEO' && allCallParticipants.length === 1 && "opacity-0 translate-y-6"
+                !showControls && callType === 'VIDEO' && allCallParticipants.length === 1 && !isGroupCall && "opacity-0 translate-y-6"
               )}
               style={{ 
                 paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
