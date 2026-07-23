@@ -143,7 +143,14 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
     if (msg.type === 'AUDIO') return '🎤 Voice message';
     if (msg.type === 'LOCATION') return '📍 Location';
     if (msg.type === 'DOCUMENT') return '📄 Document';
-    if (msg.type === 'CALL_LOG') return '📞 Call History';
+    if (msg.type === 'CALL_LOG') {
+      try {
+        const callData = JSON.parse(msg.content);
+        return callData.type === 'VIDEO' ? '📹 Video Call' : '📞 Voice Call';
+      } catch (e) {
+        return '📞 Call History';
+      }
+    }
     return msg.content;
   };
 
@@ -291,13 +298,14 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
         {/* Reply Context */}
         {message.replyToId && (
           <div className={cn(
-            "rounded-lg p-2 mb-2 text-xs flex flex-col border-l-4",
+            "relative overflow-hidden rounded-r-xl rounded-l-md p-2.5 mb-2 text-xs flex flex-col border-l-[4px] transition-colors hover:bg-black/30",
             isMine 
               ? "bg-black/20 border-[#06cf9c]" 
-              : "bg-black/25 border-[#00a884]"
+              : "bg-black/20 border-[#00a884]"
           )}>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent pointer-events-none" />
             <span className={cn(
-              "font-medium text-[11px] mb-0.5",
+              "font-semibold text-[11px] mb-1 relative z-10",
               isMine ? "text-[#06cf9c]" : "text-[#00a884]"
             )}>
               {message.replyTo?.senderId === message.senderId 
@@ -305,8 +313,8 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
                 : (message.replyTo?.sender?.name || 'Replied Message')}
             </span>
             <span className={cn(
-              "truncate max-w-[240px]",
-              isMine ? "text-white/90" : "text-[#e9edef]/90"
+              "truncate max-w-[250px] relative z-10 text-[13px]",
+              isMine ? "text-white/95" : "text-[#e9edef]/95"
             )}>
               {getReplyPreview(message.replyTo)}
             </span>

@@ -7,7 +7,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { 
   Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Maximize2, 
-  SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users 
+  SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users, BellRing 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -95,8 +95,20 @@ export default function CallOverlay() {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  
+  const storeInvitedUserIds = useCallStore(state => state.invitedUserIds);
   const [invitedUserIds, setInvitedUserIds] = useState<string[]>([]);
   const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-hide controls timer
+  useEffect(() => {
+    const hasRemote = Object.keys(remoteStreams).length > 0;
+    if (!showControls || !hasRemote) return;
+    const timeout = setTimeout(() => {
+      setShowControls(false);
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, [showControls, remoteStreams]);
 
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   const pendingIceCandidatesRef = useRef<Record<string, any[]>>({});
@@ -130,6 +142,26 @@ export default function CallOverlay() {
     }
     return stopRingtone;
   }, [isReceivingCall, isCalling, isInitiator, callStartTime, startRingtone, stopRingtone]);
+
+  useEffect(() => {
+    if (!isCalling && !isReceivingCall) {
+      setIsMuted(false);
+      setIsVideoOff(false);
+      setElapsedSeconds(0);
+      setIsPIP(false);
+      setFacingMode('user');
+      setShowAddParticipant(false);
+      setShowControls(true);
+      setInvitedUserIds([]);
+    }
+  }, [isCalling, isReceivingCall]);
+
+  // Sync initial invited user ids when call starts (e.g. from Call Log)
+  useEffect(() => {
+    if (isCalling && storeInvitedUserIds.length > 0) {
+      setInvitedUserIds(storeInvitedUserIds);
+    }
+  }, [isCalling, storeInvitedUserIds]);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const activeCallChatIdRef = useRef<string | null>(null);
@@ -193,7 +225,8 @@ export default function CallOverlay() {
       removeRemoteStream(targetUserId); 
     });
 
-    peer.on('error', (err) => {
+    peer.on('error', (err: any) => {
+      if (err?.message?.includes('User-Initiated Abort')) return;
       console.error('Peer error:', err);
     });
     
@@ -375,7 +408,7 @@ export default function CallOverlay() {
       if (remainingRemoteCount >= 2) {
         socket.emit('leave-call-room', { chatId: activeCallChatId });
       } else {
-        const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 1) || Object.keys(roomParticipants).length > 2);
+        const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 0) || Object.keys(roomParticipants).length > 2);
         
         const participantsInfo = allCallParticipants.map(p => ({
           userId: p.userId,
@@ -450,8 +483,13 @@ export default function CallOverlay() {
             const chat = chats.find(c => c.id === activeCallChatId);
             if (chat) {
               if (chat.isGroup) socket?.emit('group-call-join', { chatId: activeCallChatId });
-              chat.participants?.forEach((p: any) => {
-                if (p.userId !== currentUser.id) createPeer(p.userId, stream, true);
+              
+              const allTargets = new Set<string>();
+              chat.participants?.forEach((p: any) => allTargets.add(p.userId));
+              useCallStore.getState().invitedUserIds.forEach(id => allTargets.add(id));
+              
+              allTargets.forEach(id => {
+                if (id !== currentUser.id) createPeer(id, stream, true);
               });
             }
           }
@@ -613,6 +651,12 @@ export default function CallOverlay() {
 
     return list;
   }, [activeChat, currentUser, remoteStreams, roomParticipants, invitedUserIds, getUserProfile, caller]);
+
+  const gridParticipants = useMemo(() => {
+    // If no one is connected yet, we want to show everyone (for the ringing screen names).
+    // But for the grid itself (when isConnected is true), we ONLY show people who are actually connected (!isConnecting).
+    return allCallParticipants.filter(p => !p.isConnecting);
+  }, [allCallParticipants]);
 
   const isGroupCall = useMemo(() => {
     if (activeChat?.isGroup) return true;
@@ -820,22 +864,96 @@ export default function CallOverlay() {
               ref={videoContainerRef} 
               className="flex-1 relative w-full h-full overflow-hidden flex items-center justify-center"
             >
-              {/* Single Remote Participant Video Mode (FULL BLEED FOR 1-TO-1 ONLY) */}
-              {!isGroupCall && allCallParticipants.length === 1 && callType === 'VIDEO' ? (
+              {/* RINGING STATE (NO ONE CONNECTED YET) - VIDEO */}
+              {!isConnected && callType === 'VIDEO' ? (
                 <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
-                  {allCallParticipants[0].stream ? (
-                    <VideoPlayer stream={allCallParticipants[0].stream} avatar={allCallParticipants[0].avatar || ''} name={allCallParticipants[0].name || ''} isVideoOff={allCallParticipants[0].isVideoOff} />
+                  {localStream ? (
+                    <VideoPlayer stream={localStream} isLocal={true} isVideoOff={isVideoOff} avatar={currentUser?.profilePicture || ''} name={currentUser?.name || ''} />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a]">
-                      <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500/30 shadow-2xl mb-4 flex items-center justify-center bg-surface">
+                    <div className="w-full h-full flex items-center justify-center bg-[#0b141a]" />
+                  )}
+
+                  {/* Calling Status at the Top */}
+                  <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center space-y-4 text-center w-full px-4">
+                    <div className="flex -space-x-4 mb-2 justify-center">
+                      {allCallParticipants.slice(0, 3).map((p) => (
+                        <div key={p.userId} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-2xl bg-[#1f2c34] flex items-center justify-center z-10 relative">
+                          {p.avatar ? (
+                            <img src={p.avatar} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="w-full h-full flex items-center justify-center text-3xl text-white/90 font-semibold">{p.name.charAt(0)}</span>
+                          )}
+                          <div className="absolute inset-0 rounded-full border border-emerald-500/20 animate-ping" style={{ animationDuration: '3s' }} />
+                        </div>
+                      ))}
+                      {allCallParticipants.length > 3 && (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-emerald-500/50 shadow-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center z-10 text-xl font-semibold">
+                          +{allCallParticipants.length - 3}
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-black/60 backdrop-blur-md px-5 py-2 rounded-full text-white shadow-xl border border-white/10 max-w-[80vw]">
+                      <h3 className="text-lg sm:text-xl font-semibold tracking-wide truncate">Calling {allCallParticipants.map(p => p.name.split(' ')[0]).join(' & ')}...</h3>
+                    </div>
+                  </div>
+                </div>
+              ) : !isConnected && callType === 'AUDIO' ? (
+                /* RINGING STATE (NO ONE CONNECTED YET) - AUDIO */
+                <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 pt-16 pb-28">
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center relative">
+                      {allCallParticipants[0]?.avatar ? (
+                        <img src={allCallParticipants[0].avatar} alt="" className="w-full h-full object-cover relative z-10" />
+                      ) : (
+                        <span className="text-5xl text-white/90 font-semibold relative z-10">{(allCallParticipants[0]?.name || 'U').charAt(0)}</span>
+                      )}
+                      <div className="absolute inset-0 rounded-full border border-emerald-500/30 animate-ping" style={{ animationDuration: '2.5s' }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-2xl font-semibold text-white">
+                      Calling {allCallParticipants.map(p => p.name.split(' ')[0]).join(' & ')}...
+                    </h3>
+                    <p className="text-emerald-400 text-xs font-medium">NexusChat Voice Call</p>
+                  </div>
+                </div>
+              ) : allCallParticipants.length === 1 ? (
+                /* CONNECTED: SINGLE REMOTE PARTICIPANT (FULL BLEED) */
+                <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
+                  {callType === 'VIDEO' ? (
+                    allCallParticipants[0].stream ? (
+                      <VideoPlayer stream={allCallParticipants[0].stream} avatar={allCallParticipants[0].avatar || ''} name={allCallParticipants[0].name || ''} isVideoOff={allCallParticipants[0].isVideoOff} />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#1a2730] to-[#0b141a]">
+                        <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500/30 shadow-2xl mb-4 flex items-center justify-center bg-surface">
+                          {allCallParticipants[0].avatar ? (
+                            <img src={allCallParticipants[0].avatar} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-5xl text-white font-semibold">{allCallParticipants[0].name.charAt(0)}</span>
+                          )}
+                        </div>
+                        <h3 className="text-white text-xl font-semibold">{allCallParticipants[0].name}</h3>
+                        <p className="text-emerald-400 text-xs font-medium animate-pulse mt-1">Connecting...</p>
+                      </div>
+                    )
+                  ) : (
+                    /* Audio mode full bleed (same as ringing but without pulse) */
+                    <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 pt-16 pb-28 bg-[#0b141a]">
+                      <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center">
                         {allCallParticipants[0].avatar ? (
-                          <img src={allCallParticipants[0].avatar} className="w-full h-full object-cover" />
+                          <img src={allCallParticipants[0].avatar} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <span className="text-5xl text-white font-semibold">{allCallParticipants[0].name.charAt(0)}</span>
+                          <span className="text-5xl text-white/90 font-semibold">{allCallParticipants[0].name.charAt(0)}</span>
                         )}
                       </div>
-                      <h3 className="text-white text-xl font-semibold">{allCallParticipants[0].name}</h3>
-                      <p className="text-emerald-400 text-xs font-medium animate-pulse mt-1">Connecting...</p>
+                      <div className="space-y-1">
+                        <h3 className="text-2xl font-semibold text-white flex items-center justify-center gap-2">
+                          {allCallParticipants[0].name}
+                          {allCallParticipants[0].isMuted && <MicOff size={18} className="text-danger" />}
+                        </h3>
+                        <p className="text-emerald-400 text-xs font-medium">NexusChat Voice Call</p>
+                      </div>
                     </div>
                   )}
 
@@ -845,41 +963,15 @@ export default function CallOverlay() {
                     {allCallParticipants[0].isMuted && <MicOff size={14} className="text-danger" />}
                   </div>
                 </div>
-              ) : !isGroupCall && allCallParticipants.length === 1 && callType === 'AUDIO' ? (
-                /* Single Remote Participant Audio Mode */
-                <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 pt-16 pb-28">
-                  <div className="relative flex items-center justify-center">
-                    {isConnected && (
-                      <div className="absolute w-44 h-44 rounded-full border border-emerald-500/20 animate-pulse" />
-                    )}
-                    <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center">
-                      {allCallParticipants[0].avatar ? (
-                        <img src={allCallParticipants[0].avatar} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-5xl text-white/90 font-semibold">{allCallParticipants[0].name.charAt(0)}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h3 className="text-2xl font-semibold text-white flex items-center justify-center gap-2">
-                      {allCallParticipants[0].name}
-                      {allCallParticipants[0].isMuted && <MicOff size={18} className="text-danger" />}
-                    </h3>
-                    <p className="text-emerald-400 text-xs font-medium">
-                      {isConnected ? 'NexusChat Voice Call' : (isInitiator ? 'Calling...' : 'Ringing...')}
-                    </p>
-                  </div>
-                </div>
               ) : (
-                /* Multi Participant Grid Layout */
+                /* CONNECTED: MULTI PARTICIPANT GRID */
                 <div className={cn(
                   "w-full h-full grid gap-3 max-w-4xl mx-auto items-center justify-center pt-20 pb-36 px-4",
-                  allCallParticipants.length <= 2 && "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1",
-                  (allCallParticipants.length === 3 || allCallParticipants.length === 4) && "grid-cols-2 grid-rows-2",
-                  allCallParticipants.length > 4 && "grid-cols-2 sm:grid-cols-3 overflow-y-auto"
+                  gridParticipants.length <= 2 && "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1",
+                  (gridParticipants.length === 3 || gridParticipants.length === 4) && "grid-cols-2 grid-rows-2",
+                  gridParticipants.length > 4 && "grid-cols-2 sm:grid-cols-3 overflow-y-auto"
                 )}>
-                  {allCallParticipants.map((item) => (
+                  {gridParticipants.map((item) => (
                     <div 
                       key={item.userId} 
                       className="relative w-full h-full bg-[#1f2c34] rounded-2xl overflow-hidden border border-white/10 shadow-xl flex items-center justify-center min-h-[140px]"
@@ -917,7 +1009,7 @@ export default function CallOverlay() {
               )}
 
               {/* Local Video PIP Window */}
-              {localStream && callType === 'VIDEO' && (
+              {localStream && callType === 'VIDEO' && isConnected && (
                 <motion.div 
                   drag
                   dragMomentum={false}
@@ -1091,7 +1183,16 @@ export default function CallOverlay() {
                         if (!other) return null;
                         const name = other.user?.name || other.user?.phoneNumber || 'Contact';
                         const targetId = other.userId;
-                        const isInvited = invitedUserIds.includes(targetId);
+                        const isInvited = invitedUserIds.includes(targetId) || roomParticipants[targetId];
+                        const isJoined = roomParticipants[targetId]?.status === 'CONNECTED' || remoteStreams[targetId];
+                        if (isJoined) return null; // Already in Connected section
+                        
+                        const status = roomParticipants[targetId]?.status;
+                        let displayStatus = 'Tap to add';
+                        if (isInvited) {
+                           if (status === 'RINGING') displayStatus = 'Ringing...';
+                           else displayStatus = 'Calling...';
+                        }
 
                         return (
                           <div key={chat.id} className="flex items-center justify-between p-3 rounded-2xl bg-surface/30 border border-surface-border">
@@ -1105,12 +1206,33 @@ export default function CallOverlay() {
                               </div>
                               <div>
                                 <p className="text-white text-sm font-medium">{name}</p>
-                                <p className="text-white/50 text-xs">{isInvited ? 'Invited' : 'Tap to add'}</p>
+                                <p className={cn("text-xs font-medium", isInvited ? "text-emerald-400 animate-pulse" : "text-white/50")}>{displayStatus}</p>
                               </div>
                             </div>
-                            <button
-                              disabled={isInvited}
-                              onClick={() => {
+                            {isInvited ? (
+                              <button
+                                onClick={() => {
+                                  if (localStream) {
+                                    if (peersRef.current[targetId]) {
+                                      try { peersRef.current[targetId].destroy(); } catch(e) {}
+                                      delete peersRef.current[targetId];
+                                      removePeer(targetId);
+                                      removeRemoteStream(targetId);
+                                    }
+                                    createPeer(targetId, localStream, true);
+                                    if (socket && activeCallChatId) {
+                                      socket.emit('join-call-room', { chatId: activeCallChatId, type: callType });
+                                    }
+                                  }
+                                }}
+                                className="w-8 h-8 rounded-full bg-surface-hover hover:bg-surface text-emerald-400 flex items-center justify-center transition-colors cursor-pointer"
+                                title="Ring Again"
+                              >
+                                <BellRing size={16} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
                                 if (localStream && !isInvited) {
                                   setInvitedUserIds(prev => [...prev, targetId]);
                                   createPeer(targetId, localStream, true);
@@ -1125,7 +1247,8 @@ export default function CallOverlay() {
                               )}
                             >
                               {isInvited ? 'Invited' : 'Add'}
-                            </button>
+                              </button>
+                            )}
                           </div>
                         );
                       })}
