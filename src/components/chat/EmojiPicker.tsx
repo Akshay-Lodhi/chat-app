@@ -104,7 +104,7 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji }: EmojiPickerProps
           </div>
         )}
 
-        {/* Emoji Grid */}
+        {/* Emoji  Grid */}
         <div className="flex-1 overflow-y-auto p-3 grid grid-cols-7 gap-1.5 scrollbar-thin scrollbar-thumb-surface-border">
           {filteredEmojis.map((emoji, i) => (
             <button
