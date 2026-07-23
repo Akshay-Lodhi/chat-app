@@ -518,32 +518,37 @@ export default function CallOverlay() {
   const remoteStreamEntries = Object.entries(remoteStreams);
   const activeChat = chats.find(c => c.id === activeCallChatId);
 
-  const isGroupCall = useMemo(() => {
-    const roomParticipantCount = Object.keys(roomParticipants).length;
-    const everJoinedCount = Object.values(roomParticipants).filter(p => p.status === 'CONNECTED' || p.status === 'LEFT').length;
-    return Boolean(
-      activeChat?.isGroup || 
-      remoteStreamEntries.length > 1 || 
-      invitedUserIds.length > 0 || 
-      roomParticipantCount > 2 ||
-      everJoinedCount > 2
-    );
-  }, [activeChat, remoteStreamEntries, invitedUserIds, roomParticipants]);
+  const getUserProfile = useCallback((uId: string) => {
+    if (uId === currentUser?.id) {
+      return { name: currentUser.name || currentUser.phoneNumber || 'You', avatar: currentUser.profilePicture || null };
+    }
+    const pInfo = roomParticipants[uId];
+    if (pInfo && pInfo.name && pInfo.name !== 'User') return { name: pInfo.name, avatar: pInfo.avatar };
+    
+    const fallbackChatUser = chats.flatMap(c => c.participants || []).find((p: any) => p.userId === uId)?.user;
+    if (fallbackChatUser) {
+      return { name: fallbackChatUser.name || fallbackChatUser.phoneNumber || 'Participant', avatar: fallbackChatUser.profilePicture || null };
+    }
+
+    if (pInfo) return { name: pInfo.name, avatar: pInfo.avatar };
+
+    return { name: 'Participant', avatar: null };
+  }, [currentUser, roomParticipants, chats]);
 
   const allCallParticipants = useMemo(() => {
     const list: Array<{ userId: string; name: string; avatar?: string | null; stream?: MediaStream | null; isConnecting?: boolean; isMuted?: boolean; isVideoOff?: boolean }> = [];
     const addedIds = new Set<string>();
 
-    // 1. Connected remote streams with server roomParticipants info
+    // 1. Connected remote streams
     Object.entries(remoteStreams).forEach(([uId, stream]) => {
       if (!addedIds.has(uId) && uId !== currentUser?.id) {
         addedIds.add(uId);
+        const prof = getUserProfile(uId);
         const pInfo = roomParticipants[uId];
-        const fallbackChat = chats.flatMap(c => c.participants || []).find((p: any) => p.userId === uId)?.user;
         list.push({
           userId: uId,
-          name: pInfo?.name || fallbackChat?.name || fallbackChat?.phoneNumber || caller || 'Participant',
-          avatar: pInfo?.avatar || fallbackChat?.profilePicture || null,
+          name: prof.name,
+          avatar: prof.avatar,
           stream,
           isConnecting: false,
           isMuted: pInfo?.isMuted || false,
@@ -552,14 +557,15 @@ export default function CallOverlay() {
       }
     });
 
-    // 2. Authoritative server room participants (EXCLUDE ANY WITH STATUS === 'LEFT')
+    // 2. Authoritative server room participants (EXCLUDE ANY WITH STATUS === 'LEFT' or current user)
     Object.values(roomParticipants).forEach((pInfo) => {
       if (!addedIds.has(pInfo.userId) && pInfo.userId !== currentUser?.id && pInfo.status !== 'LEFT') {
         addedIds.add(pInfo.userId);
+        const prof = getUserProfile(pInfo.userId);
         list.push({
           userId: pInfo.userId,
-          name: pInfo.name,
-          avatar: pInfo.avatar,
+          name: prof.name,
+          avatar: prof.avatar,
           stream: null,
           isConnecting: pInfo.status === 'INVITED' || pInfo.status === 'RINGING',
           isMuted: pInfo.isMuted,
@@ -568,8 +574,28 @@ export default function CallOverlay() {
       }
     });
 
-    // 3. Fallback for 1-to-1 initial ringing before room state is populated
-    if (list.length === 0) {
+    // 3. Local invited user IDs
+    invitedUserIds.forEach((uId) => {
+      if (!addedIds.has(uId) && uId !== currentUser?.id) {
+        const pStatus = roomParticipants[uId]?.status;
+        if (pStatus !== 'LEFT') {
+          addedIds.add(uId);
+          const prof = getUserProfile(uId);
+          list.push({
+            userId: uId,
+            name: prof.name,
+            avatar: prof.avatar,
+            stream: null,
+            isConnecting: true,
+            isMuted: false,
+            isVideoOff: false
+          });
+        }
+      }
+    });
+
+    // 4. Initial 1-to-1 recipient fallback (if list empty and not active group chat)
+    if (list.length === 0 && !activeChat?.isGroup) {
       const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id);
       if (other && !addedIds.has(other.userId)) {
         addedIds.add(other.userId);
@@ -586,7 +612,12 @@ export default function CallOverlay() {
     }
 
     return list;
-  }, [activeChat, currentUser, remoteStreams, roomParticipants, chats, caller]);
+  }, [activeChat, currentUser, remoteStreams, roomParticipants, invitedUserIds, getUserProfile, caller]);
+
+  const isGroupCall = useMemo(() => {
+    if (activeChat?.isGroup) return true;
+    return allCallParticipants.length >= 2;
+  }, [activeChat, allCallParticipants]);
 
   if (!isCalling && !isReceivingCall) return null;
 
