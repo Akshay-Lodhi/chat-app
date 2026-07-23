@@ -473,27 +473,76 @@ export function setupSocket(server: HttpServer) {
         }
       }
 
-      const isMultiGroup = Boolean(room ? (room.everJoinedUserIds.size > 2 || room.participants.size > 2) : isGroup);
+      const chat = await prisma.chat.findUnique({
+        where: { id: chatId },
+        include: { participants: { include: { user: true } } }
+      });
       
-      const roomParticipantsList = room && room.participants.size > 0
-        ? Array.from(room.participants.values()).map(p => ({
+      if (!chat) return;
+
+      let roomParticipantsList: any[] = [];
+      const participantsMap = new Map();
+      
+      // Seed with client participantsInfo if available
+      if (participantsInfo && Array.isArray(participantsInfo)) {
+        participantsInfo.forEach((p: any) => {
+           participantsMap.set(p.userId, {
+             userId: p.userId,
+             name: p.name,
+             avatar: p.avatar,
+             status: p.status === 'JOINED' ? 'JOINED' : (p.status === 'LEFT' ? 'LEFT' : 'INVITED')
+           });
+        });
+      }
+
+      // Add actual caller to map if not present
+      if (!participantsMap.has(userId)) {
+        participantsMap.set(userId, { userId, name: 'Caller', avatar: null, status: 'JOINED' });
+      }
+
+      // Override with server's authoritative state
+      if (room) {
+        room.participants.forEach(p => {
+          participantsMap.set(p.userId, {
             userId: p.userId,
-            name: p.name,
-            avatar: p.avatar,
+            name: p.name || participantsMap.get(p.userId)?.name || '',
+            avatar: p.avatar || participantsMap.get(p.userId)?.avatar || null,
             status: room.everJoinedUserIds.has(p.userId) ? 'JOINED' : (p.status === 'CONNECTED' ? 'JOINED' : p.status)
-          }))
-        : (participantsInfo || []);
+          });
+        });
+      }
+
+      // Always include the other participant if it's a 1:1 chat, or all members for group chat
+      if (!chat.isGroup) {
+         const other = chat.participants.find((p: any) => p.userId !== userId);
+         if (other && !participantsMap.has(other.userId)) {
+           participantsMap.set(other.userId, {
+              userId: other.userId,
+              name: other.user?.name || other.user?.phoneNumber || 'Contact',
+              avatar: other.user?.profilePicture || null,
+              status: 'INVITED'
+           });
+         }
+      } else {
+         chat.participants.forEach((p: any) => {
+           if (p.userId !== userId && !participantsMap.has(p.userId)) {
+             participantsMap.set(p.userId, {
+                userId: p.userId,
+                name: p.user?.name || p.user?.phoneNumber || 'Contact',
+                avatar: p.user?.profilePicture || null,
+                status: 'INVITED'
+             });
+           }
+         });
+      }
+
+      roomParticipantsList = Array.from(participantsMap.values());
+      const isMultiGroup = Boolean(room ? (room.everJoinedUserIds.size > 2 || room.participants.size > 2) : isGroup) || roomParticipantsList.length > 2;
 
       if (room) {
         activeCallRooms.delete(chatId);
       }
       chatNamespace.emit('active-call-update', { chatId, activeCount: 0, callType: type || 'VIDEO' });
-
-      const chat = await prisma.chat.findUnique({
-        where: { id: chatId },
-        include: { participants: true }
-      });
-      if (!chat) return;
       
       const otherParticipant = chat.participants.find((p: any) => p.userId !== userId);
       if (!otherParticipant && !chat.isGroup) return;
@@ -505,7 +554,7 @@ export function setupSocket(server: HttpServer) {
           action: duration === -1 ? 'MISSED' : 'ENDED',
           duration: duration === -1 ? 0 : duration,
           type: type || 'VIDEO',
-          isGroup: isMultiGroup || chat.isGroup || roomParticipantsList.length > 2,
+          isGroup: isMultiGroup || chat.isGroup,
           participants: roomParticipantsList
         });
 
@@ -520,7 +569,7 @@ export function setupSocket(server: HttpServer) {
                 .filter((p: any) => p.userId !== userId)
                 .map((p: any) => ({
                   userId: p.userId,
-                  status: 'SENT' // Initial status
+                  status: 'SENT'
                 }))
             }
           },
@@ -529,13 +578,20 @@ export function setupSocket(server: HttpServer) {
           }
         });
 
-        // Broadcast the call log message to everyone with explicit status
         const callLogWithStatus = { ...callLogMsg, status: 'SENT' };
         chatNamespace.to(chatId).emit('receive-message', callLogWithStatus);
         
         chat.participants.forEach((p: any) => {
           chatNamespace.to(p.userId).emit('receive-message', callLogWithStatus);
           if (p.userId !== userId) {
+            chatNamespace.to(p.userId).emit('call-end', { callerId: userId });
+          }
+        });
+
+        // Also notify anyone who was invited but is not a participant of this chat
+        roomParticipantsList.forEach(p => {
+          const isInChat = chat.participants.some((cp: any) => cp.userId === p.userId);
+          if (!isInChat && p.userId !== userId) {
             chatNamespace.to(p.userId).emit('call-end', { callerId: userId });
           }
         });
