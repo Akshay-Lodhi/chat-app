@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import Peer, { Instance } from 'simple-peer';
 
+export interface ActiveCallInfo {
+  chatId: string;
+  activeCount: number;
+  callType: 'AUDIO' | 'VIDEO';
+}
+
 interface CallState {
   isCalling: boolean;
   isReceivingCall: boolean;
@@ -13,8 +19,9 @@ interface CallState {
   peers: Record<string, Instance>;
   pendingOffer: any | null;
   callStartTime: number | null;
-
   invitedUserIds: string[];
+
+  activeCalls: Record<string, ActiveCallInfo>;
 
   setIncomingCall: (caller: any, callType: 'AUDIO' | 'VIDEO', chatId: string, offer: any) => void;
   setLocalStream: (stream: MediaStream | null) => void;
@@ -26,6 +33,8 @@ interface CallState {
   acceptCall: () => void;
   endCall: () => void;
   initiateCall: (callType: 'AUDIO' | 'VIDEO', chatId: string, invitedUserIds?: string[]) => void;
+  joinOngoingCall: (chatId: string, callType: 'AUDIO' | 'VIDEO') => void;
+  setActiveCallInfo: (chatId: string, info: ActiveCallInfo | null) => void;
 }
 
 export const useCallStore = create<CallState>((set, get) => ({
@@ -41,6 +50,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   pendingOffer: null,
   callStartTime: null,
   invitedUserIds: [],
+  activeCalls: {},
 
   setIncomingCall: (caller, callType, chatId, offer) => set({
     isReceivingCall: true,
@@ -66,7 +76,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   removePeer: (userId) => set((state) => {
     const newPeers = { ...state.peers };
     if (newPeers[userId]) {
-      newPeers[userId].destroy();
+      try { newPeers[userId].destroy(); } catch(e) {}
       delete newPeers[userId];
     }
     return { peers: newPeers };
@@ -78,7 +88,9 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   endCall: () => {
     const { peers, localStream } = get();
-    Object.values(peers).forEach(peer => peer.destroy());
+    Object.values(peers).forEach(peer => {
+      try { peer.destroy(); } catch(e) {}
+    });
     
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
@@ -105,5 +117,22 @@ export const useCallStore = create<CallState>((set, get) => ({
     callType: type,
     activeCallChatId: chatId,
     invitedUserIds
+  }),
+
+  joinOngoingCall: (chatId, type) => set({
+    isCalling: true,
+    isInitiator: false,
+    callType: type,
+    activeCallChatId: chatId
+  }),
+
+  setActiveCallInfo: (chatId, info) => set((state) => {
+    const newCalls = { ...state.activeCalls };
+    if (info) {
+      newCalls[chatId] = info;
+    } else {
+      delete newCalls[chatId];
+    }
+    return { activeCalls: newCalls };
   })
 }));

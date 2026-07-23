@@ -240,8 +240,8 @@ export default function CallOverlay() {
         });
       }
 
-      const currentChat = chats.find(c => c.id === activeCallChatIdRef.current);
-      if (!currentChat?.isGroup || Object.keys(peersRef.current).length === 0) {
+      const remainingPeersCount = Object.keys(peersRef.current).length;
+      if (remainingPeersCount === 0) {
         stopRingtone();
         endCall();
       }
