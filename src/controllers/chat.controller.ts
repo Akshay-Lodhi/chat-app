@@ -131,6 +131,8 @@ export const clearChatMessages = async (req: AuthRequest, res: Response) => {
   try {
     const chatId = req.params.chatId as string;
     await ChatService.clearChatMessages(req.user!.userId, chatId);
+    const io = getIO();
+    io.to(`chat_${chatId}`).emit('chat-cleared', { chatId });
     res.json({ success: true });
   } catch (error: any) {
     console.error(error);
