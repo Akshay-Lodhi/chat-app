@@ -58,7 +58,8 @@ interface ChatState {
   addMessage: (chatId: string, message: Message) => void;
   fetchChats: (token: string) => Promise<void>;
   fetchMessages: (chatId: string, token: string) => Promise<void>;
-  fetchCalls: (token: string) => Promise<void>;
+  fetchCalls: (token: string, page?: number, limit?: number) => Promise<void>;
+  clearCallLogs: () => Promise<boolean>;
   createChat: (contactId: string, token: string) => Promise<string | null>;
   createGroupChat: (name: string, participantIds: string[]) => Promise<string | null>;
   addGroupParticipants: (chatId: string, participantIds: string[]) => Promise<void>;
@@ -355,10 +356,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  fetchCalls: async (token: string) => {
+  fetchCalls: async (token: string, page = 1, limit = 30) => {
     try {
       const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
-      const res = await fetch(`${serverUrl}/api/chats/calls`, {
+      const res = await fetch(`${serverUrl}/api/chats/calls?page=${page}&limit=${limit}`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -367,6 +368,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (err) {
       console.error('Error fetching calls:', err);
+    }
+  },
+
+  clearCallLogs: async () => {
+    try {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+      const res = await fetch(`${serverUrl}/api/chats/calls`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const currentMessages = get().messages;
+        const updatedMessages: Record<string, Message[]> = {};
+        Object.entries(currentMessages).forEach(([chatId, msgList]) => {
+          updatedMessages[chatId] = msgList.filter(m => m.type !== 'CALL_LOG');
+        });
+
+        set({ calls: [], messages: updatedMessages });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error clearing call logs:', err);
+      return false;
     }
   },
 
