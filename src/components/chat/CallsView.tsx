@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GroupCallDetailsModal } from './GroupCallDetailsModal';
 
 export function CallsView() {
   const { user } = useAuthStore();
@@ -20,6 +21,7 @@ export function CallsView() {
   const [filter, setFilter] = useState<'all' | 'missed' | 'unanswered'>('all');
   const [isCleared, setIsCleared] = useState(false);
   const [showClearToast, setShowClearToast] = useState(false);
+  const [selectedGroupCall, setSelectedGroupCall] = useState<any>(null);
 
   // Fetch paginated calls from DB & load messages
   useEffect(() => {
@@ -29,7 +31,7 @@ export function CallsView() {
         fetchMessages(chat.id, 'better-auth-session');
       }
     });
-  }, [fetchCalls, chats, fetchMessages, messages]);
+  }, [fetchCalls]);
 
   // Extract actual dynamic call logs from loaded chat messages & DB calls
   const extractedCallLogs: any[] = [];
@@ -41,7 +43,7 @@ export function CallsView() {
         try { callData = JSON.parse(msg.content || '{}'); } catch (e) {}
         
         const otherParticipant = chat?.participants?.find(p => p.userId !== user?.id && p.user?.id !== user?.id)?.user;
-        const groupParticipants = chat?.participants?.map(p => p.user).filter(u => u && u.id !== user?.id) || [];
+        const groupParticipants = chat?.participants?.map(p => p.user).filter(Boolean) || [];
         const isMine = msg.senderId === user?.id;
 
         const isGroup = chat?.isGroup || callData.isGroup;
@@ -125,10 +127,8 @@ export function CallsView() {
 
   // Filter 1: All vs Missed vs Unanswered
   if (filter === 'missed') {
-    // Missed incoming calls to user
     combinedCalls = combinedCalls.filter(c => !c.isOutgoing && c.isUnanswered);
   } else if (filter === 'unanswered') {
-    // Outgoing calls initiated by user that were unanswered
     combinedCalls = combinedCalls.filter(c => c.isOutgoing && c.isUnanswered);
   }
 
@@ -173,6 +173,13 @@ export function CallsView() {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0b141a] text-foreground overflow-y-auto no-scrollbar relative">
+      {/* Group Call Details Modal */}
+      <GroupCallDetailsModal 
+        isOpen={!!selectedGroupCall}
+        onClose={() => setSelectedGroupCall(null)}
+        call={selectedGroupCall}
+      />
+
       {/* Clear Call Logs Toast */}
       <AnimatePresence>
         {showClearToast && (
@@ -304,31 +311,40 @@ export function CallsView() {
                 className="flex items-center justify-between p-3 hover:bg-[#1f2c34]/60 rounded-2xl transition-colors group cursor-pointer"
               >
                 <div className="flex items-center space-x-3.5 min-w-0">
-                  {/* Profile Avatar / Group Grid Avatar */}
-                  {isGroup && !pfp ? (
-                    <div className="w-12 h-12 rounded-full bg-[#1f2c34] border border-surface-border/50 grid grid-cols-2 p-0.5 gap-0.5 overflow-hidden shrink-0">
-                      {groupParticipants.slice(0, 4).map((pUser: any, i: number) => (
-                        pUser?.profilePicture ? (
-                          <img key={i} src={pUser.profilePicture} alt="" className="w-full h-full object-cover rounded-full" />
-                        ) : (
-                          <div key={i} className="w-full h-full bg-[#005c4b] text-[8px] font-bold text-[#25D366] flex items-center justify-center rounded-full">
-                            {(pUser?.name || 'U').substring(0, 1)}
+                  {/* Profile Avatar / Group Grid Avatar with Click Handler for Details Modal */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedGroupCall(call);
+                    }}
+                    className="relative group/avatar cursor-pointer shrink-0"
+                    title={isGroup ? "Click to view group call participant details" : "Click to view call details"}
+                  >
+                    {isGroup && !pfp ? (
+                      <div className="w-12 h-12 rounded-full bg-[#1f2c34] border border-surface-border/50 grid grid-cols-2 p-0.5 gap-0.5 overflow-hidden hover:scale-105 transition-transform shadow-sm">
+                        {groupParticipants.slice(0, 4).map((pUser: any, i: number) => (
+                          pUser?.profilePicture ? (
+                            <img key={i} src={pUser.profilePicture} alt="" className="w-full h-full object-cover rounded-full" />
+                          ) : (
+                            <div key={i} className="w-full h-full bg-[#005c4b] text-[8px] font-bold text-[#25D366] flex items-center justify-center rounded-full">
+                              {(pUser?.name || 'U').substring(0, 1)}
+                            </div>
+                          )
+                        ))}
+                        {groupParticipants.length === 0 && (
+                          <div className="col-span-2 row-span-2 flex items-center justify-center text-[#25D366]">
+                            <Users size={20} />
                           </div>
-                        )
-                      ))}
-                      {groupParticipants.length === 0 && (
-                        <div className="col-span-2 row-span-2 flex items-center justify-center text-[#25D366]">
-                          <Users size={20} />
-                        </div>
-                      )}
-                    </div>
-                  ) : pfp ? (
-                    <img src={pfp} alt={name} className="w-12 h-12 rounded-full object-cover border border-surface-border/50 shrink-0" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-[#1f2c34] border border-surface-border/50 flex items-center justify-center text-text-secondary shrink-0">
-                      <span className="text-sm font-bold text-[#25D366]">{name.substring(0, 2).toUpperCase()}</span>
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    ) : pfp ? (
+                      <img src={pfp} alt={name} className="w-12 h-12 rounded-full object-cover border border-surface-border/50 hover:scale-105 transition-transform shadow-sm" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-[#1f2c34] border border-surface-border/50 flex items-center justify-center text-text-secondary hover:scale-105 transition-transform shadow-sm">
+                        <span className="text-sm font-bold text-[#25D366]">{name.substring(0, 2).toUpperCase()}</span>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="min-w-0">
                     {/* Contact or Group Name - Red if Missed/Unanswered */}

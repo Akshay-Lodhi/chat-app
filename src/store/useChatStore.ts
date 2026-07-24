@@ -118,13 +118,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   connectSocket: (token: string, userId: string) => {
-    if (get().socket?.connected) return;
+    const existingSocket = get().socket;
+    if (existingSocket || get().isConnecting) return;
     
     set({ isConnecting: true });
     
     const socket = io(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/chat`, {
       withCredentials: true,
     });
+
+    set({ socket });
 
     socket.on('connect', () => {
       set({ isConnecting: false });
@@ -172,16 +175,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     socket.on('receive-message', (message: Message) => {
-      const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id;
-      if (message.senderId === currentUserId && message.type !== 'CALL_LOG') return; // Prevent duplicate for sender, except for server-generated logs
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (message.senderId === currentUserId && message.type !== 'CALL_LOG') return;
+
+      // Check if message is already in state to avoid duplicate unread counts
+      const chatMsgs = get().messages[message.chatId] || [];
+      const isDuplicate = chatMsgs.some(m => m.id === message.id);
       
       get().addMessage(message.chatId, message);
-      // Emit seen events
-      if (get().activeChatId === message.chatId) {
-        socket.emit('message-read', { messageId: message.id, chatId: message.chatId });
-      } else {
-        socket.emit('message-delivered', { messageId: message.id, chatId: message.chatId });
-        get().incrementUnreadCount(message.chatId);
+
+      if (!isDuplicate) {
+        if (get().activeChatId === message.chatId) {
+          socket.emit('message-read', { messageId: message.id, chatId: message.chatId });
+        } else {
+          socket.emit('message-delivered', { messageId: message.id, chatId: message.chatId });
+          get().incrementUnreadCount(message.chatId);
+        }
       }
     });
 
