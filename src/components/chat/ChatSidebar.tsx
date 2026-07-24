@@ -37,10 +37,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
   });
 
   return (
-    <div className={cn(
-      "w-full md:w-[30%] md:min-w-[350px] border-r border-surface-border flex-col bg-surface relative",
-      activeChatId ? "hidden md:flex" : "flex"
-    )}>
+    <div className="w-full h-full flex flex-col bg-surface relative">
       {/* Header */}
       <div className="h-16 bg-surface-hover flex items-center justify-between px-4 py-2 shrink-0">
         <button onClick={onProfileClick} className="focus:outline-none hover:opacity-80 transition-opacity">

@@ -19,6 +19,10 @@ import { MessageInfoOverlay } from '@/components/chat/MessageInfoOverlay';
 import { ForwardMessageModal } from '@/components/chat/ForwardMessageModal';
 import { useWallpaperStore } from '@/store/useWallpaperStore';
 
+import { BottomNav } from '@/components/chat/BottomNav';
+import { LiveView } from '@/components/live/LiveView';
+import { CallsView } from '@/components/chat/CallsView';
+
 import CallOverlay from './CallOverlay';
 import MediaViewer from './MediaViewer';
 
@@ -29,7 +33,8 @@ export default function ChatPage() {
   
   const { 
     connectSocket, disconnectSocket, activeChatId, 
-    setActiveChat, sendMessage, fetchChats, fetchMessages, chats, fetchBlockedUsers
+    setActiveChat, sendMessage, fetchChats, fetchMessages, chats, fetchBlockedUsers,
+    activeTab, setActiveTab
   } = useChatStore();
 
   const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
@@ -175,11 +180,30 @@ export default function ChatPage() {
   return (
     <div className="flex h-[100dvh] w-full max-w-[100vw] bg-background text-foreground overflow-hidden relative">
       
-      {/* Sidebar Area */}
-      <ChatSidebar 
-        onProfileClick={() => setShowProfile(true)}
-        onNewChatClick={() => { setIsAddingMembers(false); setShowContacts(true); }}
-      />
+      {/* Left Sidebar Pane with Tabs & Bottom Navigation */}
+      <div className={cn(
+        "w-full md:w-80 lg:w-96 flex flex-col h-full shrink-0 border-r border-surface-border bg-surface relative z-10",
+        activeChatId ? "hidden md:flex" : "flex"
+      )}>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+          {activeTab === 'chats' && (
+            <ChatSidebar 
+              onProfileClick={() => setShowProfile(true)}
+              onNewChatClick={() => { setIsAddingMembers(false); setShowContacts(true); }}
+            />
+          )}
+
+          {activeTab === 'live' && <LiveView />}
+
+          {activeTab === 'calls' && <CallsView />}
+        </div>
+
+        {/* Floating Glassmorphic Bottom Navigation Bar */}
+        <BottomNav 
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      </div>
 
       <ContactList isOpen={showContacts} onClose={() => setShowContacts(false)} isAddingMembers={isAddingMembers} />
       <ProfileOverlay isOpen={showProfile} onClose={() => setShowProfile(false)} />

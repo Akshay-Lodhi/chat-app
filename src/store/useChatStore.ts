@@ -43,6 +43,9 @@ interface ChatState {
   onlineUsers: Record<string, boolean>;
   typingStatuses: Record<string, { isTyping: boolean, timer?: NodeJS.Timeout }>;
   blockedUsers: any[];
+  activeTab: 'chats' | 'live' | 'calls';
+  setActiveTab: (tab: 'chats' | 'live' | 'calls') => void;
+  calls: any[];
   isMessageSearchOpen: boolean;
   setIsMessageSearchOpen: (isOpen: boolean) => void;
   messageForInfo: any | null;
@@ -55,6 +58,7 @@ interface ChatState {
   addMessage: (chatId: string, message: Message) => void;
   fetchChats: (token: string) => Promise<void>;
   fetchMessages: (chatId: string, token: string) => Promise<void>;
+  fetchCalls: (token: string) => Promise<void>;
   createChat: (contactId: string, token: string) => Promise<string | null>;
   createGroupChat: (name: string, participantIds: string[]) => Promise<string | null>;
   addGroupParticipants: (chatId: string, participantIds: string[]) => Promise<void>;
@@ -82,6 +86,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   socket: null,
   chats: [],
   activeChatId: null,
+  activeTab: 'chats',
+  setActiveTab: (tab) => set({ activeTab: tab }),
+  calls: [],
   messages: {},
   isConnecting: false,
   onlineUsers: {},
@@ -345,6 +352,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (err) {
       console.error('Error fetching messages:', err);
+    }
+  },
+
+  fetchCalls: async (token: string) => {
+    try {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+      const res = await fetch(`${serverUrl}/api/chats/calls`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set({ calls: data.calls || [] });
+      }
+    } catch (err) {
+      console.error('Error fetching calls:', err);
     }
   },
 
