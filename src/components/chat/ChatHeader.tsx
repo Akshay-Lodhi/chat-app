@@ -97,11 +97,10 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   const activeCallInChat = activeChatId ? activeCalls[activeChatId] : null;
 
   return (
-    <div className="flex flex-col shrink-0 relative" style={{ zIndex: 9999 }}>
+    <div className="flex flex-col shrink-0 relative z-40">
       <div 
-        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative"
+        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative z-40"
         style={{
-          zIndex: 9999,
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'max(16px, env(safe-area-inset-right))'
         }}

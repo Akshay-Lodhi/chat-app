@@ -62,7 +62,7 @@ export function GroupInfoOverlay({ isOpen, onClose, onAddMemberClick }: GroupInf
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="absolute top-0 right-0 w-full md:w-[350px] lg:w-[400px] h-full bg-surface z-40 flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.1)] border-l border-surface-border"
+        className="absolute top-0 right-0 w-full md:w-[350px] lg:w-[400px] h-full bg-surface z-[10000] flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.1)] border-l border-surface-border"
       >
         {/* Header */}
         <div className="h-16 bg-surface-hover flex items-center px-4 shrink-0 shadow-sm border-b border-surface-border">

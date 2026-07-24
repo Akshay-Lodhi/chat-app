@@ -49,7 +49,24 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
     ? `${Math.floor(callData.duration / 60)}m ${callData.duration % 60}s`
     : 'No answer';
 
-  const participants = callData.participants || [];
+  const initiatorId = callData.initiatorId;
+  const rawParticipants = callData.participants || [];
+
+  const participants = rawParticipants.map(p => {
+    const isInitiator = Boolean(
+      (initiatorId && p.userId === initiatorId) ||
+      (isMine && currentUserId && p.userId === currentUserId) ||
+      (p as any).isInitiator ||
+      (p as any).isHost
+    );
+    const isJoined = isInitiator || p.status === 'JOINED' || (p as any).hasJoined || (p as any).joined;
+    return {
+      ...p,
+      isInitiator,
+      status: isJoined ? ('JOINED' as const) : ('MISSED' as const)
+    };
+  });
+
   const joinedList = participants.filter(p => p.status === 'JOINED');
   const invitedList = participants.filter(p => p.status !== 'JOINED');
 
@@ -68,7 +85,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="bg-[#111b21] border border-surface-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden z-10 relative flex flex-col"
+          className="bg-[#111b21] border border-surface-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden z-10 relative flex flex-col max-h-[90vh]"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-surface-border bg-[#182229]">
@@ -93,7 +110,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
           </div>
 
           {/* Body */}
-          <div className="p-4 max-h-[420px] overflow-y-auto space-y-4">
+          <div className="p-4 max-h-[60vh] overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             
             {/* Call Summary Badge */}
             <div className="bg-[#1f2c34] p-3.5 rounded-2xl border border-surface-border/60 flex items-center justify-between">
@@ -114,7 +131,10 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                   <span>Joined Participants ({joinedList.length})</span>
                 </div>
                 <div className="space-y-2">
-                  {joinedList.map((p, idx) => (
+                  {joinedList.map((p, idx) => {
+                    const isMe = Boolean(currentUserId && p.userId === currentUserId);
+                    const displayName = isMe && !p.name.includes('(You)') ? `${p.name} (You)` : p.name;
+                    return (
                     <div key={p.userId || idx} className="flex items-center justify-between p-3 rounded-2xl bg-[#1f2c34]/70 border border-emerald-500/30">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-semibold overflow-hidden border border-emerald-500/40">
@@ -126,19 +146,17 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                         </div>
                         <div>
                           <p className="text-white text-sm font-medium flex items-center gap-1.5">
-                            {p.name}
-                            {currentUserId && p.userId === currentUserId && (
-                              <span className="text-[10px] font-semibold text-white/50 bg-white/10 px-1.5 py-0.5 rounded-full">You</span>
-                            )}
+                            {displayName}
                           </p>
                           <p className="text-emerald-400 text-xs font-medium">
-                            {isMine && currentUserId && p.userId === currentUserId ? 'Initiator • Host' : 'Joined • Connected'}
+                            {p.isInitiator || p.userId === callData.initiatorId || (isMine && isMe) ? 'Initiator • Host' : 'Joined • Connected'}
                           </p>
                         </div>
                       </div>
                       <span className="text-[11px] bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full font-medium">Joined</span>
                     </div>
-                  ))}
+                  );
+                 })}
                 </div>
               </div>
             )}
@@ -151,7 +169,10 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                   <span>Invited / Didn't Join ({invitedList.length})</span>
                 </div>
                 <div className="space-y-2">
-                  {invitedList.map((p, idx) => (
+                  {invitedList.map((p, idx) => {
+                    const isMe = Boolean(currentUserId && p.userId === currentUserId);
+                    const displayName = isMe && !p.name.includes('(You)') ? `${p.name} (You)` : p.name;
+                    return (
                     <div key={p.userId || idx} className="flex items-center justify-between p-3 rounded-2xl bg-[#1f2c34]/40 border border-surface-border">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-white/10 text-white/60 flex items-center justify-center font-medium overflow-hidden">
@@ -163,17 +184,15 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                         </div>
                         <div>
                           <p className="text-white/80 text-sm font-medium flex items-center gap-1.5">
-                            {p.name}
-                            {currentUserId && p.userId === currentUserId && (
-                              <span className="text-[10px] font-semibold text-white/50 bg-white/10 px-1.5 py-0.5 rounded-full">You</span>
-                            )}
+                            {displayName}
                           </p>
                           <p className="text-white/40 text-xs">Invited • No Answer</p>
                         </div>
                       </div>
                       <span className="text-[11px] bg-white/10 text-white/50 px-3 py-1 rounded-full font-medium">Missed</span>
                     </div>
-                  ))}
+                  );
+                 })}
                 </div>
               </div>
             )}

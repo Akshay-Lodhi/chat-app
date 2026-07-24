@@ -58,7 +58,7 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'tween', duration: 0.3 }}
-          className="absolute inset-y-0 right-0 w-full md:w-[400px] bg-surface z-40 flex flex-col shadow-2xl border-l border-surface-border"
+          className="absolute inset-y-0 right-0 w-full md:w-[400px] bg-surface z-[10000] flex flex-col shadow-2xl border-l border-surface-border"
         >
           <WallpaperModal isOpen={showWallpaperModal} onClose={() => setShowWallpaperModal(false)} chatId={activeChat.id} />
 

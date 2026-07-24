@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GroupCallDetailsModal } from './GroupCallDetailsModal';
+import { CallDetailsModal } from './CallDetailsModal';
 
 export function CallsView() {
   const { user } = useAuthStore();
@@ -192,18 +192,16 @@ export function CallsView() {
       }
     });
 
+    const initiatorId = call.callerId || call.initiatorId || call.senderId || (call.isOutgoing && user ? user.id : call.otherUser?.id);
     const rawJoinedIds = call.joinedParticipantIds || [];
 
     const participantsList = Array.from(allParticipantsMap.values()).map((u: any) => {
-      let isJoined = rawJoinedIds.includes(u.id);
+      // Caller / Host / Initiator ALWAYS joined
+      const isInitiator = Boolean((initiatorId && u.id === initiatorId) || (call.callerId && call.callerId === u.id));
+      let isJoined = isInitiator;
 
-      // Caller / Host is always joined
-      if (call.callerId === u.id || call.initiatorId === u.id) {
-        isJoined = true;
-      }
-
-      // If call was answered/completed (duration > 0 or !isMissed)
-      if (!isMissed || duration > 0 || call.status === 'COMPLETED') {
+      // If in rawJoinedIds or if call was completed
+      if (rawJoinedIds.includes(u.id) || (!isMissed && duration > 0 && call.status === 'COMPLETED')) {
         isJoined = true;
       }
 
@@ -211,6 +209,7 @@ export function CallsView() {
         userId: u.id,
         name: u.id === user?.id ? `${u.name || 'You'}` : (u.name || u.phoneNumber || 'User'),
         avatar: u.profilePicture || u.avatar,
+        isInitiator,
         status: isJoined ? ('JOINED' as const) : ('MISSED' as const)
       };
     });
@@ -222,7 +221,7 @@ export function CallsView() {
         type: isVideo ? ('VIDEO' as const) : ('AUDIO' as const),
         isGroup,
         participants: participantsList,
-        initiatorId: call.callerId
+        initiatorId
       },
       createdAt: call.startedAt,
       isMine: call.isOutgoing
@@ -345,6 +344,8 @@ export function CallsView() {
             const isUnanswered = call.isUnanswered;
             const isVideo = call.type === 'VIDEO';
             const isGroup = call.isGroup;
+            const chat = chats.find(c => c.id === call.chatId);
+            const groupPicture = isGroup ? chat?.groupPicture : null;
             const name = otherUser?.name || 'Contact User';
             const pfp = otherUser?.profilePicture;
             const groupParticipants = call.groupParticipants || [];
@@ -363,14 +364,16 @@ export function CallsView() {
                     className="relative group/avatar cursor-pointer shrink-0"
                     title={isGroup ? "Click to view group call participant details" : "Click to view call details"}
                   >
-                    {isGroup && !pfp ? (
+                    {isGroup && groupPicture ? (
+                      <img src={groupPicture} alt={name} className="w-12 h-12 rounded-full object-cover border border-surface-border/50 shadow-sm hover:scale-105 transition-transform" />
+                    ) : isGroup ? (
                       <div className="w-12 h-12 rounded-full bg-[#1f2c34] border border-surface-border/50 grid grid-cols-2 p-0.5 gap-0.5 overflow-hidden hover:scale-105 transition-transform shadow-sm">
                         {groupParticipants.slice(0, 4).map((pUser: any, i: number) => (
                           <div key={i} className="w-full h-full bg-[#005c4b] text-[#25D366] text-[9px] font-bold flex items-center justify-center overflow-hidden">
                             {pUser?.profilePicture ? (
                               <img src={pUser.profilePicture} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              (pUser?.name || 'U').substring(0, 1)
+                              (pUser?.name || 'U').substring(0, 1).toUpperCase()
                             )}
                           </div>
                         ))}
@@ -450,12 +453,21 @@ export function CallsView() {
         )}
       </div>
 
-      {/* Render GroupCallDetailsModal when tapping call logs in Calls Tab */}
-      {selectedCall && (
-        <GroupCallDetailsModal 
+      {/* Render 100% identical CallDetailsModal across Chat History & Calls Tab */}
+      {selectedCall && payload && (
+        <CallDetailsModal 
           isOpen={Boolean(selectedCall)}
           onClose={() => setSelectedCall(null)}
-          call={selectedCall}
+          callData={payload.callData}
+          createdAt={payload.createdAt}
+          isMine={payload.isMine}
+          currentUserId={user?.id}
+          onReCall={(type) => {
+            if (selectedCall.chatId) {
+              const targetUserIds = selectedCall.otherUser?.id ? [selectedCall.otherUser.id] : [];
+              initiateCall(type, selectedCall.chatId, targetUserIds);
+            }
+          }}
         />
       )}
     </div>
