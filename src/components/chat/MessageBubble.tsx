@@ -5,6 +5,8 @@ import { motion, useDragControls, AnimatePresence } from 'framer-motion';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { CallDetailsModal } from './CallDetailsModal';
+import { ContextMenu } from './ContextMenu';
+import { DeleteMessageModal } from './DeleteMessageModal';
 
 const AudioPlayer = ({ src }: { src: string }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -104,14 +106,37 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
   const dragControls = useDragControls();
   const msgTime = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // Long press logic
-  const [showReactions, setShowReactions] = useState(false);
+  // Long press / Context menu logic
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [showCallDetails, setShowCallDetails] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const startLongPress = useCallback(() => {
+
+
+  const handleContextMenu = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    
+    if ('clientX' in e) {
+      x = e.clientX;
+      y = e.clientY;
+    } else if (e.touches && e.touches[0]) {
+      x = e.touches[0].clientX;
+      y = e.touches[0].clientY;
+    }
+
+    setMenuPosition({ x, y });
+    setShowContextMenu(true);
+  };
+
+  const startLongPress = useCallback((e: any) => {
+    // Persist event so we can use its coordinates later
+    e.persist?.();
     longPressTimerRef.current = setTimeout(() => {
-      setShowReactions(true);
+      handleContextMenu(e);
     }, 500); // 500ms long press
   }, []);
 
@@ -125,9 +150,13 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
     return clearLongPress;
   }, [clearLongPress]);
 
+  // Early return if deleted for this user
+  if (message.deletedForUsers?.includes(currentUser?.id || '')) {
+    return null;
+  }
+
   const handleReaction = (emoji: string) => {
     toggleReaction(message.chatId, message.id, emoji);
-    setShowReactions(false);
   };
 
   // Swipe to reply logic
@@ -161,6 +190,15 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
   };
 
   const renderContent = () => {
+    if (message.deletedForEveryone) {
+      return (
+        <p className="text-[15px] italic text-text-secondary/70 flex items-center">
+          <Trash2 size={14} className="mr-2" />
+          {isMine ? 'You deleted this message' : 'This message was deleted'}
+        </p>
+      );
+    }
+
     switch (message.type) {
       case 'IMAGE':
         return (
@@ -295,6 +333,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
           message.replyToId && "pt-2",
           message.reactions && Object.keys(message.reactions).length > 0 && "mb-3"
         )}
+        onContextMenu={handleContextMenu}
         onTouchStart={startLongPress}
         onTouchEnd={clearLongPress}
         onTouchMove={clearLongPress}
@@ -347,67 +386,35 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
           )}
         </div>
 
-      <AnimatePresence>
-        {showReactions && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40" 
-              onClick={() => setShowReactions(false)} 
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 10 }}
-              className={cn(
-                "absolute top-[-50px] z-50 flex items-center bg-surface border border-surface-border shadow-xl rounded-full px-3 py-2 space-x-3",
-                isMine ? "right-0" : "left-0"
-              )}
-            >
-              {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
-                <button 
-                  key={emoji}
-                  onClick={() => handleReaction(emoji)}
-                  className="hover:scale-125 transition-transform text-xl"
-                >
-                  {emoji}
-                </button>
-              ))}
-              {message.type === 'CALL_LOG' ? (
-                <>
-                  <div className="w-[1px] h-6 bg-surface-border mx-1" />
-                  <button 
-                    onClick={() => {
-                      setShowCallDetails(true);
-                      setShowReactions(false);
-                    }}
-                    className="flex items-center text-text-secondary hover:text-text-primary px-1"
-                    title="Call Details Info"
-                  >
-                    <Info size={18} />
-                  </button>
-                </>
-              ) : (!hideInfoOption) ? (
-                <>
-                  <div className="w-[1px] h-6 bg-surface-border mx-1" />
-                  <button 
-                    onClick={() => {
-                      setMessageForInfo(message);
-                      setShowReactions(false);
-                    }}
-                    className="flex items-center text-text-secondary hover:text-text-primary px-1"
-                    title="Message Info"
-                  >
-                    <Info size={18} />
-                  </button>
-                </>
-              ) : null}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <ContextMenu
+        isOpen={showContextMenu}
+        onClose={() => setShowContextMenu(false)}
+        position={menuPosition}
+        onReply={() => onReply?.()}
+        onForward={() => {
+          // Future implementation
+          alert('Forward coming soon');
+        }}
+        onCopy={() => {
+          if (message.content) navigator.clipboard.writeText(message.content);
+        }}
+        onDelete={() => setIsDeleteModalOpen(true)}
+        canDelete={!message.deletedForEveryone} // if it's already deleted, maybe prevent delete again
+      />
+
+      <DeleteMessageModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        canDeleteForEveryone={isMine && !message.deletedForEveryone} // Could add 24h check here too
+        onDeleteForMe={() => {
+          deleteMessage(message.chatId, message.id, 'me');
+          setIsDeleteModalOpen(false);
+        }}
+        onDeleteForEveryone={() => {
+          deleteMessage(message.chatId, message.id, 'everyone');
+          setIsDeleteModalOpen(false);
+        }}
+      />
 
         {/* Reactions Display */}
         {message.reactions && Object.keys(message.reactions).length > 0 && (

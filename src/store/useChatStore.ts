@@ -24,7 +24,10 @@ interface Message {
   status?: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ';
   deliveredAt?: string;
   readAt?: string;
-  isDeleted?: boolean;
+  isDeleted?: boolean; // legacy
+  deletedForEveryone?: boolean;
+  deletedForUsers?: string[];
+  deletedAt?: string;
   replyToId?: string | null;
   replyTo?: any | null;
   reactions?: Record<string, string>;
@@ -208,12 +211,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     });
 
-    socket.on('message-deleted', ({ messageId, chatId }) => {
+    socket.on('message-deleted', ({ messageId, chatId, deleteFor, deletedAt }) => {
       set((state) => {
         const newMessages = { ...state.messages };
         if (newMessages[chatId]) {
           newMessages[chatId] = newMessages[chatId].map(msg => 
-            msg.id === messageId ? { ...msg, isDeleted: true, content: null, mediaUrl: null } : msg
+            msg.id === messageId 
+              ? { 
+                  ...msg, 
+                  ...(deleteFor === 'everyone' ? { deletedForEveryone: true, deletedAt, content: null, mediaUrl: null } : {})
+                } 
+              : msg
           );
         }
         return { messages: newMessages };
@@ -600,6 +608,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   deleteMessage: async (chatId: string, messageId: string, deleteFor: 'everyone' | 'me' = 'everyone') => {
+    // Optimistic update
+    const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id;
+    set(state => {
+      const newMessages = { ...state.messages };
+      if (newMessages[chatId]) {
+        if (deleteFor === 'me') {
+          newMessages[chatId] = newMessages[chatId].map(msg => 
+            msg.id === messageId ? { ...msg, deletedForUsers: [...(msg.deletedForUsers || []), currentUserId || ''] } : msg
+          );
+        } else {
+          newMessages[chatId] = newMessages[chatId].map(msg => 
+            msg.id === messageId ? { ...msg, deletedForEveryone: true, deletedAt: new Date().toISOString(), content: null, mediaUrl: null } : msg
+          );
+        }
+      }
+      return { messages: newMessages };
+    });
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/${messageId}`, {
         method: 'DELETE',
@@ -608,23 +634,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         credentials: 'include'
       });
       if (res.ok) {
-        // Remove the message from UI entirely
-        set(state => ({
-          messages: {
-            ...state.messages,
-            [chatId]: (state.messages[chatId] || []).filter(m => m.id !== messageId)
-          },
-          // Also update lastMessage in chat list if this was the last message
-          chats: state.chats.map(c => {
-            if (c.id === chatId && c.lastMessage?.id === messageId) {
-              const remaining = (state.messages[chatId] || []).filter(m => m.id !== messageId);
-              return { ...c, lastMessage: remaining[remaining.length - 1] || undefined };
-            }
-            return c;
-          })
-        }));
         return true;
       }
+      // TODO: Handle failure and revert optimistic update
       return false;
     } catch (err) {
       console.error('Error deleting message:', err);
