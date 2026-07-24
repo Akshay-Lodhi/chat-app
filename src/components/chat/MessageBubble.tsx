@@ -106,7 +106,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const activeChat = chats.find(c => c.id === activeChatId || c.id === message.chatId);
   const dragControls = useDragControls();
-  const msgTime = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const msgTime = new Date(message.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
   // Long press / Context menu logic
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -571,7 +571,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
                   let formattedDate = '';
                   if (timestamp) {
                     const d = new Date(timestamp);
-                    formattedDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    formattedDate = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
                   }
 
                   return (
