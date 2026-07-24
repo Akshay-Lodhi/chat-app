@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
-import { Video, Phone, ArrowLeft, Search, Trash2, X, MoreVertical, AlertTriangle } from 'lucide-react';
+import { Video, Phone, ArrowLeft, Search, Trash2, X, MoreVertical, AlertTriangle, Copy, Forward, CornerUpLeft } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,7 +20,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuery = '', onSearchChange }: ChatHeaderProps) {
-  const { activeChatId, chats, onlineUsers, typingStatuses, clearChat } = useChatStore();
+  const { activeChatId, chats, onlineUsers, typingStatuses, clearChat, selectedMessageIds, clearMessageSelection, messages } = useChatStore();
   const { activeCalls, joinOngoingCall, isCalling } = useCallStore();
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -96,9 +96,9 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   const activeCallInChat = activeChatId ? activeCalls[activeChatId] : null;
 
   return (
-    <div className="flex flex-col shrink-0 relative z-40">
+    <div className="flex flex-col shrink-0 relative z-[100]">
       <div 
-        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative z-40"
+        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative z-[100]"
         style={{
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'max(16px, env(safe-area-inset-right))'
@@ -196,6 +196,76 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
             </AnimatePresence>
           </div>
         </div>
+
+        {/* Selection Toolbar Overlay */}
+        <AnimatePresence>
+          {selectedMessageIds.length > 0 && (
+            <motion.div 
+              key="selection-toolbar"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[#00A884] flex items-center justify-between px-4 z-[110] text-white"
+            >
+              <div className="flex items-center space-x-4">
+                <button onClick={clearMessageSelection} className="p-2 -ml-2 hover:bg-black/10 rounded-full transition-colors">
+                  <ArrowLeft size={24} />
+                </button>
+                <span className="text-lg font-medium">{selectedMessageIds.length}</span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                {selectedMessageIds.length === 1 && (
+                  <button 
+                    onClick={() => {
+                      alert('Reply coming soon');
+                      clearMessageSelection();
+                    }}
+                    className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                  >
+                    <CornerUpLeft size={24} />
+                  </button>
+                )}
+                
+                <button 
+                  onClick={() => {
+                    if (activeChatId) {
+                      const activeChatMsgs = messages[activeChatId] || [];
+                      const selectedMsgs = activeChatMsgs.filter(m => selectedMessageIds.includes(m.id));
+                      const text = selectedMsgs.map(m => m.content).filter(Boolean).join('\n\n');
+                      if (text) {
+                        navigator.clipboard.writeText(text);
+                      }
+                      clearMessageSelection();
+                    }
+                  }}
+                  className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                >
+                  <Copy size={24} />
+                </button>
+
+                <button 
+                  onClick={() => {
+                    alert('Forward coming soon');
+                    clearMessageSelection();
+                  }}
+                  className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                >
+                  <Forward size={24} />
+                </button>
+
+                <button 
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-bulk-delete'));
+                  }}
+                  className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                >
+                  <Trash2 size={24} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {isMessageSearchOpen && (
