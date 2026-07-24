@@ -349,4 +349,62 @@ export class ChatService {
     // Delete all messages in this chat
     await prisma.message.deleteMany({ where: { chatId } });
   }
+
+  static async getCallsForUser(userId: string, page = 1, limit = 30) {
+    const skip = (page - 1) * limit;
+    const where = {
+      OR: [
+        { callerId: userId },
+        { receiverId: userId },
+        { participants: { some: { userId } } }
+      ]
+    };
+
+    const [calls, total] = await Promise.all([
+      prisma.call.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          caller: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } },
+          receiver: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } },
+          participants: { include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } } } }
+        },
+        orderBy: { startedAt: 'desc' }
+      }),
+      prisma.call.count({ where })
+    ]);
+
+    return {
+      calls,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  static async clearCallLogsForUser(userId: string) {
+    // Delete calls involving user (caller, receiver, or participant)
+    await prisma.call.deleteMany({
+      where: {
+        OR: [
+          { callerId: userId },
+          { receiverId: userId },
+          { participants: { some: { userId } } }
+        ]
+      }
+    });
+
+    // Delete all CALL_LOG messages in chats where user is a participant
+    await prisma.message.deleteMany({
+      where: {
+        type: 'CALL_LOG',
+        chat: {
+          participants: {
+            some: { userId }
+          }
+        }
+      }
+    });
+  }
 }

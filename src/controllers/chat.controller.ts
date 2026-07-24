@@ -139,3 +139,25 @@ export const clearChatMessages = async (req: AuthRequest, res: Response) => {
     res.status(400).json({ error: error.message || 'Server error' });
   }
 };
+
+export const getCalls = async (req: AuthRequest, res: Response) => {
+  try {
+    const page = parseInt((req.query.page as string) || '1');
+    const limit = parseInt((req.query.limit as string) || '30');
+    const callsData = await ChatService.getCallsForUser(req.user!.userId, page, limit);
+    res.json(callsData);
+  } catch (error) {
+    console.error('Error in getCalls controller:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const clearCallLogs = async (req: AuthRequest, res: Response) => {
+  try {
+    await ChatService.clearCallLogsForUser(req.user!.userId);
+    res.json({ success: true, message: 'Call logs cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing call logs:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};

@@ -1,11 +1,17 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getChats, createChat, getMessages, createGroup, addParticipants, deleteGroup, updateGroupPicture, deleteMessage, clearChatMessages } from '../controllers/chat.controller';
+import { getChats, createChat, getMessages, createGroup, addParticipants, deleteGroup, updateGroupPicture, deleteMessage, clearChatMessages, getCalls, clearCallLogs } from '../controllers/chat.controller';
 
 const router = Router();
 
 // Get all chats for the authenticated user
 router.get('/', requireAuth, getChats as any);
+
+// Get paginated call logs for the authenticated user
+router.get('/calls', requireAuth, getCalls as any);
+
+// Delete/Clear all call logs for the authenticated user
+router.delete('/calls', requireAuth, clearCallLogs as any);
 
 // Create a new 1-on-1 chat
 router.post('/', requireAuth, createChat as any);
