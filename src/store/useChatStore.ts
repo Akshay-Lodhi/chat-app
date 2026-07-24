@@ -72,6 +72,10 @@ interface ChatState {
   blockUser: (userId: string) => Promise<boolean>;
   unblockUser: (userId: string) => Promise<boolean>;
   reportUser: (userId: string, reason?: string) => Promise<boolean>;
+  
+  selectedMessageIds: string[];
+  toggleMessageSelection: (messageId: string) => void;
+  clearMessageSelection: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -87,6 +91,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setIsMessageSearchOpen: (isOpen) => set({ isMessageSearchOpen: isOpen }),
   messageForInfo: null,
   setMessageForInfo: (message) => set({ messageForInfo: message }),
+  
+  selectedMessageIds: [],
+  toggleMessageSelection: (messageId) => {
+    set((state) => {
+      const isSelected = state.selectedMessageIds.includes(messageId);
+      if (isSelected) {
+        return { selectedMessageIds: state.selectedMessageIds.filter(id => id !== messageId) };
+      } else {
+        return { selectedMessageIds: [...state.selectedMessageIds, messageId] };
+      }
+    });
+  },
+  clearMessageSelection: () => set({ selectedMessageIds: [] }),
 
   sendTypingStatus: (chatId: string, isTyping: boolean) => {
     get().socket?.emit('typing', { chatId, isTyping });
@@ -561,6 +578,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
 
 
+
+
   fetchBlockedUsers: async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/blocked`, {
@@ -608,6 +627,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   deleteMessage: async (chatId: string, messageId: string, deleteFor: 'everyone' | 'me' = 'everyone') => {
+    const isBulk = messageId.includes(',');
+    const messageIds = isBulk ? messageId.split(',') : [messageId];
+    
     // Optimistic update
     const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id;
     set(state => {
@@ -615,11 +637,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (newMessages[chatId]) {
         if (deleteFor === 'me') {
           newMessages[chatId] = newMessages[chatId].map(msg => 
-            msg.id === messageId ? { ...msg, deletedForUsers: [...(msg.deletedForUsers || []), currentUserId || ''] } : msg
+            messageIds.includes(msg.id) ? { ...msg, deletedForUsers: [...(msg.deletedForUsers || []), currentUserId || ''] } : msg
           );
         } else {
           newMessages[chatId] = newMessages[chatId].map(msg => 
-            msg.id === messageId ? { ...msg, deletedForEveryone: true, deletedAt: new Date().toISOString(), content: null, mediaUrl: null } : msg
+            messageIds.includes(msg.id) ? { ...msg, deletedForEveryone: true, deletedAt: new Date().toISOString(), content: null, mediaUrl: null } : msg
           );
         }
       }
@@ -627,13 +649,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/${messageId}`, {
-        method: 'DELETE',
+      const endpoint = isBulk 
+        ? `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/bulk-delete`
+        : `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/${messageId}`;
+      const method = isBulk ? 'POST' : 'DELETE';
+      const body = isBulk ? JSON.stringify({ messageIds, deleteFor }) : JSON.stringify({ deleteFor });
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deleteFor }),
+        body,
         credentials: 'include'
       });
       if (res.ok) {
+        if (isBulk) get().clearMessageSelection();
         return true;
       }
       // TODO: Handle failure and revert optimistic update
@@ -647,8 +676,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearChat: async (chatId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
-        method: 'DELETE',
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/clear`, {
+        method: 'POST',
         credentials: 'include'
       });
       if (res.ok) {

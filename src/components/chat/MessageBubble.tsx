@@ -99,7 +99,7 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallClick, highlight, hideInfoOption }: MessageBubbleProps) {
-  const { toggleReaction, setMessageForInfo, chats, activeChatId, deleteMessage } = useChatStore();
+  const { toggleReaction, setMessageForInfo, chats, activeChatId, deleteMessage, selectedMessageIds, toggleMessageSelection } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const activeChat = chats.find(c => c.id === activeChatId || c.id === message.chatId);
@@ -111,6 +111,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
   const [menuPosition, setMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [showCallDetails, setShowCallDetails] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showReactions, setShowReactions] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
 
@@ -132,13 +133,24 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
     setShowContextMenu(true);
   };
 
+  const handleInteraction = (e: any) => {
+    if (selectedMessageIds.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMessageSelection(message.id);
+    }
+  };
+
   const startLongPress = useCallback((e: any) => {
     // Persist event so we can use its coordinates later
     e.persist?.();
     longPressTimerRef.current = setTimeout(() => {
-      handleContextMenu(e);
+      setShowReactions(true);
+      if (!selectedMessageIds.includes(message.id)) {
+        handleInteraction(e); // Toggle selection on long press
+      }
     }, 500); // 500ms long press
-  }, []);
+  }, [message.id, selectedMessageIds, toggleMessageSelection]);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -157,6 +169,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
 
   const handleReaction = (emoji: string) => {
     toggleReaction(message.chatId, message.id, emoji);
+    setShowReactions(false);
   };
 
   // Swipe to reply logic
@@ -328,8 +341,9 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
     >
       <div 
         className={cn(
-          "relative max-w-[75%] md:max-w-[65%] rounded-2xl px-4 py-2 flex flex-col shadow-sm cursor-pointer",
+          "relative max-w-[75%] md:max-w-[65%] rounded-2xl px-4 py-2 flex flex-col shadow-sm cursor-pointer transition-all duration-200",
           isMine ? "bg-bubble-out text-white rounded-br-sm" : "bg-bubble-in text-text-primary rounded-bl-sm",
+          selectedMessageIds.includes(message.id) && "bg-[#00A884]/20 ring-2 ring-[#00A884] opacity-90 text-text-primary",
           message.replyToId && "pt-2",
           message.reactions && Object.keys(message.reactions).length > 0 && "mb-3"
         )}
@@ -340,6 +354,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
         onMouseDown={startLongPress}
         onMouseUp={clearLongPress}
         onMouseLeave={clearLongPress}
+        onClick={handleInteraction}
       >
         
         {/* Reply Context */}
@@ -385,6 +400,68 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
             </span>
           )}
         </div>
+
+      <AnimatePresence>
+        {showReactions && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40" 
+              onClick={() => setShowReactions(false)} 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className={cn(
+                "absolute top-[-50px] z-50 flex items-center bg-surface border border-surface-border shadow-xl rounded-full px-3 py-2 space-x-3",
+                isMine ? "right-0" : "left-0"
+              )}
+            >
+              {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
+                <button 
+                  key={emoji}
+                  onClick={() => handleReaction(emoji)}
+                  className="hover:scale-125 transition-transform text-xl"
+                >
+                  {emoji}
+                </button>
+              ))}
+              {message.type === 'CALL_LOG' ? (
+                <>
+                  <div className="w-[1px] h-6 bg-surface-border mx-1" />
+                  <button 
+                    onClick={() => {
+                      setShowCallDetails(true);
+                      setShowReactions(false);
+                    }}
+                    className="flex items-center text-text-secondary hover:text-text-primary px-1"
+                    title="Call Details Info"
+                  >
+                    <Info size={18} />
+                  </button>
+                </>
+              ) : (!hideInfoOption) ? (
+                <>
+                  <div className="w-[1px] h-6 bg-surface-border mx-1" />
+                  <button 
+                    onClick={() => {
+                      setMessageForInfo(message);
+                      setShowReactions(false);
+                    }}
+                    className="flex items-center text-text-secondary hover:text-text-primary px-1"
+                    title="Message Info"
+                  >
+                    <Info size={18} />
+                  </button>
+                </>
+              ) : null}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <ContextMenu
         isOpen={showContextMenu}
