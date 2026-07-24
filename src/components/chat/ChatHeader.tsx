@@ -17,9 +17,10 @@ interface ChatHeaderProps {
   onGroupInfoClick: () => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
+  onForward?: (messages: any[]) => void;
 }
 
-export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuery = '', onSearchChange }: ChatHeaderProps) {
+export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuery = '', onSearchChange, onForward }: ChatHeaderProps) {
   const { activeChatId, chats, onlineUsers, typingStatuses, clearChat, selectedMessageIds, clearMessageSelection, messages } = useChatStore();
   const { activeCalls, joinOngoingCall, isCalling } = useCallStore();
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
@@ -96,10 +97,11 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   const activeCallInChat = activeChatId ? activeCalls[activeChatId] : null;
 
   return (
-    <div className="flex flex-col shrink-0 relative z-[100]">
+    <div className="flex flex-col shrink-0 relative" style={{ zIndex: 9999 }}>
       <div 
-        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative z-[100]"
+        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative"
         style={{
+          zIndex: 9999,
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'max(16px, env(safe-area-inset-right))'
         }}
@@ -157,7 +159,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -8 }}
                   transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-                  className="absolute right-0 top-full mt-2 w-52 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl z-50 overflow-hidden py-1"
+                  className="absolute right-0 top-full mt-2 w-52 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl z-[9999] overflow-hidden py-1"
                 >
                   {/* Search */}
                   <button
@@ -205,7 +207,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#00A884] flex items-center justify-between px-4 z-[110] text-white"
+              className="absolute inset-0 bg-[#00A884] flex items-center justify-between px-4 z-[9999] text-white"
             >
               <div className="flex items-center space-x-4">
                 <button onClick={clearMessageSelection} className="p-2 -ml-2 hover:bg-black/10 rounded-full transition-colors">
@@ -246,8 +248,11 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
 
                 <button 
                   onClick={() => {
-                    alert('Forward coming soon');
-                    clearMessageSelection();
+                    if (activeChatId && onForward) {
+                      const activeChatMsgs = messages[activeChatId] || [];
+                      const selectedMsgs = activeChatMsgs.filter(m => selectedMessageIds.includes(m.id));
+                      onForward(selectedMsgs);
+                    }
                   }}
                   className="p-2 hover:bg-black/10 rounded-full transition-colors"
                 >
@@ -274,7 +279,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-40"
+                className="fixed inset-0 z-[9998]"
                 onClick={() => {
                   setIsMessageSearchOpen(false);
                   if (onSearchChange) onSearchChange('');
@@ -285,7 +290,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 animate={{ width: '100%', opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="absolute inset-y-0 right-0 bg-surface-hover flex items-center px-4 overflow-hidden z-50"
+                className="absolute inset-y-0 right-0 bg-surface-hover flex items-center px-4 overflow-hidden z-[9999]"
                 ref={searchContainerRef}
               >
                 <button 

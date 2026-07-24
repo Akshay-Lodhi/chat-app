@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, CheckCheck, Trash2, Users, User } from 'lucide-react';
+import { X, Check, CheckCheck, Trash2, Users, User } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 
 export function MessageInfoOverlay() {
@@ -31,8 +31,6 @@ export function MessageInfoOverlay() {
     return () => { document.removeEventListener('click', handleClickOutside); };
   }, [isOpen, setMessageForInfo]);
 
-  if (!isOpen) return null;
-
   const handleDelete = async (deleteFor: 'everyone' | 'me') => {
     if (!messageForInfo) return;
     setDeleting(deleteFor);
@@ -43,24 +41,35 @@ export function MessageInfoOverlay() {
 
   return (
     <AnimatePresence>
-      <motion.div 
-        ref={overlayRef}
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ type: 'tween', duration: 0.3 }}
-        className="absolute inset-y-0 right-0 w-full md:w-[400px] bg-surface z-50 flex flex-col shadow-2xl border-l border-surface-border"
-      >
-        {/* Header */}
-        <div className="h-16 flex items-center px-4 border-b border-surface-border bg-surface shrink-0">
-          <button 
+      {isOpen && (
+        <>
+          {/* Transparent Backdrop to detect outside clicks */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-40 bg-black/20"
             onClick={() => setMessageForInfo(null)}
-            className="p-2 mr-2 rounded-full hover:bg-surface-hover text-text-secondary transition-colors"
+          />
+          
+          <motion.div 
+            ref={overlayRef}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed inset-0 m-auto w-[90%] md:w-[400px] h-fit max-h-[80vh] bg-surface z-50 flex flex-col shadow-2xl rounded-2xl border border-surface-border overflow-hidden"
           >
-            <ArrowLeft size={20} />
-          </button>
-          <div className="flex-1 flex items-center justify-between">
-            <h2 className="text-lg font-medium">Message info</h2>
+            {/* Header */}
+            <div className="h-14 flex items-center px-4 border-b border-surface-border bg-surface shrink-0">
+              <button 
+                onClick={() => setMessageForInfo(null)}
+                className="p-2 mr-2 rounded-full hover:bg-surface-hover text-text-secondary transition-colors"
+              >
+                <X size={20} />
+              </button>
+              <div className="flex-1 flex items-center justify-between">
+                <h2 className="text-lg font-medium">Message info</h2>
             
             <div className="relative">
               <button
@@ -105,11 +114,12 @@ export function MessageInfoOverlay() {
 
         <div className="flex-1 overflow-y-auto bg-chat-bg flex flex-col">
           {/* Message Preview */}
-          <div className="p-4 md:p-6 mb-4">
+          <div className="px-2 md:px-4 py-4 mb-2">
             <MessageBubble 
               message={messageForInfo} 
               isMine={isMine}
               hideInfoOption
+              fullWidth
             />
           </div>
 
@@ -183,7 +193,9 @@ export function MessageInfoOverlay() {
             </div>
           )}
         </div>
-      </motion.div>
+          </motion.div>
+        </>
+      )}
     </AnimatePresence>
   );
 }

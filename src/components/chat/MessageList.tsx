@@ -13,9 +13,10 @@ interface MessageListProps {
   onMediaClick: (url: string, type: 'IMAGE' | 'VIDEO') => void;
   searchQuery?: string;
   onSendMessage?: (content: string, type?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'LOCATION') => void;
+  onForward?: (message: any) => void;
 }
 
-export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMessage }: MessageListProps) {
+export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMessage, onForward }: MessageListProps) {
   const { messages, activeChatId, chats } = useChatStore();
   const { user } = useAuthStore();
   const { initiateCall } = useCallStore();
@@ -36,7 +37,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
 
   return (
     <div 
-      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border"
+      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border relative z-0"
       style={{
         paddingLeft: 'max(16px, env(safe-area-inset-left))',
         paddingRight: 'max(16px, env(safe-area-inset-right))'
@@ -87,6 +88,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
                 isMine={isMine} 
                 onReply={() => onReply(msg)}
                 onMediaClick={() => onMediaClick(msg.mediaUrl || msg.content || '', msg.type as 'IMAGE' | 'VIDEO')}
+                onForward={() => onForward?.(msg)}
                 onCallClick={(type: 'AUDIO' | 'VIDEO', callData?: any) => {
                   const isGroupLog = callData?.isGroup || activeChat?.isGroup;
                   const chatName = isGroupLog

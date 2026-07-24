@@ -96,9 +96,11 @@ interface MessageBubbleProps {
   onCallClick?: (type: 'AUDIO' | 'VIDEO', callData?: any) => void;
   highlight?: boolean;
   hideInfoOption?: boolean;
+  onForward?: () => void;
+  fullWidth?: boolean;
 }
 
-export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallClick, highlight, hideInfoOption }: MessageBubbleProps) {
+export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallClick, highlight, hideInfoOption, onForward, fullWidth }: MessageBubbleProps) {
   const { toggleReaction, setMessageForInfo, chats, activeChatId, deleteMessage, selectedMessageIds, toggleMessageSelection } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
@@ -292,10 +294,10 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
         return (
           <>
             <div 
-              className="flex items-center space-x-3 p-1 cursor-pointer hover:opacity-80 transition-opacity"
+              className="flex items-center space-x-2.5 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => onCallClick?.(callData.type, callData)}
             >
-              <div className={cn("p-3 rounded-full", isMissed ? "bg-danger/20 text-danger" : "bg-success/20 text-success")}>
+              <div className={cn("p-2.5 rounded-full", isMissed ? "bg-danger/20 text-danger" : "bg-success/20 text-success")}>
                 <CallIcon size={20} />
               </div>
               <div className="flex flex-col">
@@ -341,7 +343,8 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
     >
       <div 
         className={cn(
-          "relative max-w-[75%] md:max-w-[65%] rounded-2xl px-4 py-2 flex flex-col shadow-sm cursor-pointer transition-all duration-200",
+          "relative rounded-2xl px-3 py-1.5 flex flex-col shadow-sm cursor-pointer transition-all duration-200",
+          fullWidth ? "max-w-[95%] md:max-w-full" : "max-w-[75%] md:max-w-[65%]",
           isMine ? "bg-bubble-out text-white rounded-br-sm" : "bg-bubble-in text-text-primary rounded-bl-sm",
           selectedMessageIds.includes(message.id) && "bg-[#00A884]/20 ring-2 ring-[#00A884] opacity-90 text-text-primary",
           message.replyToId && "pt-2",
@@ -469,8 +472,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
         position={menuPosition}
         onReply={() => onReply?.()}
         onForward={() => {
-          // Future implementation
-          alert('Forward coming soon');
+          onForward?.();
         }}
         onCopy={() => {
           if (message.content) navigator.clipboard.writeText(message.content);

@@ -16,6 +16,7 @@ import { MessageComposer } from '@/components/chat/MessageComposer';
 import { GroupInfoOverlay } from '@/components/chat/GroupInfoOverlay';
 import { ContactInfoOverlay } from '@/components/chat/ContactInfoOverlay';
 import { MessageInfoOverlay } from '@/components/chat/MessageInfoOverlay';
+import { ForwardMessageModal } from '@/components/chat/ForwardMessageModal';
 import { useWallpaperStore } from '@/store/useWallpaperStore';
 
 import CallOverlay from './CallOverlay';
@@ -42,6 +43,21 @@ export default function ChatPage() {
   
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [activeMedia, setActiveMedia] = useState<{url: string, type: 'IMAGE'|'VIDEO'} | null>(null);
+
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [messagesToForward, setMessagesToForward] = useState<any[]>([]);
+
+  const handleForwardMessages = async (targetChatIds: string[]) => {
+    // Send each message to each target chat
+    for (const chatId of targetChatIds) {
+      for (const msg of messagesToForward) {
+        sendMessage(chatId, msg.content || '', msg.type || 'TEXT', msg.mediaUrl || null, null);
+      }
+    }
+    setShowForwardModal(false);
+    setMessagesToForward([]);
+    useChatStore.getState().clearMessageSelection();
+  };
 
   // Hydration and Connection
   useEffect(() => {
@@ -168,6 +184,14 @@ export default function ChatPage() {
       <ContactList isOpen={showContacts} onClose={() => setShowContacts(false)} isAddingMembers={isAddingMembers} />
       <ProfileOverlay isOpen={showProfile} onClose={() => setShowProfile(false)} />
       <MessageInfoOverlay />
+      <ForwardMessageModal 
+        isOpen={showForwardModal} 
+        onClose={() => {
+          setShowForwardModal(false);
+          setMessagesToForward([]);
+        }} 
+        onForward={handleForwardMessages} 
+      />
 
       {/* Main Chat Area */}
       {activeChatId ? (
@@ -188,6 +212,10 @@ export default function ChatPage() {
             }}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            onForward={(messages) => {
+              setMessagesToForward(messages);
+              setShowForwardModal(true);
+            }}
           />
 
           <MessageList 
@@ -195,6 +223,10 @@ export default function ChatPage() {
             onMediaClick={(url, type) => setActiveMedia({ url, type })}
             searchQuery={searchQuery}
             onSendMessage={handleSendMessage}
+            onForward={(message) => {
+              setMessagesToForward([message]);
+              setShowForwardModal(true);
+            }}
           />
 
           <MessageComposer 

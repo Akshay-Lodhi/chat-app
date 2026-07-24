@@ -245,6 +245,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     });
 
+    socket.on('chat-cleared', ({ chatId }) => {
+      set(state => ({
+        messages: { ...state.messages, [chatId]: [] },
+        chats: state.chats.map(c => c.id === chatId ? { ...c, lastMessage: undefined } : c)
+      }));
+    });
+
     socket.on('message-reaction-update', ({ messageId, chatId, reactions }) => {
       set((state) => {
         const newMessages = { ...state.messages };
@@ -676,8 +683,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearChat: async (chatId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/clear`, {
-        method: 'POST',
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
+        method: 'DELETE',
         credentials: 'include'
       });
       if (res.ok) {
