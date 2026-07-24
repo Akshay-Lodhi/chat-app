@@ -75,7 +75,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
             new Date(filteredMessages[index - 1].createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
             
           return (
-            <React.Fragment key={`${msg.id || msg.tempId || 'msg'}_${index}`}>
+            <React.Fragment key={msg.tempId || msg.id || `msg_${index}`}>
               {showDate && (
                 <div className="flex justify-center my-4">
                   <span className="bg-surface-hover text-text-secondary text-xs px-3 py-1 rounded-full shadow-sm">

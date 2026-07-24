@@ -50,6 +50,18 @@ interface ChatState {
   setIsMessageSearchOpen: (isOpen: boolean) => void;
   messageForInfo: any | null;
   setMessageForInfo: (message: any | null) => void;
+  notificationToast: {
+    id: string;
+    chatId: string;
+    senderName: string;
+    senderPfp?: string;
+    text: string;
+    isGroup: boolean;
+    groupName?: string;
+    type: string;
+  } | null;
+  setNotificationToast: (toast: any) => void;
+  clearNotificationToast: () => void;
   
   connectSocket: (token: string, userId: string) => void;
   disconnectSocket: () => void;
@@ -102,6 +114,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setIsMessageSearchOpen: (isOpen) => set({ isMessageSearchOpen: isOpen }),
   messageForInfo: null,
   setMessageForInfo: (message) => set({ messageForInfo: message }),
+  
+  notificationToast: null,
+  setNotificationToast: (toast) => set({ notificationToast: toast }),
+  clearNotificationToast: () => set({ notificationToast: null }),
   
   selectedMessageIds: [],
   toggleMessageSelection: (messageId) => {
@@ -188,11 +204,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
       get().addMessage(message.chatId, message);
 
       if (!isDuplicate) {
-        if (get().activeChatId === message.chatId) {
+        const isCurrentChatActive = get().activeChatId === message.chatId && get().activeTab === 'chats';
+        if (isCurrentChatActive) {
           socket.emit('message-read', { messageId: message.id, chatId: message.chatId });
         } else {
           socket.emit('message-delivered', { messageId: message.id, chatId: message.chatId });
           get().incrementUnreadCount(message.chatId);
+
+          // Trigger in-app popup notification toast
+          const chat = get().chats.find(c => c.id === message.chatId);
+          const sender = chat?.participants?.find((p: any) => p.userId === message.senderId)?.user;
+          const senderName = sender?.name || sender?.phoneNumber || 'Contact User';
+          const senderPfp = sender?.profilePicture;
+
+          set({
+            notificationToast: {
+              id: message.id,
+              chatId: message.chatId,
+              senderName,
+              senderPfp,
+              text: message.content || '',
+              isGroup: chat?.isGroup || false,
+              groupName: chat?.name || 'Group',
+              type: message.type
+            }
+          });
         }
       }
     });
@@ -649,12 +685,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         tempId
       }, (response: any) => {
         if (response && response.message) {
-          const updatedMsg = { ...response.message, tempId: response.tempId || tempId };
+          const updatedMsg = { ...response.message, tempId: tempId };
           set((state) => ({
             messages: {
               ...state.messages,
               [chatId]: (state.messages[chatId] || []).map(m => 
-                (m.id === response.tempId || m.tempId === response.tempId) ? updatedMsg : m
+                (m.id === tempId || m.tempId === tempId || m.id === response.message.id) ? updatedMsg : m
               )
             }
           }));

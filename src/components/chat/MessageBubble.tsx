@@ -337,8 +337,8 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.2}
       onDragEnd={handleDragEnd}
-      layout
-      initial={{ opacity: 0, y: 10 }}
+      layout="position"
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       className={cn("flex w-full group relative", isMine ? "justify-end" : "justify-start")}
     >

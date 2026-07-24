@@ -17,6 +17,7 @@ import { GroupInfoOverlay } from '@/components/chat/GroupInfoOverlay';
 import { ContactInfoOverlay } from '@/components/chat/ContactInfoOverlay';
 import { MessageInfoOverlay } from '@/components/chat/MessageInfoOverlay';
 import { ForwardMessageModal } from '@/components/chat/ForwardMessageModal';
+import { InAppNotificationToast } from '@/components/chat/InAppNotificationToast';
 import { useWallpaperStore } from '@/store/useWallpaperStore';
 
 import { BottomNav } from '@/components/chat/BottomNav';
@@ -208,6 +209,7 @@ export default function ChatPage() {
       <ContactList isOpen={showContacts} onClose={() => setShowContacts(false)} isAddingMembers={isAddingMembers} />
       <ProfileOverlay isOpen={showProfile} onClose={() => setShowProfile(false)} />
       <MessageInfoOverlay />
+      <InAppNotificationToast />
       <ForwardMessageModal 
         isOpen={showForwardModal} 
         onClose={() => {
