@@ -122,7 +122,10 @@ model Message {
   type      MessageType @default(TEXT)
   mediaUrl  String?
   createdAt DateTime @default(now())
-  isDeleted Boolean  @default(false)
+  isDeleted Boolean  @default(false) // keeping for backward compatibility if needed
+  deletedForEveryone Boolean @default(false)
+  deletedForUsers String[] @default([])
+  deletedAt DateTime?
 
   chat      Chat     @relation(fields: [chatId], references: [id])
   sender    User     @relation(fields: [senderId], references: [id])

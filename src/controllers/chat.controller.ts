@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { getIO } from '../socket';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { ChatService } from '../services/chat.service';
 
@@ -103,11 +104,22 @@ export const updateGroupPicture = async (req: AuthRequest, res: Response) => {
     }
   }
 };
+
 export const deleteMessage = async (req: AuthRequest, res: Response) => {
   try {
     const messageId = req.params.messageId as string;
     const { deleteFor } = req.body; // 'me' | 'everyone'
-    await ChatService.deleteMessage(req.user!.userId, messageId, deleteFor || 'everyone');
+    const result = await ChatService.deleteMessage(req.user!.userId, messageId, deleteFor || 'everyone');
+    
+    if (result.deletedForEveryone) {
+      getIO().of('/chat').to(result.chatId).emit('message-deleted', {
+        messageId,
+        chatId: result.chatId,
+        deleteFor: 'everyone',
+        deletedAt: new Date().toISOString()
+      });
+    }
+
     res.json({ success: true });
   } catch (error: any) {
     console.error(error);

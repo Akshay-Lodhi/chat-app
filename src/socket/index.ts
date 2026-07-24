@@ -10,6 +10,15 @@ import { redis } from '../lib/redis';
 
 const prisma = new PrismaClient();
 
+let ioInstance: Server | null = null;
+
+export function getIO(): Server {
+  if (!ioInstance) {
+    throw new Error('Socket.io is not initialized');
+  }
+  return ioInstance;
+}
+
 export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
     cors: {
@@ -36,6 +45,8 @@ export function setupSocket(server: HttpServer) {
       console.error('❌ Failed to initialize Redis adapter:', err);
     }
   }
+
+  ioInstance = io;
 
   const chatNamespace = io.of('/chat');
 
