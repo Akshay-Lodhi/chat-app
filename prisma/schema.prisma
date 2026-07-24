@@ -36,6 +36,7 @@ model User {
   blockedBy     BlockedUser[]     @relation("Blocked")
   reportsMade   Report[]          @relation("Reporter")
   reportsReceived Report[]        @relation("Reported")
+  liveStreams   LiveStream[]
 }
 
 model Session {
@@ -226,4 +227,22 @@ model Report {
 
   reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
   reported User @relation("Reported", fields: [reportedId], references: [id], onDelete: Cascade)
+}
+
+model LiveStream {
+  id           String    @id @default(uuid())
+  streamerId   String
+  title        String
+  description  String?
+  category     String    @default("All")
+  thumbnail    String?
+  isLive       Boolean   @default(true)
+  viewerCount  Int       @default(0)
+  peakViewers  Int       @default(0)
+  likesCount   Int       @default(0)
+  pinnedComment String?
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+
+  streamer     User      @relation(fields: [streamerId], references: [id], onDelete: Cascade)
 }

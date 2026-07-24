@@ -9,6 +9,7 @@ import { auth } from './lib/auth';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import chatRoutes from './routes/chat.routes';
+import liveRoutes from './routes/live.routes';
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.use("/api/auth", toNodeHandler(auth));
 app.use('/api/auth/legacy', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/live', liveRoutes);
 app.use('/api/upload', uploadRoutes);
 
 app.get('/health', (req, res) => {

@@ -7,6 +7,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { fromNodeHeaders } from 'better-auth/node';
 import { auth } from '../lib/auth';
 import { redis } from '../lib/redis';
+import { activeLiveStreams } from '../controllers/live.controller';
 
 const prisma = new PrismaClient();
 
@@ -290,6 +291,101 @@ export function setupSocket(server: HttpServer) {
     socket.on('typing', ({ chatId, isTyping }) => {
       if (!chatId) return;
       socket.to(chatId).emit('typing', { chatId, userId, isTyping });
+    });
+
+    // ==========================================
+    // INSTAGRAM LIVE STREAMING SOCKET HANDLERS
+    // ==========================================
+    socket.on('join-live', ({ streamId, user }) => {
+      if (!streamId) return;
+      socket.join(`live_${streamId}`);
+
+      const session = activeLiveStreams.get(streamId);
+      if (session) {
+        if (!session.viewers.includes(user.id)) {
+          session.viewers.push(user.id);
+          session.viewerCount = Math.max(session.viewerCount + 1, session.viewers.length);
+        }
+        chatNamespace.to(`live_${streamId}`).emit('live-viewer-count', {
+          streamId,
+          viewerCount: session.viewerCount
+        });
+      }
+
+      // Notify others that user joined live
+      socket.to(`live_${streamId}`).emit('live-user-joined', {
+        streamId,
+        user
+      });
+    });
+
+    socket.on('leave-live', ({ streamId, user }) => {
+      if (!streamId) return;
+      socket.leave(`live_${streamId}`);
+
+      const session = activeLiveStreams.get(streamId);
+      if (session) {
+        session.viewers = session.viewers.filter(id => id !== user.id);
+        session.viewerCount = Math.max(0, session.viewers.length);
+        chatNamespace.to(`live_${streamId}`).emit('live-viewer-count', {
+          streamId,
+          viewerCount: session.viewerCount
+        });
+      }
+    });
+
+    socket.on('live-comment', ({ streamId, comment }) => {
+      if (!streamId || !comment) return;
+      chatNamespace.to(`live_${streamId}`).emit('new-live-comment', {
+        streamId,
+        comment
+      });
+    });
+
+    socket.on('live-reaction', ({ streamId, emoji, user }) => {
+      if (!streamId) return;
+      const session = activeLiveStreams.get(streamId);
+      if (session) {
+        session.likesCount = (session.likesCount || 0) + 1;
+      }
+
+      chatNamespace.to(`live_${streamId}`).emit('new-live-reaction', {
+        streamId,
+        emoji: emoji || '❤️',
+        id: `react-${Date.now()}-${Math.random()}`,
+        user
+      });
+    });
+
+    socket.on('live-pin-comment', ({ streamId, comment }) => {
+      if (!streamId) return;
+      const session = activeLiveStreams.get(streamId);
+      if (session) {
+        session.pinnedComment = comment;
+      }
+      chatNamespace.to(`live_${streamId}`).emit('live-comment-pinned', {
+        streamId,
+        comment
+      });
+    });
+
+    socket.on('live-signal', ({ streamId, signalData, targetUserId }) => {
+      if (!streamId) return;
+      if (targetUserId) {
+        // Direct peer signaling
+        chatNamespace.to(targetUserId).emit('live-signal', {
+          streamId,
+          signalData,
+          fromUserId: userId
+        });
+      } else {
+        // Broadcast signaling
+        socket.to(`live_${streamId}`).emit('live-signal', {
+          streamId,
+          signalData,
+          fromUserId: userId
+        });
+      }
     });
 
     // WebRTC Signaling
