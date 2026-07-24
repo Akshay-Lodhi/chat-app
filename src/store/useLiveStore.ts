@@ -60,6 +60,8 @@ interface LiveState {
   setRemoteStream: (stream: MediaStream | null) => void;
 }
 
+let pendingActiveStreamsFetch: Promise<any> | null = null;
+
 export const useLiveStore = create<LiveState>((set, get) => ({
   streams: [],
   activeStream: null,
@@ -74,36 +76,47 @@ export const useLiveStore = create<LiveState>((set, get) => ({
 
   setActiveCategory: (category) => {
     set({ activeCategory: category });
-    get().fetchActiveStreams(category, get().searchQuery);
   },
 
   setSearchQuery: (query) => {
     set({ searchQuery: query });
-    get().fetchActiveStreams(get().activeCategory, query);
   },
 
   setLocalStream: (stream) => set({ localStream: stream }),
   setRemoteStream: (stream) => set({ remoteStream: stream }),
 
   fetchActiveStreams: async (category, search) => {
-    try {
-      set({ isLoading: true });
-      const queryParams = new URLSearchParams();
-      if (category && category !== 'All') queryParams.append('category', category);
-      if (search) queryParams.append('search', search);
-
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
-      const res = await fetch(`${serverUrl}/api/live/active?${queryParams.toString()}`, {
-        credentials: 'include'
-      });
-
-      if (!res.ok) throw new Error('Failed to fetch streams');
-      const data = await res.json();
-      set({ streams: data.streams || [], isLoading: false });
-    } catch (err) {
-      console.error('Error fetching streams:', err);
-      set({ isLoading: false });
+    if (pendingActiveStreamsFetch) {
+      return pendingActiveStreamsFetch;
     }
+
+    pendingActiveStreamsFetch = (async () => {
+      try {
+        set({ isLoading: true });
+        const queryParams = new URLSearchParams();
+        const cat = category || get().activeCategory;
+        const q = search !== undefined ? search : get().searchQuery;
+
+        if (cat && cat !== 'All') queryParams.append('category', cat);
+        if (q) queryParams.append('search', q);
+
+        const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+        const res = await fetch(`${serverUrl}/api/live/active?${queryParams.toString()}`, {
+          credentials: 'include'
+        });
+
+        if (!res.ok) throw new Error('Failed to fetch streams');
+        const data = await res.json();
+        set({ streams: data.streams || [], isLoading: false });
+      } catch (err) {
+        console.error('Error fetching streams:', err);
+        set({ isLoading: false });
+      } finally {
+        pendingActiveStreamsFetch = null;
+      }
+    })();
+
+    return pendingActiveStreamsFetch;
   },
 
   startLiveStream: async ({ title, category, description }) => {

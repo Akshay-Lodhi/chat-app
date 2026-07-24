@@ -23,14 +23,9 @@ export function CallsView() {
   const [showClearToast, setShowClearToast] = useState(false);
   const [selectedGroupCall, setSelectedGroupCall] = useState<any>(null);
 
-  // Fetch paginated calls from DB & load messages
+  // Fetch paginated calls from DB
   useEffect(() => {
     fetchCalls('better-auth-session', 1, 50);
-    chats.forEach(chat => {
-      if (!messages[chat.id]) {
-        fetchMessages(chat.id, 'better-auth-session');
-      }
-    });
   }, [fetchCalls]);
 
   // Extract actual dynamic call logs from loaded chat messages & DB calls

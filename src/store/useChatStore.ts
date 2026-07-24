@@ -83,6 +83,9 @@ interface ChatState {
   clearMessageSelection: () => void;
 }
 
+const pendingMessageFetches = new Map<string, Promise<any>>();
+let pendingCallsFetch: Promise<any> | null = null;
+
 export const useChatStore = create<ChatState>((set, get) => ({
   socket: null,
   chats: [],
@@ -347,37 +350,58 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   fetchMessages: async (chatId: string, token: string) => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const msgs = await res.json();
-        set((state) => ({
-          messages: {
-            ...state.messages,
-            [chatId]: msgs
-          }
-        }));
-      }
-    } catch (err) {
-      console.error('Error fetching messages:', err);
+    if (pendingMessageFetches.has(chatId)) {
+      return pendingMessageFetches.get(chatId);
     }
+
+    const fetchPromise = (async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const msgs = await res.json();
+          set((state) => ({
+            messages: {
+              ...state.messages,
+              [chatId]: msgs
+            }
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching messages:', err);
+      } finally {
+        pendingMessageFetches.delete(chatId);
+      }
+    })();
+
+    pendingMessageFetches.set(chatId, fetchPromise);
+    return fetchPromise;
   },
 
   fetchCalls: async (token: string, page = 1, limit = 30) => {
-    try {
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
-      const res = await fetch(`${serverUrl}/api/chats/calls?page=${page}&limit=${limit}`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        set({ calls: data.calls || [] });
-      }
-    } catch (err) {
-      console.error('Error fetching calls:', err);
+    if (pendingCallsFetch) {
+      return pendingCallsFetch;
     }
+
+    pendingCallsFetch = (async () => {
+      try {
+        const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+        const res = await fetch(`${serverUrl}/api/chats/calls?page=${page}&limit=${limit}`, {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          set({ calls: data.calls || [] });
+        }
+      } catch (err) {
+        console.error('Error fetching calls:', err);
+      } finally {
+        pendingCallsFetch = null;
+      }
+    })();
+
+    return pendingCallsFetch;
   },
 
   clearCallLogs: async () => {
