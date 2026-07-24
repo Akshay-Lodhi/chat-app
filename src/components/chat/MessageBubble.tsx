@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Check, CheckCheck, Play, Pause, FileText, CornerUpLeft, MapPin, Phone, Video, PhoneMissed, Info, Trash2 } from 'lucide-react';
+import { Check, CheckCheck, Play, Pause, FileText, CornerUpLeft, MapPin, Phone, Video, PhoneMissed, Info, Trash2, X, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, useDragControls, AnimatePresence } from 'framer-motion';
 import { useChatStore } from '@/store/useChatStore';
@@ -113,6 +113,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
   const [menuPosition, setMenuPosition] = useState<{ x: number, y: number } | null>(null);
   const [showCallDetails, setShowCallDetails] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showReactionDetails, setShowReactionDetails] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -497,14 +498,19 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
 
         {/* Reactions Display */}
         {message.reactions && Object.keys(message.reactions).length > 0 && (
-          <div className={cn(
-            "absolute -bottom-3 flex items-center space-x-1 bg-surface-hover rounded-full px-2 py-0.5 shadow-sm border border-surface-border text-xs",
-            isMine ? "right-2" : "left-2"
-          )}>
-            {Array.from(new Set(Object.values(message.reactions))).map((r: any) => (
-              <span key={r}>{r}</span>
+          <div 
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowReactionDetails(true);
+            }}
+            className={cn(
+              "absolute -bottom-3 flex items-center space-x-0.5 bg-surface-hover rounded-full px-1.5 py-0.5 shadow-sm border border-surface-border text-[11px] cursor-pointer hover:bg-surface-border/50 transition-colors",
+              isMine ? "right-2" : "left-2"
+            )}
+          >
+            {Array.from(new Set(Object.values(message.reactions).map((r: any) => typeof r === 'string' ? r : r.emoji))).map((r: any, idx) => (
+              <span key={idx} className="z-10">{r}</span>
             ))}
-            <span className="text-text-secondary ml-1">{Object.keys(message.reactions).length}</span>
           </div>
         )}
 
@@ -519,6 +525,79 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
           <CornerUpLeft size={16} className={isMine ? "text-text-primary" : "text-text-primary scale-x-[-1]"} />
         </div>
       </div>
+
+      <AnimatePresence>
+        {showReactionDetails && message.reactions && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowReactionDetails(false);
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative bg-surface rounded-2xl shadow-xl w-full max-w-sm overflow-hidden z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-surface-border bg-surface-hover">
+                <h3 className="font-semibold text-text-primary text-lg">Reactions</h3>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowReactionDetails(false);
+                  }}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors text-text-secondary hover:text-text-primary"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="max-h-[60vh] overflow-y-auto">
+                {Object.entries(message.reactions).map(([userId, reactionData]) => {
+                  const participant = activeChat?.participants?.find(p => p.userId === userId)?.user;
+                  const isMe = userId === currentUser?.id;
+                  const name = isMe ? 'You' : participant?.name || participant?.phoneNumber || 'Unknown';
+                  const pfp = isMe ? currentUser?.profilePicture : participant?.profilePicture;
+                  
+                  const emoji = typeof reactionData === 'string' ? reactionData : (reactionData as any).emoji;
+                  const timestamp = typeof reactionData === 'string' ? null : (reactionData as any).timestamp;
+                  
+                  let formattedDate = '';
+                  if (timestamp) {
+                    const d = new Date(timestamp);
+                    formattedDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  }
+
+                  return (
+                    <div key={userId} className="flex items-center justify-between p-4 border-b border-surface-border/50 last:border-0 hover:bg-surface-hover/30 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        {pfp ? (
+                          <img src={pfp} alt={name} className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-surface-border flex items-center justify-center">
+                            <User size={20} className="text-text-secondary" />
+                          </div>
+                        )}
+                        <div className="flex flex-col">
+                          <span className="font-medium text-text-primary">{name}</span>
+                          {formattedDate && <span className="text-[11px] text-text-tertiary">{formattedDate}</span>}
+                        </div>
+                      </div>
+                      <span className="text-2xl">{emoji as string}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
