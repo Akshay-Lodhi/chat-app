@@ -1,27 +1,27 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Video, 
-  Search, Trash2, ArrowUpRight, ArrowDownLeft, Check, Layers, UserCheck, Users
+  Phone, Video, Trash2, ArrowUpRight, ArrowDownLeft, 
+  Search, Check
 } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GroupCallDetailsModal } from './GroupCallDetailsModal';
+import { CallDetailsModal } from './CallDetailsModal';
 
 export function CallsView() {
   const { user } = useAuthStore();
-  const { calls, fetchCalls, clearCallLogs, chats, messages, fetchMessages } = useChatStore();
+  const { calls, fetchCalls, clearCallLogs, chats, messages } = useChatStore();
   const { initiateCall } = useCallStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'missed' | 'unanswered'>('all');
   const [isCleared, setIsCleared] = useState(false);
   const [showClearToast, setShowClearToast] = useState(false);
-  const [selectedGroupCall, setSelectedGroupCall] = useState<any>(null);
+  const [selectedCall, setSelectedCall] = useState<any>(null);
 
   // Fetch paginated calls from DB
   useEffect(() => {
@@ -43,7 +43,8 @@ export function CallsView() {
 
         const isGroup = chat?.isGroup || callData.isGroup;
         const isVideo = callData.type === 'VIDEO';
-        const isUnanswered = callData.duration === 0 || callData.action === 'MISSED' || callData.action === 'NO_ANSWER';
+        const duration = typeof callData.duration === 'number' ? callData.duration : 0;
+        const isUnanswered = duration === 0 || callData.action === 'MISSED' || callData.action === 'NO_ANSWER' || callData.status === 'MISSED' || callData.status === 'REJECTED';
 
         let callLabel = isMine 
           ? (isUnanswered ? 'Unanswered' : 'Outgoing') 
@@ -52,6 +53,9 @@ export function CallsView() {
         if (isGroup) callLabel += ' group';
         callLabel += isVideo ? ' video call' : ' voice call';
 
+        const joinedParticipantIds = callData.joinedParticipantIds || 
+          (callData.participants ? callData.participants.filter((p: any) => p.hasJoined || p.joined).map((p: any) => p.id || p.userId) : []);
+
         extractedCallLogs.push({
           id: msg.id,
           chatId,
@@ -59,6 +63,7 @@ export function CallsView() {
           receiverId: isMine ? otherParticipant?.id : user?.id,
           isGroup,
           groupParticipants,
+          joinedParticipantIds,
           otherUser: {
             id: otherParticipant?.id,
             name: isGroup ? (chat?.name || 'Group Call') : (otherParticipant?.name || otherParticipant?.phoneNumber || 'Contact User'),
@@ -70,7 +75,7 @@ export function CallsView() {
           status: isUnanswered ? 'MISSED' : 'COMPLETED',
           callLabel,
           startedAt: msg.createdAt,
-          duration: callData.duration || 0,
+          duration: isUnanswered ? 0 : duration,
         });
       }
     });
@@ -80,7 +85,8 @@ export function CallsView() {
   const dbCalls = calls.map((c: any) => {
     const isMine = c.callerId === user?.id;
     const otherUser = isMine ? c.receiver : c.caller;
-    const isUnanswered = c.status === 'MISSED' || c.status === 'REJECTED';
+    const duration = typeof c.duration === 'number' ? c.duration : 0;
+    const isUnanswered = duration === 0 || c.status === 'MISSED' || c.status === 'REJECTED' || c.status === 'NO_ANSWER' || c.action === 'MISSED';
     const isVideo = c.type === 'VIDEO';
     const isGroup = c.chat?.isGroup || (c.participants && c.participants.length > 2);
 
@@ -90,6 +96,9 @@ export function CallsView() {
     if (isGroup) callLabel += ' group';
     callLabel += isVideo ? ' video call' : ' voice call';
 
+    const joinedParticipantIds = c.joinedParticipantIds || 
+      (c.participants ? c.participants.filter((p: any) => p.hasJoined || p.status === 'JOINED' || p.joinedAt).map((p: any) => p.userId || p.user?.id) : []);
+
     return {
       id: c.id,
       chatId: c.chatId,
@@ -97,6 +106,7 @@ export function CallsView() {
       receiverId: c.receiverId,
       isGroup,
       groupParticipants: c.participants?.map((p: any) => p.user) || [],
+      joinedParticipantIds,
       otherUser: {
         id: otherUser?.id,
         name: isGroup ? (c.chat?.name || 'Group Call') : (otherUser?.name || otherUser?.phoneNumber || 'Contact User'),
@@ -105,10 +115,10 @@ export function CallsView() {
       type: c.type || 'AUDIO',
       isOutgoing: isMine,
       isUnanswered,
-      status: c.status,
+      status: isUnanswered ? 'MISSED' : 'COMPLETED',
       callLabel,
       startedAt: c.startedAt,
-      duration: c.duration || 0
+      duration: isUnanswered ? 0 : duration
     };
   });
 
@@ -128,135 +138,176 @@ export function CallsView() {
   }
 
   // Filter 2: Search Query
-  const filteredCalls = combinedCalls.filter((c: any) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const name = c.otherUser?.name || '';
-    return name.toLowerCase().includes(q);
-  });
+  const filteredCalls = searchQuery
+    ? combinedCalls.filter(c => c.otherUser?.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    : combinedCalls;
 
-  // Clear call logs with API call
   const handleClearLogs = async () => {
-    const success = await clearCallLogs();
-    setIsCleared(true);
-    setShowClearToast(true);
-    setTimeout(() => setShowClearToast(false), 2500);
-  };
-
-  // Dynamic Date Formatter
-  const formatCallDate = (isoString: string) => {
-    const d = new Date(isoString);
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-    
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const isYesterday = d.toDateString() === yesterday.toDateString();
-
-    const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
-    if (isToday) {
-      return { subDate: `Today, ${timeStr}`, rightDate: timeStr };
-    } else if (isYesterday) {
-      return { subDate: `Yesterday, ${timeStr}`, rightDate: 'Yesterday' };
-    } else {
-      const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-      const shortDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
-      return { subDate: `${dateStr}, ${timeStr}`, rightDate: shortDate };
+    if (window.confirm('Are you sure you want to clear all call logs?')) {
+      const success = await clearCallLogs();
+      if (success) {
+        setIsCleared(true);
+        setShowClearToast(true);
+        setTimeout(() => setShowClearToast(false), 3000);
+      }
     }
   };
 
-  return (
-    <div className="flex-1 flex flex-col h-full bg-[#0b141a] text-foreground overflow-y-auto no-scrollbar relative">
-      {/* Group Call Details Modal */}
-      <GroupCallDetailsModal 
-        isOpen={!!selectedGroupCall}
-        onClose={() => setSelectedGroupCall(null)}
-        call={selectedGroupCall}
-      />
+  const formatCallDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    
+    const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    
+    let dateLabel = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    if (isToday) dateLabel = 'Today';
 
-      {/* Clear Call Logs Toast */}
+    return {
+      subDate: `${dateLabel}, ${timeStr}`,
+      rightDate: isToday ? timeStr : dateLabel
+    };
+  };
+
+  // Transform call object into CallDetailsModal payload format
+  const getCallDetailsPayload = (call: any) => {
+    if (!call) return null;
+
+    const isGroup = Boolean(call.isGroup);
+    const isVideo = call.type === 'VIDEO';
+    const isMissed = Boolean(call.isUnanswered);
+    const duration = call.duration || 0;
+
+    const rawParticipants = call.groupParticipants?.length > 0
+      ? call.groupParticipants
+      : (call.otherUser ? [call.otherUser] : []);
+
+    const allParticipantsMap = new Map<string, any>();
+    if (user) {
+      allParticipantsMap.set(user.id, user);
+    }
+    rawParticipants.forEach((u: any) => {
+      if (u && u.id) {
+        allParticipantsMap.set(u.id, u);
+      }
+    });
+
+    const rawJoinedIds = call.joinedParticipantIds || [];
+
+    const participantsList = Array.from(allParticipantsMap.values()).map((u: any) => {
+      let isJoined = rawJoinedIds.includes(u.id);
+
+      // Caller / Host is always joined
+      if (call.callerId === u.id || call.initiatorId === u.id) {
+        isJoined = true;
+      }
+
+      // If call was answered/completed (duration > 0 or !isMissed)
+      if (!isMissed || duration > 0 || call.status === 'COMPLETED') {
+        isJoined = true;
+      }
+
+      return {
+        userId: u.id,
+        name: u.id === user?.id ? `${u.name || 'You'}` : (u.name || u.phoneNumber || 'User'),
+        avatar: u.profilePicture || u.avatar,
+        status: isJoined ? ('JOINED' as const) : ('MISSED' as const)
+      };
+    });
+
+    return {
+      callData: {
+        action: isMissed ? 'MISSED' : 'COMPLETED',
+        duration,
+        type: isVideo ? ('VIDEO' as const) : ('AUDIO' as const),
+        isGroup,
+        participants: participantsList,
+        initiatorId: call.callerId
+      },
+      createdAt: call.startedAt,
+      isMine: call.isOutgoing
+    };
+  };
+
+  const payload = getCallDetailsPayload(selectedCall);
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-background text-foreground overflow-y-auto relative no-scrollbar">
+      {/* Toast Notification */}
       <AnimatePresence>
         {showClearToast && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-[#25D366] text-black font-extrabold text-xs px-4 py-2 rounded-full shadow-lg flex items-center space-x-1.5"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#25D366] text-black font-extrabold text-xs px-4 py-2 rounded-full shadow-lg border border-black/10 flex items-center space-x-2"
           >
-            <Check size={16} />
-            <span>Call logs deleted from database!</span>
+            <Check size={14} strokeWidth={3} />
+            <span>Call history cleared successfully</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Top Header */}
-      <div className="sticky top-0 z-30 bg-[#0b141a]/95 backdrop-blur-md px-4 py-3.5 border-b border-surface-border/40 flex items-center justify-between shadow-sm">
-        <div className="flex items-center space-x-2">
-          <div className="p-2 rounded-xl bg-[#25D366]/20 text-[#25D366]">
-            <Phone size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-white">Calls</h1>
-            <p className="text-[11px] text-text-tertiary font-medium">Actual database call history</p>
-          </div>
+      {/* Top Bar Header */}
+      <div className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md p-4 border-b border-surface-border flex items-center justify-between shadow-sm">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-text-primary">Calls</h1>
+          <p className="text-xs text-text-tertiary">Real-time call history & logs</p>
         </div>
 
-        {/* Clear Call Logs API Button */}
-        <button 
+        {/* Clear Call Logs Button */}
+        <button
           onClick={handleClearLogs}
-          className="flex items-center space-x-1.5 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-full border border-red-500/20 transition-all font-semibold active:scale-95"
-          title="Delete all call logs from database"
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-xs transition-colors border border-red-500/30 active:scale-95"
+          title="Clear all call history"
         >
           <Trash2 size={14} />
-          <span>Clear logs</span>
+          <span>Clear Logs</span>
         </button>
       </div>
 
-      {/* 3 Filter Pill Buttons (All / Missed / Unanswered) */}
-      <div className="px-4 py-3 border-b border-surface-border/40 bg-[#0b141a] flex items-center space-x-2 overflow-x-auto no-scrollbar">
-        <button
-          onClick={() => setFilter('all')}
-          className={cn(
-            "flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap",
-            filter === 'all'
-              ? "bg-[#005c4b] text-[#25D366] border border-[#25D366]/40 shadow-sm"
-              : "bg-[#1f2c34] text-text-secondary hover:text-text-primary border border-surface-border/40"
-          )}
-        >
-          <Layers size={13} />
-          <span>All</span>
-        </button>
+      {/* Search & Filter Pills Bar */}
+      <div className="p-4 border-b border-surface-border/40 space-y-3 bg-[#111b21]">
+        {/* Pills: All, Missed, Unanswered */}
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => setFilter('all')}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm",
+              filter === 'all' 
+                ? "bg-[#005c4b] text-[#25D366] border border-[#25D366]/40" 
+                : "bg-[#1f2c34] text-text-secondary hover:bg-surface-hover"
+            )}
+          >
+            All
+          </button>
+          
+          <button 
+            onClick={() => setFilter('missed')}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm",
+              filter === 'missed' 
+                ? "bg-red-500/20 text-red-400 border border-red-500/40" 
+                : "bg-[#1f2c34] text-text-secondary hover:bg-surface-hover"
+            )}
+          >
+            Missed
+          </button>
 
-        <button
-          onClick={() => setFilter('missed')}
-          className={cn(
-            "flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap",
-            filter === 'missed'
-              ? "bg-[#005c4b] text-[#25D366] border border-[#25D366]/40 shadow-sm"
-              : "bg-[#1f2c34] text-text-secondary hover:text-text-primary border border-surface-border/40"
-          )}
-        >
-          <PhoneMissed size={13} className="text-red-400" />
-          <span>Missed</span>
-        </button>
+          <button 
+            onClick={() => setFilter('unanswered')}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm",
+              filter === 'unanswered' 
+                ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" 
+                : "bg-[#1f2c34] text-text-secondary hover:bg-surface-hover"
+            )}
+          >
+            Unanswered
+          </button>
+        </div>
 
-        <button
-          onClick={() => setFilter('unanswered')}
-          className={cn(
-            "flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap",
-            filter === 'unanswered'
-              ? "bg-[#005c4b] text-[#25D366] border border-[#25D366]/40 shadow-sm"
-              : "bg-[#1f2c34] text-text-secondary hover:text-text-primary border border-surface-border/40"
-          )}
-        >
-          <UserCheck size={13} className="text-amber-400" />
-          <span>Unanswered</span>
-        </button>
-      </div>
-
-      {/* Search Input */}
-      <div className="p-3 bg-[#0b141a]">
+        {/* Search Call Input */}
         <div className="relative flex items-center">
           <Search size={16} className="absolute left-3.5 text-text-tertiary" />
           <input 
@@ -303,60 +354,51 @@ export function CallsView() {
             return (
               <div 
                 key={call.id}
+                onClick={() => setSelectedCall(call)}
                 className="flex items-center justify-between p-3 hover:bg-[#1f2c34]/60 rounded-2xl transition-colors group cursor-pointer"
               >
                 <div className="flex items-center space-x-3.5 min-w-0">
                   {/* Profile Avatar / Group Grid Avatar with Click Handler for Details Modal */}
                   <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedGroupCall(call);
-                    }}
                     className="relative group/avatar cursor-pointer shrink-0"
                     title={isGroup ? "Click to view group call participant details" : "Click to view call details"}
                   >
                     {isGroup && !pfp ? (
                       <div className="w-12 h-12 rounded-full bg-[#1f2c34] border border-surface-border/50 grid grid-cols-2 p-0.5 gap-0.5 overflow-hidden hover:scale-105 transition-transform shadow-sm">
                         {groupParticipants.slice(0, 4).map((pUser: any, i: number) => (
-                          pUser?.profilePicture ? (
-                            <img key={i} src={pUser.profilePicture} alt="" className="w-full h-full object-cover rounded-full" />
-                          ) : (
-                            <div key={i} className="w-full h-full bg-[#005c4b] text-[8px] font-bold text-[#25D366] flex items-center justify-center rounded-full">
-                              {(pUser?.name || 'U').substring(0, 1)}
-                            </div>
-                          )
-                        ))}
-                        {groupParticipants.length === 0 && (
-                          <div className="col-span-2 row-span-2 flex items-center justify-center text-[#25D366]">
-                            <Users size={20} />
+                          <div key={i} className="w-full h-full bg-[#005c4b] text-[#25D366] text-[9px] font-bold flex items-center justify-center overflow-hidden">
+                            {pUser?.profilePicture ? (
+                              <img src={pUser.profilePicture} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              (pUser?.name || 'U').substring(0, 1)
+                            )}
                           </div>
-                        )}
+                        ))}
                       </div>
                     ) : pfp ? (
-                      <img src={pfp} alt={name} className="w-12 h-12 rounded-full object-cover border border-surface-border/50 hover:scale-105 transition-transform shadow-sm" />
+                      <img src={pfp} alt={name} className="w-12 h-12 rounded-full object-cover border border-surface-border/50 shadow-sm hover:scale-105 transition-transform" />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-[#1f2c34] border border-surface-border/50 flex items-center justify-center text-text-secondary hover:scale-105 transition-transform shadow-sm">
-                        <span className="text-sm font-bold text-[#25D366]">{name.substring(0, 2).toUpperCase()}</span>
+                      <div className="w-12 h-12 rounded-full bg-[#005c4b] text-[#25D366] font-bold text-base flex items-center justify-center shadow-sm hover:scale-105 transition-transform">
+                        {name.substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+
+                    {/* Group Badge Tag */}
+                    {isGroup && (
+                      <div className="absolute -bottom-1 -right-1 bg-[#25D366] text-black text-[9px] font-extrabold px-1 py-0.2 rounded-full border border-black shadow-sm">
+                        GRP
                       </div>
                     )}
                   </div>
 
-                  <div className="min-w-0">
-                    {/* Contact or Group Name - Red if Missed/Unanswered */}
-                    <h4 className={cn(
-                      "font-semibold text-sm truncate flex items-center space-x-1.5",
-                      isUnanswered && !isOutgoing ? "text-[#f15c6d] font-bold" : "text-white"
-                    )}>
+                  {/* Name & Sub-details */}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-bold text-white truncate flex items-center space-x-1.5">
                       <span>{name}</span>
-                      {isGroup && (
-                        <span className="text-[10px] bg-[#005c4b]/60 text-[#25D366] px-1.5 py-0.2 rounded-md border border-[#25D366]/30">
-                          Group
-                        </span>
-                      )}
                     </h4>
 
-                    {/* Sub-line 1: Direction Arrow & Call Type Text */}
-                    <div className="flex items-center space-x-1.5 mt-0.5 text-xs font-medium">
+                    {/* Sub-line 1: Arrow + Type */}
+                    <div className="flex items-center space-x-1.5 text-xs mt-0.5">
                       {isOutgoing ? (
                         <ArrowUpRight size={15} className={cn("shrink-0", isUnanswered ? "text-amber-400" : "text-[#25D366]")} />
                       ) : isUnanswered ? (
@@ -407,6 +449,24 @@ export function CallsView() {
           })
         )}
       </div>
+
+      {/* Render 100% identical CallDetailsModal across Chat History & Calls Tab */}
+      {selectedCall && payload && (
+        <CallDetailsModal 
+          isOpen={Boolean(selectedCall)}
+          onClose={() => setSelectedCall(null)}
+          callData={payload.callData}
+          createdAt={payload.createdAt}
+          isMine={payload.isMine}
+          currentUserId={user?.id}
+          onReCall={(type) => {
+            if (selectedCall.chatId) {
+              const targetUserIds = selectedCall.otherUser?.id ? [selectedCall.otherUser.id] : [];
+              initiateCall(type, selectedCall.chatId, targetUserIds);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

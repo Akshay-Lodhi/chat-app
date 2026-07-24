@@ -187,16 +187,27 @@ export default function ChatPage() {
         activeChatId ? "hidden md:flex" : "flex"
       )}>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          {activeTab === 'chats' && (
+          {/* On Desktop (md:), keep ChatSidebar on left so chat list is always accessible */}
+          <div className="hidden md:flex flex-col h-full overflow-hidden">
             <ChatSidebar 
               onProfileClick={() => setShowProfile(true)}
               onNewChatClick={() => { setIsAddingMembers(false); setShowContacts(true); }}
             />
-          )}
+          </div>
 
-          {activeTab === 'live' && <LiveView />}
+          {/* On Mobile (< md:), switch between ChatSidebar, LiveView, and CallsView based on activeTab */}
+          <div className="flex md:hidden flex-col h-full overflow-hidden">
+            {activeTab === 'chats' && (
+              <ChatSidebar 
+                onProfileClick={() => setShowProfile(true)}
+                onNewChatClick={() => { setIsAddingMembers(false); setShowContacts(true); }}
+              />
+            )}
 
-          {activeTab === 'calls' && <CallsView />}
+            {activeTab === 'live' && <LiveView />}
+
+            {activeTab === 'calls' && <CallsView />}
+          </div>
         </div>
 
         {/* Floating Glassmorphic Bottom Navigation Bar */}
@@ -219,13 +230,76 @@ export default function ChatPage() {
         onForward={handleForwardMessages} 
       />
 
-      {/* Main Chat Area */}
-      {activeChatId ? (
+      {/* Main Desktop Workspace Area */}
+      <div className="hidden md:flex flex-1 h-full min-w-0 overflow-hidden relative bg-chat-bg">
+        {activeTab === 'live' ? (
+          <LiveView />
+        ) : activeTab === 'calls' ? (
+          <CallsView />
+        ) : activeChatId ? (
+          <div 
+            className={cn("w-full h-full flex flex-col relative overflow-hidden transition-colors duration-300", getWallpaperClass(activeWallpaper.wallpaper))}
+            style={activeWallpaper.wallpaper === 'custom' && activeWallpaper.customUrl ? { backgroundImage: `url(${activeWallpaper.customUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+          >
+            <ChatHeader 
+              onBack={() => setActiveChat(null as any)}
+              onSearchClick={() => {}}
+              onGroupInfoClick={() => {
+                if (activeChat?.isGroup) {
+                  setShowGroupInfo(true);
+                } else {
+                  setShowContactInfo(true);
+                }
+              }}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onForward={(messages) => {
+                setMessagesToForward(messages);
+                setShowForwardModal(true);
+              }}
+            />
+
+            <MessageList 
+              onReply={setReplyingTo}
+              onMediaClick={(url, type) => setActiveMedia({ url, type })}
+              searchQuery={searchQuery}
+              onSendMessage={handleSendMessage}
+              onForward={(message) => {
+                setMessagesToForward([message]);
+                setShowForwardModal(true);
+              }}
+            />
+
+            <MessageComposer 
+              onSendMessage={handleSendMessage}
+              onSendMedia={handleSendMedia}
+              onSendLocation={handleSendLocation}
+              onSendVoice={handleSendVoice}
+              replyingTo={replyingTo}
+              onCancelReply={() => setReplyingTo(null)}
+            />
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <div className="max-w-md text-center flex flex-col items-center space-y-6 opacity-70">
+              <div className="w-32 h-32 flex items-center justify-center">
+                <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain drop-shadow-2xl" />
+              </div>
+              <h1 className="text-3xl font-light tracking-tight text-text-primary">NexusChat Web</h1>
+              <p className="text-text-secondary leading-relaxed">
+                Send and receive messages seamlessly across your devices.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Active Chat View (overlay on mobile when activeChatId is set) */}
+      {activeChatId && (
         <div 
-          className={cn("flex-1 flex flex-col relative overflow-hidden transition-colors duration-300", getWallpaperClass(activeWallpaper.wallpaper))}
+          className={cn("md:hidden fixed inset-0 z-50 flex flex-col overflow-hidden transition-colors duration-300", getWallpaperClass(activeWallpaper.wallpaper))}
           style={activeWallpaper.wallpaper === 'custom' && activeWallpaper.customUrl ? { backgroundImage: `url(${activeWallpaper.customUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
         >
-          
           <ChatHeader 
             onBack={() => setActiveChat(null as any)}
             onSearchClick={() => {}}
@@ -263,18 +337,6 @@ export default function ChatPage() {
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
           />
-        </div>
-      ) : (
-        <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-chat-bg">
-          <div className="max-w-md text-center flex flex-col items-center space-y-6 opacity-70">
-            <div className="w-32 h-32 flex items-center justify-center">
-              <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain drop-shadow-2xl" />
-            </div>
-            <h1 className="text-3xl font-light tracking-tight text-text-primary">NexusChat Web</h1>
-            <p className="text-text-secondary leading-relaxed">
-              Send and receive messages seamlessly across your devices.
-            </p>
-          </div>
         </div>
       )}
 
