@@ -17,6 +17,18 @@ export function MessageInfoOverlay() {
   const isOpen = !!messageForInfo;
   const isMine = messageForInfo?.senderId === user?.id;
 
+  const formatDetailTime = (value?: string | Date | null) => {
+    if (!value) return '—';
+
+    return new Date(value).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (overlayRef.current && overlayRef.current.contains(event.target as Node)) return;
@@ -132,13 +144,9 @@ export function MessageInfoOverlay() {
                   <CheckCheck size={24} className="text-[#53bdeb]" />
                   <div className="flex-1">
                     <p className="font-medium text-text-primary">Read</p>
-                    {messageForInfo.readAt ? (
-                      <p className="text-sm text-text-secondary">
-                        {new Date(messageForInfo.readAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-text-secondary">—</p>
-                    )}
+                    <p className="text-sm text-text-secondary">
+                      {formatDetailTime(messageForInfo.readAt)}
+                    </p>
                   </div>
                 </li>
 
@@ -147,13 +155,9 @@ export function MessageInfoOverlay() {
                   <CheckCheck size={24} className="text-text-secondary" />
                   <div className="flex-1">
                     <p className="font-medium text-text-primary">Delivered</p>
-                    {messageForInfo.deliveredAt ? (
-                      <p className="text-sm text-text-secondary">
-                        {new Date(messageForInfo.deliveredAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-text-secondary">—</p>
-                    )}
+                    <p className="text-sm text-text-secondary">
+                      {formatDetailTime(messageForInfo.deliveredAt)}
+                    </p>
                   </div>
                 </li>
 
@@ -162,13 +166,9 @@ export function MessageInfoOverlay() {
                   <Check size={24} className="text-text-secondary" />
                   <div className="flex-1">
                     <p className="font-medium text-text-primary">Sent</p>
-                    {messageForInfo.createdAt ? (
-                      <p className="text-sm text-text-secondary">
-                        {new Date(messageForInfo.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-text-secondary">—</p>
-                    )}
+                    <p className="text-sm text-text-secondary">
+                      {formatDetailTime(messageForInfo.createdAt)}
+                    </p>
                   </div>
                 </li>
               </ul>
@@ -180,13 +180,9 @@ export function MessageInfoOverlay() {
                   <Check size={24} className="text-text-secondary" />
                   <div className="flex-1">
                     <p className="font-medium text-text-primary">Received</p>
-                    {messageForInfo.createdAt ? (
-                      <p className="text-sm text-text-secondary">
-                        {new Date(messageForInfo.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-text-secondary">—</p>
-                    )}
+                    <p className="text-sm text-text-secondary">
+                      {formatDetailTime(messageForInfo.createdAt)}
+                    </p>
                   </div>
                 </li>
               </ul>
