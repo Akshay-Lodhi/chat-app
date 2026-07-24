@@ -293,4 +293,29 @@ export class ChatService {
 
     return formatted.reverse();
   }
+
+  static async deleteMessage(userId: string, messageId: string, deleteFor: 'me' | 'everyone') {
+    const message = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!message) throw new Error('Message not found');
+
+    if (deleteFor === 'everyone') {
+      // Only the sender can delete for everyone
+      if (message.senderId !== userId) throw new Error('Only the sender can delete for everyone');
+    }
+    // For both 'me' and 'everyone': hard delete the message row
+    // MessageStatus rows cascade-delete via the onDelete: Cascade on the relation
+    await prisma.message.delete({ where: { id: messageId } });
+  }
+
+
+  static async clearChatMessages(userId: string, chatId: string) {
+    // Verify user is participant
+    const participant = await prisma.chatParticipant.findFirst({
+      where: { chatId, userId }
+    });
+    if (!participant) throw new Error('Not a participant of this chat');
+
+    // Delete all messages in this chat
+    await prisma.message.deleteMany({ where: { chatId } });
+  }
 }

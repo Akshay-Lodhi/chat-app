@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getChats, createChat, getMessages, createGroup, addParticipants, deleteGroup, updateGroupPicture } from '../controllers/chat.controller';
+import { getChats, createChat, getMessages, createGroup, addParticipants, deleteGroup, updateGroupPicture, deleteMessage, clearChatMessages } from '../controllers/chat.controller';
 
 const router = Router();
 
@@ -24,5 +24,11 @@ router.patch('/:chatId/picture', requireAuth, updateGroupPicture as any);
 
 // Delete a group chat (Admin only)
 router.delete('/:chatId', requireAuth, deleteGroup as any);
+
+// Delete a single message
+router.delete('/messages/:messageId', requireAuth, deleteMessage as any);
+
+// Clear all messages in a chat
+router.delete('/:chatId/messages', requireAuth, clearChatMessages as any);
 
 export default router;

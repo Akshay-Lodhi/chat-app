@@ -103,3 +103,25 @@ export const updateGroupPicture = async (req: AuthRequest, res: Response) => {
     }
   }
 };
+export const deleteMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const messageId = req.params.messageId as string;
+    const { deleteFor } = req.body; // 'me' | 'everyone'
+    await ChatService.deleteMessage(req.user!.userId, messageId, deleteFor || 'everyone');
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error(error);
+    res.status(400).json({ error: error.message || 'Server error' });
+  }
+};
+
+export const clearChatMessages = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    await ChatService.clearChatMessages(req.user!.userId, chatId);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error(error);
+    res.status(400).json({ error: error.message || 'Server error' });
+  }
+};
