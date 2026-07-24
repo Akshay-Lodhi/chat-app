@@ -352,7 +352,9 @@ export class ChatService {
 
   static async getCallsForUser(userId: string, page = 1, limit = 30) {
     const skip = (page - 1) * limit;
-    const where = {
+
+    // 1. Fetch Call table records
+    const callWhere = {
       OR: [
         { callerId: userId },
         { receiverId: userId },
@@ -360,23 +362,85 @@ export class ChatService {
       ]
     };
 
-    const [calls, total] = await Promise.all([
+    // 2. Fetch CALL_LOG message records
+    const messageWhere = {
+      type: 'CALL_LOG' as const,
+      chat: {
+        participants: {
+          some: { userId }
+        }
+      }
+    };
+
+    const [dbCalls, callMessages] = await Promise.all([
       prisma.call.findMany({
-        where,
-        skip,
-        take: limit,
+        where: callWhere,
         include: {
           caller: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } },
           receiver: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } },
-          participants: { include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } } } }
+          participants: { include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } } } },
+          chat: { select: { id: true, name: true, isGroup: true, groupPicture: true } }
         },
         orderBy: { startedAt: 'desc' }
       }),
-      prisma.call.count({ where })
+      prisma.message.findMany({
+        where: messageWhere,
+        include: {
+          sender: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } },
+          chat: {
+            include: {
+              participants: {
+                include: {
+                  user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } }
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      })
     ]);
 
+    // Format CALL_LOG messages into Call-compatible objects
+    const formattedMessageCalls = callMessages.map(msg => {
+      let callData: any = {};
+      try { callData = JSON.parse(msg.content || '{}'); } catch (e) {}
+
+      const isMine = msg.senderId === userId;
+      const otherParticipant = msg.chat?.participants?.find(p => p.userId !== userId)?.user;
+
+      const duration = typeof callData.duration === 'number' ? callData.duration : 0;
+      const isUnanswered = duration === 0 || callData.action === 'MISSED' || callData.action === 'NO_ANSWER' || callData.status === 'MISSED' || callData.status === 'REJECTED';
+
+      return {
+        id: msg.id,
+        chatId: msg.chatId,
+        callerId: msg.senderId,
+        receiverId: isMine ? otherParticipant?.id : userId,
+        status: isUnanswered ? 'MISSED' : 'COMPLETED',
+        type: callData.type || 'AUDIO',
+        startedAt: msg.createdAt,
+        duration: isUnanswered ? 0 : duration,
+        caller: msg.sender,
+        receiver: otherParticipant,
+        chat: msg.chat,
+        participants: msg.chat?.participants || [],
+        joinedParticipantIds: callData.joinedParticipantIds || (callData.participants ? callData.participants.filter((p: any) => p.hasJoined || p.joined).map((p: any) => p.id || p.userId) : [])
+      };
+    });
+
+    // Combine & deduplicate by ID
+    const allCallsMap = new Map<string, any>();
+    [...dbCalls, ...formattedMessageCalls].forEach(c => allCallsMap.set(c.id, c));
+
+    const combined = Array.from(allCallsMap.values());
+    combined.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+    const total = combined.length;
+    const paginatedCalls = combined.slice(skip, skip + limit);
+
     return {
-      calls,
+      calls: paginatedCalls,
       total,
       page,
       totalPages: Math.ceil(total / limit)
