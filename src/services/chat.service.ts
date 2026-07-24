@@ -412,6 +412,18 @@ export class ChatService {
       const duration = typeof callData.duration === 'number' ? callData.duration : 0;
       const isUnanswered = duration === 0 || callData.action === 'MISSED' || callData.action === 'NO_ANSWER' || callData.status === 'MISSED' || callData.status === 'REJECTED';
 
+      let parsedParticipants = msg.chat?.participants || [];
+      if (callData.participants && Array.isArray(callData.participants) && callData.participants.length > 0) {
+        parsedParticipants = callData.participants.map((p: any) => ({
+          user: {
+            id: p.userId || p.id,
+            name: p.name || 'Unknown',
+            profilePicture: p.avatar || p.profilePicture || null,
+            phoneNumber: p.phoneNumber || ''
+          }
+        }));
+      }
+
       return {
         id: msg.id,
         chatId: msg.chatId,
@@ -424,7 +436,7 @@ export class ChatService {
         caller: msg.sender,
         receiver: otherParticipant,
         chat: msg.chat,
-        participants: msg.chat?.participants || [],
+        participants: parsedParticipants,
         joinedParticipantIds: callData.joinedParticipantIds || (callData.participants ? callData.participants.filter((p: any) => p.hasJoined || p.joined).map((p: any) => p.id || p.userId) : [])
       };
     });
