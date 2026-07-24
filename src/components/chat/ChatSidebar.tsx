@@ -129,7 +129,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                       <span className="text-[#25D366] font-medium animate-pulse">typing...</span>
                     ) : lastMessage ? (
                       <div className="flex items-center space-x-1 overflow-hidden">
-                        {lastMessage.senderId === user?.id && (
+                        {lastMessage.senderId === user?.id && lastMessage.type !== 'CALL_LOG' && (
                           <span className="mr-1 shrink-0">
                             {lastMessage.status === 'READ' ? <CheckCheck size={16} className="text-[#53bdeb]" /> :
                              lastMessage.status === 'DELIVERED' ? <CheckCheck size={16} className="text-text-secondary" /> :

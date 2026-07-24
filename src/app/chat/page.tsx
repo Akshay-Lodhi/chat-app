@@ -194,6 +194,7 @@ export default function ChatPage() {
             onReply={setReplyingTo}
             onMediaClick={(url, type) => setActiveMedia({ url, type })}
             searchQuery={searchQuery}
+            onSendMessage={handleSendMessage}
           />
 
           <MessageComposer 

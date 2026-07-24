@@ -60,7 +60,8 @@ interface ChatState {
   markChatAsRead: (chatId: string) => void;
   incrementUnreadCount: (chatId: string) => void;
   sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null, replyToId?: string | null) => void;
-  deleteMessage: (chatId: string, messageId: string) => void;
+  deleteMessage: (chatId: string, messageId: string, deleteFor?: 'everyone' | 'me') => Promise<boolean>;
+  clearChat: (chatId: string) => Promise<boolean>;
   sendTypingStatus: (chatId: string, isTyping: boolean) => void;
   toggleReaction: (chatId: string, messageId: string, reaction: string) => void;
 
@@ -550,12 +551,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  deleteMessage: (chatId, messageId) => {
-    const { socket } = get();
-    if (socket && socket.connected) {
-      socket.emit('delete-message', { chatId, messageId });
-    }
-  },
+
 
   fetchBlockedUsers: async () => {
     try {
@@ -601,6 +597,61 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error unblocking user:', err);
     }
     return false;
+  },
+
+  deleteMessage: async (chatId: string, messageId: string, deleteFor: 'everyone' | 'me' = 'everyone') => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteFor }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        // Remove the message from UI entirely
+        set(state => ({
+          messages: {
+            ...state.messages,
+            [chatId]: (state.messages[chatId] || []).filter(m => m.id !== messageId)
+          },
+          // Also update lastMessage in chat list if this was the last message
+          chats: state.chats.map(c => {
+            if (c.id === chatId && c.lastMessage?.id === messageId) {
+              const remaining = (state.messages[chatId] || []).filter(m => m.id !== messageId);
+              return { ...c, lastMessage: remaining[remaining.length - 1] || undefined };
+            }
+            return c;
+          })
+        }));
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      return false;
+    }
+  },
+
+
+  clearChat: async (chatId: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        // Clear messages locally
+        set(state => ({
+          messages: { ...state.messages, [chatId]: [] },
+          chats: state.chats.map(c => c.id === chatId ? { ...c, lastMessage: undefined } : c)
+        }));
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error clearing chat:', err);
+      return false;
+    }
   },
 
   reportUser: async (userId: string, reason?: string) => {

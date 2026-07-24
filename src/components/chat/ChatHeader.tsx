@@ -1,12 +1,15 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
-import { Video, Phone, Search, ArrowLeft } from 'lucide-react';
+import { Video, Phone, ArrowLeft, Search, Trash2, X, MoreVertical, AlertTriangle } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WallpaperModal } from './WallpaperModal';
+import { cn } from '@/lib/utils';
 
 interface ChatHeaderProps {
   onBack: () => void;
@@ -17,12 +20,16 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuery = '', onSearchChange }: ChatHeaderProps) {
-  const { activeChatId, chats, onlineUsers, typingStatuses, isMessageSearchOpen, setIsMessageSearchOpen } = useChatStore();
+  const { activeChatId, chats, onlineUsers, typingStatuses, clearChat } = useChatStore();
   const { activeCalls, joinOngoingCall, isCalling } = useCallStore();
+  const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
   
   const { user } = useAuthStore();
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -38,7 +45,21 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isMessageSearchOpen, onSearchChange, setIsMessageSearchOpen]);
-  
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpen]);
+
   const activeChat = chats.find(c => c.id === activeChatId);
   if (!activeChat) return null;
 
@@ -62,13 +83,22 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
     useCallStore.getState().initiateCall(type, activeChat.id, initialInvitedIds);
   };
 
+  const handleClearChat = async () => {
+    if (!activeChatId) return;
+    setClearing(true);
+    await clearChat(activeChatId);
+    setClearing(false);
+    setShowClearConfirm(false);
+    setMenuOpen(false);
+  };
+
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
   const activeCallInChat = activeChatId ? activeCalls[activeChatId] : null;
 
   return (
-    <div className="flex flex-col shrink-0 relative z-10">
+    <div className="flex flex-col shrink-0 relative z-40">
       <div 
-        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative z-10"
+        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative z-40"
         style={{
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'max(16px, env(safe-area-inset-right))'
@@ -108,17 +138,63 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
             <Phone size={20} />
           </Button>
           <div className="w-px h-6 bg-surface-border mx-1"></div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => {
-              setIsMessageSearchOpen(!isMessageSearchOpen);
-              if (onSearchClick) onSearchClick();
-            }} 
-            title="Search Messages"
-          >
-            <Search size={20} />
-          </Button>
+
+          {/* ⋮ Three Dot Menu */}
+          <div className="relative" ref={menuRef}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMenuOpen(prev => !prev)}
+              title="More options"
+            >
+              <MoreVertical size={20} />
+            </Button>
+
+            <AnimatePresence>
+              {menuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+                  className="absolute right-0 top-full mt-2 w-52 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl z-50 overflow-hidden py-1"
+                >
+                  {/* Search */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsMessageSearchOpen(true);
+                      if (onSearchClick) onSearchClick();
+                      setMenuOpen(false);
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-text-primary hover:bg-white/5 transition-colors text-sm"
+                  >
+                    <Search size={16} className="text-text-secondary" />
+                    <span>Search Messages</span>
+                  </button>
+
+                  <div className="h-px bg-surface-border mx-3" />
+
+                  {/* Clear Chat */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowClearConfirm(true);
+                      setMenuOpen(false);
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-danger hover:bg-danger/10 transition-colors text-sm"
+                  >
+                    <Trash2 size={16} />
+                    <span>Clear Chat</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         <AnimatePresence>
@@ -128,7 +204,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-10"
+                className="fixed inset-0 z-40"
                 onClick={() => {
                   setIsMessageSearchOpen(false);
                   if (onSearchChange) onSearchChange('');
@@ -139,7 +215,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 animate={{ width: '100%', opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="absolute inset-y-0 right-0 bg-surface-hover flex items-center px-4 overflow-hidden z-20"
+                className="absolute inset-y-0 right-0 bg-surface-hover flex items-center px-4 overflow-hidden z-50"
                 ref={searchContainerRef}
               >
                 <button 
@@ -186,6 +262,62 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
           </button>
         </motion.div>
       )}
+
+      {/* Clear Chat Confirmation Modal */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowClearConfirm(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl p-6 w-full max-w-sm z-50 relative"
+            >
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2.5 rounded-full bg-danger/20">
+                  <AlertTriangle size={20} className="text-danger" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold text-base">Clear Chat</h3>
+                  <p className="text-text-secondary text-xs">This cannot be undone</p>
+                </div>
+              </div>
+              <p className="text-text-secondary text-sm mb-6">
+                All messages in this chat will be permanently deleted for everyone. Are you sure?
+              </p>
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="px-4 py-2 rounded-xl text-sm text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearChat}
+                  disabled={clearing}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-danger hover:bg-danger/90 text-white transition-colors cursor-pointer disabled:opacity-60 flex items-center space-x-1.5"
+                >
+                  {clearing ? (
+                    <span>Clearing...</span>
+                  ) : (
+                    <>
+                      <Trash2 size={14} />
+                      <span>Clear All</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

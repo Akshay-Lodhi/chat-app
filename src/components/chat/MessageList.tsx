@@ -5,15 +5,17 @@ import { useCallStore } from '@/store/useCallStore';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 
 interface MessageListProps {
   onReply: (message: any) => void;
   onMediaClick: (url: string, type: 'IMAGE' | 'VIDEO') => void;
   searchQuery?: string;
+  onSendMessage?: (content: string, type?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'LOCATION') => void;
 }
 
-export function MessageList({ onReply, onMediaClick, searchQuery = '' }: MessageListProps) {
+export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMessage }: MessageListProps) {
   const { messages, activeChatId, chats } = useChatStore();
   const { user } = useAuthStore();
   const { initiateCall } = useCallStore();
@@ -51,8 +53,18 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '' }: Message
       </div>
       {filteredMessages.length === 0 ? (
         <div className="flex items-center justify-center h-full">
-          <p className="text-text-tertiary bg-surface-hover px-4 py-2 rounded-full text-sm">
-            {searchQuery ? 'No messages found.' : 'Say hello!'}
+          <p 
+            onClick={() => {
+              if (!searchQuery && onSendMessage) {
+                onSendMessage('Hello! 👋', 'TEXT');
+              }
+            }}
+            className={cn(
+              "text-text-tertiary bg-surface-hover px-4 py-2 rounded-full text-sm", 
+              !searchQuery && "cursor-pointer hover:bg-surface-border transition-colors active:scale-95"
+            )}
+          >
+            {searchQuery ? 'No messages found.' : 'Say hello! 👋'}
           </p>
         </div>
       ) : (

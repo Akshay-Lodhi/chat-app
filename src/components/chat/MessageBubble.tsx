@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Check, CheckCheck, Play, Pause, FileText, CornerUpLeft, MapPin, Phone, Video, PhoneMissed, Info } from 'lucide-react';
+import { Check, CheckCheck, Play, Pause, FileText, CornerUpLeft, MapPin, Phone, Video, PhoneMissed, Info, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, useDragControls, AnimatePresence } from 'framer-motion';
 import { useChatStore } from '@/store/useChatStore';
@@ -97,8 +97,9 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallClick, highlight, hideInfoOption }: MessageBubbleProps) {
-  const { toggleReaction, setMessageForInfo, chats, activeChatId } = useChatStore();
+  const { toggleReaction, setMessageForInfo, chats, activeChatId, deleteMessage } = useChatStore();
   const { user: currentUser } = useAuthStore();
+  const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const activeChat = chats.find(c => c.id === activeChatId || c.id === message.chatId);
   const dragControls = useDragControls();
   const msgTime = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -388,7 +389,7 @@ export function MessageBubble({ message, isMine, onReply, onMediaClick, onCallCl
                     <Info size={18} />
                   </button>
                 </>
-              ) : (!hideInfoOption && isMine) ? (
+              ) : (!hideInfoOption) ? (
                 <>
                   <div className="w-[1px] h-6 bg-surface-border mx-1" />
                   <button 
