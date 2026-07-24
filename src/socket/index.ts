@@ -251,11 +251,15 @@ export function setupSocket(server: HttpServer) {
         const msg = await prisma.message.findUnique({ where: { id: messageId } });
         if (!msg) return;
         
-        let reactions = msg.reactions ? (msg.reactions as Record<string, string>) : {};
-        if (reactions[userId] === reaction) {
+        let reactions = msg.reactions ? (msg.reactions as Record<string, any>) : {};
+        
+        const existing = reactions[userId];
+        const existingEmoji = typeof existing === 'string' ? existing : existing?.emoji;
+
+        if (existingEmoji === reaction) {
           delete reactions[userId]; // Toggle off
         } else {
-          reactions[userId] = reaction; // Set new
+          reactions[userId] = { emoji: reaction, timestamp: new Date().toISOString() }; // Set new with timestamp
         }
 
         await prisma.message.update({
