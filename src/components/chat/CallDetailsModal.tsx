@@ -187,27 +187,30 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
           </div>
 
           {/* Footer Call Back Action */}
-          <div className="p-4 border-t border-surface-border bg-[#182229] flex items-center justify-end space-x-3">
-            <button
+          <div className="p-4 border-t border-surface-border bg-[#182229] flex items-center space-x-3 shrink-0">
+            <button 
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              onClick={() => {
+                onClose();
+                onReCall?.('AUDIO');
+              }}
+              className="flex-1 py-3 rounded-full bg-[#005c4b] hover:bg-[#005c4b]/80 text-[#25D366] font-bold text-xs flex items-center justify-center space-x-2 transition-all border border-[#25D366]/30 cursor-pointer shadow-sm active:scale-95"
             >
-              Close
+              <Phone size={16} />
+              <span>Voice Call Back</span>
             </button>
-            {onReCall && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onReCall(isVideo ? 'VIDEO' : 'AUDIO');
-                }}
-                className="px-5 py-2 rounded-xl text-xs font-semibold bg-primary hover:bg-primary-hover text-white transition-colors cursor-pointer flex items-center space-x-1.5 shadow-md"
-              >
-                {isVideo ? <Video size={14} /> : <Phone size={14} />}
-                <span>Call Back</span>
-              </button>
-            )}
+
+            <button 
+              type="button"
+              onClick={() => {
+                onClose();
+                onReCall?.('VIDEO');
+              }}
+              className="flex-1 py-3 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold text-xs flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer active:scale-95"
+            >
+              <Video size={16} />
+              <span>Video Call Back</span>
+            </button>
           </div>
         </motion.div>
       </div>

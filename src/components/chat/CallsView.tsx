@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CallDetailsModal } from './CallDetailsModal';
+import { GroupCallDetailsModal } from './GroupCallDetailsModal';
 
 export function CallsView() {
   const { user } = useAuthStore();
@@ -450,21 +450,12 @@ export function CallsView() {
         )}
       </div>
 
-      {/* Render 100% identical CallDetailsModal across Chat History & Calls Tab */}
-      {selectedCall && payload && (
-        <CallDetailsModal 
+      {/* Render GroupCallDetailsModal when tapping call logs in Calls Tab */}
+      {selectedCall && (
+        <GroupCallDetailsModal 
           isOpen={Boolean(selectedCall)}
           onClose={() => setSelectedCall(null)}
-          callData={payload.callData}
-          createdAt={payload.createdAt}
-          isMine={payload.isMine}
-          currentUserId={user?.id}
-          onReCall={(type) => {
-            if (selectedCall.chatId) {
-              const targetUserIds = selectedCall.otherUser?.id ? [selectedCall.otherUser.id] : [];
-              initiateCall(type, selectedCall.chatId, targetUserIds);
-            }
-          }}
+          call={selectedCall}
         />
       )}
     </div>

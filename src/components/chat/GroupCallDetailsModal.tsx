@@ -151,6 +151,13 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                   )}
                   <span>{call.callLabel}</span>
                 </span>
+
+                {call.duration && call.duration > 0 ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#111b21] text-white/90 border border-surface-border/60 flex items-center space-x-1">
+                    <Clock size={12} className="text-[#25D366] mr-1" />
+                    <span>Duration: {Math.floor(call.duration / 60)}m {call.duration % 60}s</span>
+                  </span>
+                ) : null}
               </div>
             </div>
 
@@ -237,7 +244,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                   initiateCall('AUDIO', call.chatId, [call.otherUser.id]);
                 }
               }}
-              className="flex-1 py-2.5 rounded-xl bg-[#25D366]/20 hover:bg-[#25D366]/30 text-[#25D366] font-bold text-xs flex items-center justify-center space-x-2 transition-colors border border-[#25D366]/30"
+              className="flex-1 py-3 rounded-full bg-[#005c4b] hover:bg-[#005c4b]/80 text-[#25D366] font-bold text-xs flex items-center justify-center space-x-2 transition-all border border-[#25D366]/30 cursor-pointer shadow-sm active:scale-95"
             >
               <Phone size={16} />
               <span>Voice Call Back</span>
@@ -250,7 +257,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                   initiateCall('VIDEO', call.chatId, [call.otherUser.id]);
                 }
               }}
-              className="flex-1 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold text-xs flex items-center justify-center space-x-2 transition-colors shadow-md"
+              className="flex-1 py-3 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold text-xs flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer active:scale-95"
             >
               <Video size={16} />
               <span>Video Call Back</span>
