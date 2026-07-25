@@ -104,9 +104,10 @@ export function getCallDetailsPayload(
 
   // Overlay raw participants (from call payload) to add joined/initiator flags
   rawParticipants.forEach((p) => {
-    if (p && p.id) {
-      const existing = allMap.get(p.id) || {};
-      allMap.set(p.id, { ...existing, ...p });
+    const uid = p?.id || p?.userId;
+    if (uid) {
+      const existing = allMap.get(uid) || {};
+      allMap.set(uid, { ...existing, ...p, id: uid });
     }
   });
 

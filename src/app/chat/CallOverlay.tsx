@@ -758,7 +758,7 @@ export default function CallOverlay() {
       >
         <audio 
           ref={ringtoneRef} 
-          src="/iphone-6-ringtone-qoybaffhmm2az4wnaazaqcsw8dg411-28159.mp3" 
+          src={(isCalling && isInitiator) ? "/freesound_community-ring-tone-68676.mp3" : "/iphone-6-ringtone-qoybaffhmm2az4wnaazaqcsw8dg411-28159.mp3"}
           loop 
           autoPlay={((isReceivingCall && !isCalling) || (isCalling && isInitiator && !callStartTime)) ? true : false}
         />
