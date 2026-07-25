@@ -58,34 +58,30 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'tween', duration: 0.3 }}
-          className="absolute inset-y-0 right-0 w-full md:w-[400px] bg-surface z-[10000] flex flex-col shadow-2xl border-l border-surface-border"
+          className="fixed top-0 right-0 h-full w-full md:w-[400px] bg-background shadow-2xl border-l border-surface-border/50 z-[100] flex flex-col"
         >
-          <WallpaperModal isOpen={showWallpaperModal} onClose={() => setShowWallpaperModal(false)} chatId={activeChat.id} />
-
           {/* Header */}
-          <div className="h-16 bg-surface-hover flex items-center px-4 py-2 border-b border-surface-border shrink-0">
-            <button onClick={onClose} className="mr-4 text-text-secondary hover:text-text-primary">
-              <ArrowLeft size={24} />
+          <div className="flex items-center space-x-4 p-4 bg-surface text-text-primary h-[60px] shadow-sm">
+            <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-surface-hover transition-colors">
+              <ArrowLeft size={20} />
             </button>
-            <h2 className="text-base font-medium text-text-primary">Contact Info</h2>
+            <h2 className="text-base font-medium">Contact Info</h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto no-scrollbar pb-10 bg-chat-bg">
-            
-            {/* Profile Picture & Name */}
-            <div className="bg-surface p-6 flex flex-col items-center shadow-sm">
-              <Avatar src={contactUser.profilePicture} fallback={contactName.charAt(0)} size="xl" className="mb-4" />
-              <h2 className="text-xl font-medium text-text-primary">{contactName}</h2>
-              <p className="text-text-secondary mt-1">{contactPhone}</p>
+          <div className="flex-1 overflow-y-auto bg-background pb-10">
+            {/* Profile Picture */}
+            <div className="bg-surface py-8 flex flex-col items-center justify-center shadow-sm">
+              <Avatar src={otherParticipant.profilePicture} alt={contactName} size="xl" className="mb-4" />
+              <h1 className="text-xl font-medium text-text-primary text-center">{contactName}</h1>
+              <p className="text-sm text-text-secondary mt-1">{contactPhone}</p>
             </div>
 
-            {/* Actions */}
-            <div className="bg-surface mt-2 p-4 flex justify-around shadow-sm text-primary">
+            {/* Quick Actions */}
+            <div className="bg-surface mt-2 py-4 flex justify-around shadow-sm">
               <div 
-                className="flex flex-col items-center cursor-pointer hover:opacity-80"
+                className="flex flex-col items-center cursor-pointer hover:opacity-80 text-primary"
                 onClick={() => {
-                  useCallStore.setState({ caller: contactName });
-                  useCallStore.getState().initiateCall('AUDIO', activeChat.id);
+                  useCallStore.getState().initiateCall(otherParticipant.userId, 'AUDIO');
                   onClose();
                 }}
               >
@@ -93,10 +89,9 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
                 <span className="text-xs font-medium">Audio</span>
               </div>
               <div 
-                className="flex flex-col items-center cursor-pointer hover:opacity-80"
+                className="flex flex-col items-center cursor-pointer hover:opacity-80 text-primary"
                 onClick={() => {
-                  useCallStore.setState({ caller: contactName });
-                  useCallStore.getState().initiateCall('VIDEO', activeChat.id);
+                  useCallStore.getState().initiateCall(otherParticipant.userId, 'VIDEO');
                   onClose();
                 }}
               >
@@ -104,11 +99,11 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
                 <span className="text-xs font-medium">Video</span>
               </div>
               <div 
-                className="flex flex-col items-center cursor-pointer hover:opacity-80"
+                className="flex flex-col items-center cursor-pointer hover:opacity-80 text-primary"
                 onClick={() => setShowWallpaperModal(true)}
               >
-                <Palette size={24} className="mb-2 text-primary" />
-                <span className="text-xs font-medium text-primary">Theme</span>
+                <Palette size={24} className="mb-2" />
+                <span className="text-xs font-medium">Theme</span>
               </div>
             </div>
 
@@ -117,8 +112,6 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
               <p className="text-sm text-primary mb-1 font-medium">About</p>
               <p className="text-text-primary">{contactAbout}</p>
             </div>
-            
-            {/* Media/Docs links would go here */}
             
             {/* Action Buttons */}
             <div className="bg-surface mt-2 flex flex-col shadow-sm">
@@ -166,6 +159,14 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
 
           </div>
         </motion.div>
+      )}
+
+      {showWallpaperModal && activeChatId && (
+        <WallpaperModal 
+          isOpen={showWallpaperModal} 
+          onClose={() => setShowWallpaperModal(false)} 
+          chatId={activeChatId} 
+        />
       )}
     </AnimatePresence>
   );

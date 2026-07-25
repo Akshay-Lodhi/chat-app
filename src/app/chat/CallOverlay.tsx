@@ -357,6 +357,15 @@ export default function CallOverlay() {
       }
     };
 
+    const handleParticipantInvited = (data: { targetUserId: string; inviterId: string }) => {
+      if (data.targetUserId && data.targetUserId !== currentUser?.id) {
+        setInvitedUserIds(prev => {
+          if (!prev.includes(data.targetUserId)) return [...prev, data.targetUserId];
+          return prev;
+        });
+      }
+    };
+
     socket.on('call-offer', handleCallOffer);
     socket.on('call-answer', handleCallAnswer);
     socket.on('ice-candidate', handleIceCandidate);
@@ -370,6 +379,7 @@ export default function CallOverlay() {
     socket.on('active-call-update', handleActiveCallUpdate);
     socket.on('call-room-state-updated', handleCallRoomStateUpdated);
     socket.on('participant-media-toggled', handleParticipantMediaToggled);
+    socket.on('participant-invited', handleParticipantInvited);
 
     return () => {
       socket.off('call-offer', handleCallOffer);
@@ -385,6 +395,7 @@ export default function CallOverlay() {
       socket.off('active-call-update', handleActiveCallUpdate);
       socket.off('call-room-state-updated', handleCallRoomStateUpdated);
       socket.off('participant-media-toggled', handleParticipantMediaToggled);
+      socket.off('participant-invited', handleParticipantInvited);
     };
   }, [socket, createPeer, endCall, removePeer, removeRemoteStream, currentUser]);
 
@@ -1278,6 +1289,7 @@ export default function CallOverlay() {
                                   setInvitedUserIds(prev => [...prev, targetId]);
                                   createPeer(targetId, localStream, true);
                                   if (socket && activeCallChatId) {
+                                    socket.emit('call-invite-participant', { chatId: activeCallChatId, targetUserId: targetId });
                                     socket.emit('join-call-room', { chatId: activeCallChatId, type: callType });
                                   }
                                 }

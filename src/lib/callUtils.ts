@@ -122,7 +122,6 @@ export function getCallDetailsPayload(
     const isInitiator = Boolean((initiatorId && userId === initiatorId) || (call.callerId && userId === call.callerId));
     let isJoined = isInitiator;
     if (Array.isArray(joinedIds) && joinedIds.includes(userId)) isJoined = true;
-    if (!isMissed && duration > 0) isJoined = true;
 
     return {
       userId,

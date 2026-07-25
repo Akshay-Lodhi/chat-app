@@ -78,7 +78,7 @@ export function CallsView() {
           callData.joinedParticipantIds ||
           (callData.participants
             ? callData.participants
-                .filter((p: any) => p.hasJoined || p.joined)
+                .filter((p: any) => p.hasJoined || p.joined || p.status === 'JOINED')
                 .map((p: any) => p.id || p.userId)
             : []);
 
@@ -89,6 +89,7 @@ export function CallsView() {
           receiverId: isMine ? otherParticipant?.id : user?.id,
           isGroup,
           groupParticipants,
+          participants: callData.participants || groupParticipants,
           joinedParticipantIds,
           otherUser: {
             id: otherParticipant?.id,
@@ -155,6 +156,7 @@ export function CallsView() {
       receiverId: c.receiverId,
       isGroup,
       groupParticipants: c.participants?.map((p: any) => p.user) || [],
+      participants: c.participants || [],
       joinedParticipantIds,
       otherUser: {
         id: otherUser?.id,
