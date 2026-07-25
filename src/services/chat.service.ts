@@ -437,7 +437,7 @@ export class ChatService {
         receiver: otherParticipant,
         chat: msg.chat,
         participants: parsedParticipants,
-        joinedParticipantIds: callData.joinedParticipantIds || (callData.participants ? callData.participants.filter((p: any) => p.hasJoined || p.joined).map((p: any) => p.id || p.userId) : [])
+        joinedParticipantIds: callData.joinedParticipantIds || (callData.participants ? callData.participants.filter((p: any) => p.hasJoined || p.joined || p.status === 'JOINED').map((p: any) => p.id || p.userId) : [])
       };
     });
 

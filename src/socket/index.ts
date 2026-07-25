@@ -564,6 +564,11 @@ export function setupSocket(server: HttpServer) {
       }
     });
 
+    socket.on('call-invite-participant', ({ chatId, targetUserId }) => {
+      // Broadcast to everyone in the room that a new participant is being invited
+      socket.to(`call-room-${chatId}`).emit('participant-invited', { targetUserId, inviterId: userId });
+    });
+
     socket.on('end-call', async ({ chatId, duration, type, isInitiator, targetUserId, isGroup, participantsInfo }) => {
       if (targetUserId) {
         chatNamespace.to(targetUserId).emit('call-end', { callerId: userId });
@@ -618,7 +623,7 @@ export function setupSocket(server: HttpServer) {
             userId: p.userId,
             name: p.name || participantsMap.get(p.userId)?.name || '',
             avatar: p.avatar || participantsMap.get(p.userId)?.avatar || null,
-            status: room.everJoinedUserIds.has(p.userId) ? 'JOINED' : (p.status === 'CONNECTED' ? 'JOINED' : p.status)
+            status: ((p.status as string) === 'CONNECTED' || (p.status as string) === 'JOINED') ? 'JOINED' : ((p.status as string) === 'LEFT' ? 'LEFT' : 'INVITED')
           });
         });
       }
