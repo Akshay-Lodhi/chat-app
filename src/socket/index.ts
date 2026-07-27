@@ -293,9 +293,9 @@ export function setupSocket(server: HttpServer) {
       socket.to(chatId).emit('typing', { chatId, userId, isTyping });
     });
 
-    // ==========================================
+    // =========================================
     // INSTAGRAM LIVE STREAMING SOCKET HANDLERS
-    // ==========================================
+    // =========================================
     socket.on('join-live', ({ streamId, user }) => {
       if (!streamId) return;
       socket.join(`live_${streamId}`);
