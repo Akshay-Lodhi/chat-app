@@ -61,15 +61,22 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           console.warn('Camera access denied or unavailable:', err);
         });
     }
+  }, [isHost, localStream, setLocalStream]);
 
-    if (videoRef.current) {
-      if (isHost && localStream && videoRef.current.srcObject !== localStream) {
-        videoRef.current.srcObject = localStream;
-      } else if (!isHost && remoteStream && videoRef.current.srcObject !== remoteStream) {
-        videoRef.current.srcObject = remoteStream;
+  useEffect(() => {
+    const playVideo = async () => {
+      if (videoRef.current) {
+        if (isHost && localStream && videoRef.current.srcObject !== localStream) {
+          videoRef.current.srcObject = localStream;
+          try { await videoRef.current.play(); } catch (e) { console.warn(e); }
+        } else if (!isHost && remoteStream && videoRef.current.srcObject !== remoteStream) {
+          videoRef.current.srcObject = remoteStream;
+          try { await videoRef.current.play(); } catch (e) { console.warn(e); }
+        }
       }
-    }
-  }, [isHost, localStream, remoteStream, setLocalStream]);
+    };
+    playVideo();
+  }, [isHost, localStream, remoteStream]);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -108,7 +115,16 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     const peer = new Peer({
       initiator: true,
       trickle: false,
-      stream: stream
+      stream: stream,
+      config: { 
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' }
+        ] 
+      }
     });
 
     peer.on('signal', (data) => {
@@ -157,7 +173,16 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
         if (!viewerPeerRef.current) {
           const peer = new Peer({
             initiator: false,
-            trickle: false
+            trickle: false,
+            config: { 
+              iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
+              ] 
+            }
           });
 
           peer.on('signal', (data) => {
@@ -313,18 +338,10 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       <div className="absolute inset-0 z-0 bg-neutral-900 flex items-center justify-center overflow-hidden">
         {((isHost && localStream) || (!isHost && remoteStream)) ? (
           <video
-            ref={(node) => {
-              videoRef.current = node;
-              if (node) {
-                if (isHost && localStream && node.srcObject !== localStream) {
-                  node.srcObject = localStream;
-                  node.play().catch(e => console.warn('Video play error:', e));
-                }
-                else if (!isHost && remoteStream && node.srcObject !== remoteStream) {
-                  node.srcObject = remoteStream;
-                  node.play().catch(e => console.warn('Video play error:', e));
-                }
-              }
+            ref={videoRef}
+            onClick={(e) => {
+              const v = e.currentTarget;
+              if (v.paused) v.play().catch(err => console.warn('Manual play error:', err));
             }}
             autoPlay
             playsInline

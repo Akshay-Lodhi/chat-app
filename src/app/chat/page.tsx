@@ -67,8 +67,21 @@ export default function ChatPage() {
 
   // Hydration and Connection
   useEffect(() => {
-    if (session?.user && (!user || user.id !== session.user.id)) {
-      useAuthStore.getState().setAuth('better-auth-session', session.user as any);
+    if (session?.user && (!user || user.id !== session.user.id || !user.profilePicture)) {
+      // Start with session data
+      useAuthStore.getState().setAuth('better-auth-session', { ...user, ...session.user } as any);
+      
+      // Fetch full profile from backend to get profilePicture
+      fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/me`, {
+        headers: { 'Authorization': `Bearer better-auth-session` }
+      })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          useAuthStore.getState().setAuth('better-auth-session', { ...session.user, ...data });
+        }
+      })
+      .catch(console.error);
     }
   }, [session, user]);
 
