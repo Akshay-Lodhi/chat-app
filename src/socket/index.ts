@@ -842,6 +842,7 @@ export function setupSocket(server: HttpServer) {
               viewers: session.viewerProfiles || [],
               mutedUserIds: session.mutedUserIds || []
             });
+            chatNamespace.emit('live-viewer-count', { streamId, viewerCount: session.viewerCount });
           }
         }
       }
