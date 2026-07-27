@@ -50,6 +50,14 @@ export function CallsView() {
         )?.user;
         const groupParticipants =
           chat?.participants?.map((p) => p.user).filter(Boolean) || [];
+        const callParticipantsUsers = callData.participants
+          ? callData.participants.map((p: any) => ({
+              id: p.userId || p.id,
+              name: p.name,
+              profilePicture: p.avatar || p.profilePicture || null,
+              phoneNumber: p.phoneNumber || ''
+            }))
+          : groupParticipants;
         const isMine = msg.senderId === user?.id;
 
         const isGroup = chat?.isGroup || callData.isGroup;
@@ -88,19 +96,19 @@ export function CallsView() {
           callerId: msg.senderId,
           receiverId: isMine ? otherParticipant?.id : user?.id,
           isGroup,
-          groupParticipants,
+          groupParticipants: callParticipantsUsers,
           participants: callData.participants || groupParticipants,
           joinedParticipantIds,
           otherUser: {
             id: otherParticipant?.id,
             name: isGroup
-              ? chat?.name || "Group Call"
+              ? (chat?.isGroup && chat?.name ? chat.name : "Group Call")
               : otherParticipant?.name ||
                 otherParticipant?.phoneNumber ||
                 "Contact User",
-            profilePicture: isGroup
+            profilePicture: isGroup && chat?.isGroup
               ? chat?.groupPicture
-              : otherParticipant?.profilePicture,
+              : null,
           },
           type: isVideo ? "VIDEO" : "AUDIO",
           isOutgoing: isMine,
@@ -161,11 +169,11 @@ export function CallsView() {
       otherUser: {
         id: otherUser?.id,
         name: isGroup
-          ? c.chat?.name || "Group Call"
+          ? (c.chat?.isGroup && c.chat?.name ? c.chat.name : "Group Call")
           : otherUser?.name || otherUser?.phoneNumber || "Contact User",
-        profilePicture: isGroup
+        profilePicture: isGroup && c.chat?.isGroup
           ? c.chat?.groupPicture
-          : otherUser?.profilePicture,
+          : null,
       },
       type: c.type || "AUDIO",
       isOutgoing: isMine,
@@ -364,7 +372,7 @@ export function CallsView() {
             const isVideo = call.type === "VIDEO";
             const isGroup = call.isGroup;
             const chat = chats.find((c) => c.id === call.chatId);
-            const groupPicture = isGroup ? chat?.groupPicture : null;
+            const groupPicture = isGroup && chat?.isGroup ? chat?.groupPicture : null;
             const name = otherUser?.name || "Contact User";
             const pfp = otherUser?.profilePicture;
             const groupParticipants = call.groupParticipants || [];
