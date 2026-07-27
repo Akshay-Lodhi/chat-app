@@ -334,6 +334,15 @@ export function setupSocket(server: HttpServer) {
       });
     });
 
+    socket.on('live-signal', ({ streamId, targetUserId, signalData }) => {
+      if (!streamId || !targetUserId || !signalData) return;
+      chatNamespace.to(targetUserId).emit('live-signal', {
+        streamId,
+        signalData,
+        fromUserId: userId
+      });
+    });
+
     socket.on('leave-live', ({ streamId, user }) => {
       if (!streamId) return;
       socket.leave(`live_${streamId}`);
