@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { authClient } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import { AnimatePresence } from 'framer-motion';
 
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ContactList } from '@/components/chat/ContactList';
@@ -22,7 +23,9 @@ import { useWallpaperStore } from '@/store/useWallpaperStore';
 
 import { BottomNav } from '@/components/chat/BottomNav';
 import { LiveView } from '@/components/live/LiveView';
+import { LiveStreamRoom } from '@/components/live/LiveStreamRoom';
 import { CallsView } from '@/components/chat/CallsView';
+import { useLiveStore } from '@/store/useLiveStore';
 
 import CallOverlay from './CallOverlay';
 import MediaViewer from './MediaViewer';
@@ -37,6 +40,8 @@ export default function ChatPage() {
     setActiveChat, sendMessage, fetchChats, fetchMessages, chats, fetchBlockedUsers,
     activeTab, setActiveTab
   } = useChatStore();
+
+  const { activeStream, leaveLiveStream } = useLiveStore();
 
   const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
 
@@ -238,6 +243,16 @@ export default function ChatPage() {
       <ProfileOverlay isOpen={showProfile} onClose={() => setShowProfile(false)} />
       <MessageInfoOverlay />
       <InAppNotificationToast />
+
+      {/* Active Fullscreen Live Stream Player (Global Singleton) */}
+      <AnimatePresence>
+        {activeStream && (
+          <LiveStreamRoom 
+            stream={activeStream} 
+            onClose={() => leaveLiveStream(user)} 
+          />
+        )}
+      </AnimatePresence>
       <ForwardMessageModal 
         isOpen={showForwardModal} 
         onClose={() => {

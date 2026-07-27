@@ -10,7 +10,6 @@ import { useLiveStore, LiveStreamSession } from '@/store/useLiveStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { Avatar } from '@/components/ui/Avatar';
-import { LiveStreamRoom } from './LiveStreamRoom';
 import { GoLiveModal } from './GoLiveModal';
 import { cn } from '@/lib/utils';
 
@@ -77,16 +76,6 @@ export function LiveView() {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background text-foreground overflow-y-auto relative no-scrollbar">
-      {/* Active Fullscreen Live Stream Player */}
-      <AnimatePresence>
-        {activeStream && (
-          <LiveStreamRoom 
-            stream={activeStream} 
-            onClose={() => leaveLiveStream(user)} 
-          />
-        )}
-      </AnimatePresence>
-
       {/* Go Live Setup Modal */}
       <GoLiveModal 
         isOpen={isGoLiveOpen} 
