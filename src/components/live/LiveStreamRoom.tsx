@@ -199,14 +199,25 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       }
     };
 
+    const handleStreamEnded = ({ streamId }: { streamId: string }) => {
+      if (streamId === currentStream.id) {
+        if (!isHost) {
+          leaveLiveStream(user);
+        }
+        onClose();
+      }
+    };
+
     socket.on('live-user-joined', handleUserJoined);
     socket.on('live-signal', handleLiveSignal);
+    socket.on('live-stream-ended', handleStreamEnded);
 
     return () => {
       socket.off('live-user-joined', handleUserJoined);
       socket.off('live-signal', handleLiveSignal);
+      socket.off('live-stream-ended', handleStreamEnded);
     };
-  }, [isHost, localStream, currentStream.id, socket]); // Removed activeViewers from deps to prevent dropped events
+  }, [isHost, localStream, currentStream.id, socket, leaveLiveStream, user, onClose]);
 
   // Fallback: If host has existing viewers and localStream changes
   useEffect(() => {
@@ -305,8 +316,14 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             ref={(node) => {
               videoRef.current = node;
               if (node) {
-                if (isHost && localStream && node.srcObject !== localStream) node.srcObject = localStream;
-                else if (!isHost && remoteStream && node.srcObject !== remoteStream) node.srcObject = remoteStream;
+                if (isHost && localStream && node.srcObject !== localStream) {
+                  node.srcObject = localStream;
+                  node.play().catch(e => console.warn('Video play error:', e));
+                }
+                else if (!isHost && remoteStream && node.srcObject !== remoteStream) {
+                  node.srcObject = remoteStream;
+                  node.play().catch(e => console.warn('Video play error:', e));
+                }
               }
             }}
             autoPlay
@@ -369,25 +386,25 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* ==================================================== */}
       <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-14 pb-4 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
         {/* Left Side: Streamer Info & Follow Button */}
-        <div className="flex items-center">
-          <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10">
+        <div className="flex items-center min-w-0 shrink mr-2">
+          <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10 min-w-0 shrink">
             <Avatar 
               src={currentStream.streamerPfp} 
               fallback={currentStream.streamerUsername} 
-              className="w-9 h-9 border border-white/20"
+              className="w-9 h-9 border border-white/20 shrink-0"
             />
-            <div className="flex items-center space-x-1">
-              <span className="text-white font-bold text-sm tracking-wide">
+            <div className="flex items-center space-x-1 min-w-0">
+              <span className="text-white font-bold text-sm tracking-wide truncate">
                 {currentStream.streamerUsername}
               </span>
-              <ChevronDown size={16} className="text-white/80" />
+              <ChevronDown size={16} className="text-white/80 shrink-0" />
             </div>
           </div>
           {!isHost && (
             <button 
               onClick={handleFollowClick}
               className={cn(
-                "ml-2 px-3.5 py-1.5 rounded-full text-xs font-black transition-all active:scale-95",
+                "ml-2 px-3.5 py-1.5 rounded-full text-xs font-black transition-all active:scale-95 shrink-0",
                 isFollowing 
                   ? "bg-white/10 text-white/60 border border-white/10" 
                   : "bg-[#25D366] text-black shadow-[0_0_12px_rgba(37,211,102,0.3)] hover:scale-105"
@@ -399,7 +416,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
         </div>
 
         {/* Right Side: LIVE badge, Viewer Count, Likes Count & Close Button */}
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-1.5 shrink-0">
           {/* Red LIVE Badge */}
           <div className="bg-[#FF0050] text-white text-[11px] font-black px-2.5 py-1 rounded-md tracking-wider shadow-sm flex items-center space-x-1">
             <span className="w-2 h-2 rounded-full bg-white animate-ping" />
