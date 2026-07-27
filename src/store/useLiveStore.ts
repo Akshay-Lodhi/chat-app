@@ -232,9 +232,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
     });
 
     if (socket) {
-      socket.emit('join-live', { streamId: stream.id, user: currentUser });
-
-      // Socket Listeners
+      // Socket Listeners — remove previous to avoid stacking
       socket.off('new-live-comment');
       socket.off('new-live-reaction');
       socket.off('live-viewer-count');

@@ -128,6 +128,18 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     peersRef.current[viewerId] = peer;
   };
 
+  // One-time: Join the socket room when entering the live stream
+  useEffect(() => {
+    const socket = useChatStore.getState().socket;
+    if (!socket || !user) return;
+
+    socket.emit('join-live', { streamId: currentStream.id, user });
+
+    // Cleanup: this only runs on unmount (leave stream)
+    return () => {};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStream.id, user?.id]);
+
   // WebRTC socket events and state synchronization
   useEffect(() => {
     const socket = useChatStore.getState().socket;
@@ -199,11 +211,6 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           initiateViewerConnection(viewer.id, localStream);
         }
       });
-    }
-
-    // Notify server to join the socket channel room (both host and viewers)
-    if (user) {
-      socket.emit('join-live', { streamId: currentStream.id, user });
     }
 
     return () => {
@@ -351,7 +358,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* ==================================================== */}
       {/* 1. TOP HEADER OVERLAY (Matching Instagram Live UI)  */}
       {/* ==================================================== */}
-      <div className="relative z-20 pt-14 px-4 flex items-center justify-between">
+      <div className="relative z-20 px-4 flex items-center justify-between" style={{ paddingTop: 'max(3.5rem, calc(env(safe-area-inset-top, 0px) + 1rem))' }}>
         {/* Left Side: Streamer Info & Follow Button */}
         <div className="flex items-center">
           <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10">
@@ -396,7 +403,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             className="bg-black/50 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/10 flex items-center space-x-1.5 shadow-sm cursor-pointer hover:bg-black/75 transition-colors"
           >
             <Eye size={14} className="text-white/90" />
-            <span>{(currentStream.viewerCount || 1).toLocaleString()}</span>
+            <span>{(currentStream.viewerCount || 0).toLocaleString()}</span>
           </button>
 
           {/* Likes Count Badge */}

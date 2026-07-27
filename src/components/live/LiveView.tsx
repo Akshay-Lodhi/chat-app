@@ -37,29 +37,40 @@ export function LiveView() {
   // Real-time socket stream list updates
   useEffect(() => {
     const socket = useChatStore.getState().socket;
-    if (socket) {
-      const handleNewStream = (stream: LiveStreamSession) => {
-        useLiveStore.setState(state => {
-          if (state.streams.some(s => s.id === stream.id)) return state;
-          return { streams: [stream, ...state.streams] };
-        });
-      };
+    if (!socket) return;
 
-      const handleStreamEnded = ({ streamId }: { streamId: string }) => {
-        useLiveStore.setState(state => ({
-          streams: state.streams.filter(s => s.id !== streamId)
-        }));
-      };
+    const handleNewStream = (stream: LiveStreamSession) => {
+      useLiveStore.setState(state => {
+        // Prevent duplicates
+        if (state.streams.some(s => s.id === stream.id)) return state;
+        // Don't add host's own stream to the grid (they're already in LiveStreamRoom)
+        if (user?.id && stream.streamerId === user.id) return state;
+        return { streams: [stream, ...state.streams] };
+      });
+    };
 
-      socket.on('new-live-stream', handleNewStream);
-      socket.on('live-stream-ended', handleStreamEnded);
+    const handleStreamEnded = ({ streamId }: { streamId: string }) => {
+      useLiveStore.setState(state => ({
+        streams: state.streams.filter(s => s.id !== streamId)
+      }));
+    };
 
-      return () => {
-        socket.off('new-live-stream', handleNewStream);
-        socket.off('live-stream-ended', handleStreamEnded);
-      };
-    }
-  }, []);
+    const handleViewerCountUpdate = ({ streamId, viewerCount }: { streamId: string; viewerCount: number }) => {
+      useLiveStore.setState(state => ({
+        streams: state.streams.map(s => s.id === streamId ? { ...s, viewerCount } : s)
+      }));
+    };
+
+    socket.on('new-live-stream', handleNewStream);
+    socket.on('live-stream-ended', handleStreamEnded);
+    socket.on('live-viewer-count', handleViewerCountUpdate);
+
+    return () => {
+      socket.off('new-live-stream', handleNewStream);
+      socket.off('live-stream-ended', handleStreamEnded);
+      socket.off('live-viewer-count', handleViewerCountUpdate);
+    };
+  }, [user?.id]);
 
   const featuredStream = streams.find(s => s.isLive) || streams[0];
   const feedStreams = featuredStream ? streams.filter(s => s.id !== featuredStream.id) : streams;
@@ -188,7 +199,7 @@ export function LiveView() {
 
                   <div className="bg-black/60 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/10 flex items-center space-x-1.5">
                     <Eye size={14} className="text-[#25D366]" />
-                    <span>{(featuredStream.viewerCount || 100).toLocaleString()} viewers</span>
+                    <span>{(featuredStream.viewerCount || 0).toLocaleString()} viewers</span>
                   </div>
                 </div>
 
@@ -288,7 +299,7 @@ export function LiveView() {
 
                   <div className="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-white/10 flex items-center space-x-1">
                     <Eye size={12} className="text-[#25D366]" />
-                    <span>{(stream.viewerCount || 1).toLocaleString()}</span>
+                    <span>{(stream.viewerCount || 0).toLocaleString()}</span>
                   </div>
 
                   {/* Play Overlay Icon */}
