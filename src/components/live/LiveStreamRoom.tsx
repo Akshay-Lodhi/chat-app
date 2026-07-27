@@ -38,6 +38,11 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showViewerList, setShowViewerList] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  const addLog = (msg: string) => {
+    setDebugLogs(prev => [...prev.slice(-10), `${new Date().toLocaleTimeString()} - ${msg}`]);
+  };
   const [showGiftMenu, setShowGiftMenu] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -55,14 +60,14 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   // Initialize Host Camera Stream if host, or bind remoteStream if viewer
   useEffect(() => {
     if (isHost && !localStream) {
-      console.log('%c[WebRTC] Host requesting camera permissions...', 'color: #00ff00');
+      addLog('Host requesting camera...');
       navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
         .then((media) => {
-          console.log('%c[WebRTC] Host camera access GRANTED', 'color: #00ff00; font-weight: bold', 'Tracks:', media.getTracks().length);
+          addLog(`Host camera GRANTED. Tracks: ${media.getTracks().length}`);
           setLocalStream(media);
         })
         .catch((err) => {
-          console.error('%c[WebRTC] Host camera access DENIED or unavailable:', 'color: #ff0000; font-weight: bold', err);
+          addLog(`Host camera DENIED: ${err.message || err}`);
         });
     }
   }, [isHost, localStream, setLocalStream]);
@@ -118,7 +123,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       return;
     }
 
-    console.log('%c[WebRTC] Host creating peer for viewer:', 'color: #00ff00; font-weight: bold', viewerId);
+    addLog(`Host creating peer for viewer: ${viewerId}`);
     const peer = new Peer({
       initiator: true,
       trickle: true,
@@ -135,7 +140,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     });
 
     peer.on('signal', (data) => {
-      console.log('%c[WebRTC] Host generated signal for viewer:', 'color: #0088ff', viewerId, data.type || 'candidate');
+      addLog(`Host generated signal: ${data.type || 'candidate'}`);
       socket.emit('live-signal', {
         streamId: currentStream.id,
         targetUserId: viewerId,
@@ -144,17 +149,17 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     });
 
     peer.on('connect', () => {
-      console.log('%c[WebRTC] Host peer CONNECTED to viewer:', 'color: #00ff00; font-weight: bold', viewerId);
+      addLog(`Host peer CONNECTED to viewer: ${viewerId}`);
     });
 
     peer.on('error', (err) => {
-      console.error('%c[WebRTC] Host WebRTC Peer error for viewer:', 'color: #ff0000; font-weight: bold', viewerId, err);
+      addLog(`Host Peer Error: ${err.message || err}`);
       peer.destroy();
       delete peersRef.current[viewerId];
     });
 
     peer.on('close', () => {
-      console.log('%c[WebRTC] Host WebRTC Peer closed for viewer:', 'color: #ffaa00', viewerId);
+      addLog(`Host Peer Closed: ${viewerId}`);
       delete peersRef.current[viewerId];
     });
 
@@ -202,7 +207,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       if (!isHost) {
         // Viewer receiving offer from Host
         if (!viewerPeerRef.current) {
-          console.log('%c[WebRTC] Viewer creating peer to answer host:', 'color: #00ff00; font-weight: bold', fromUserId);
+          addLog(`Viewer creating peer...`);
           const peer = new Peer({
             initiator: false,
             trickle: true,
@@ -218,7 +223,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           });
 
           peer.on('signal', (data) => {
-            console.log('%c[WebRTC] Viewer generated signal for host:', 'color: #0088ff', data.type || 'candidate');
+            addLog(`Viewer generated signal: ${data.type || 'candidate'}`);
             socket.emit('live-signal', {
               streamId: currentStream.id,
               targetUserId: fromUserId,
@@ -227,36 +232,38 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           });
 
           peer.on('connect', () => {
-            console.log('%c[WebRTC] Viewer peer CONNECTED to host:', 'color: #00ff00; font-weight: bold');
+            addLog(`Viewer peer CONNECTED`);
           });
 
           peer.on('stream', (stream) => {
-            console.log('%c[WebRTC] Viewer received remote stream!', 'color: #ff00ff; font-weight: bold', stream.id, 'Tracks:', stream.getTracks().length);
+            addLog(`Viewer received remote stream! Tracks: ${stream.getTracks().length}`);
             setRemoteStream(stream);
             if (videoRef.current) {
-              console.log('%c[WebRTC] Attaching remote stream to video element directly in event', 'color: #ff00ff');
+              addLog(`Attaching remote stream to video element...`);
               videoRef.current.srcObject = stream;
-              videoRef.current.play().catch(e => console.warn('Play error on track:', e));
+              videoRef.current.play()
+                .then(() => addLog(`Video playing successfully!`))
+                .catch(e => addLog(`Video Play Error: ${e.message}`));
             }
           });
 
           peer.on('error', (err) => {
-            console.error('%c[WebRTC] Viewer WebRTC Peer error:', 'color: #ff0000; font-weight: bold', err);
+            addLog(`Viewer Peer Error: ${err.message || err}`);
             viewerPeerRef.current = null;
           });
 
           peer.on('close', () => {
-            console.log('%c[WebRTC] Viewer WebRTC Peer closed', 'color: #ffaa00');
+            addLog(`Viewer Peer Closed`);
             viewerPeerRef.current = null;
           });
 
           viewerPeerRef.current = peer;
         }
         try {
-          console.log('%c[WebRTC] Viewer received signal from host:', 'color: #0088ff', signalData.type || 'candidate');
+          addLog(`Viewer received signal: ${signalData.type || 'candidate'}`);
           viewerPeerRef.current.signal(signalData);
-        } catch (e) {
-          console.error('%c[WebRTC] Error signaling viewer peer:', 'color: #ff0000', e);
+        } catch (e: any) {
+          addLog(`Signal Error: ${e.message}`);
         }
       } else {
         // Host receiving answer from Viewer
@@ -396,13 +403,18 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
               ref={videoRef}
               onClick={(e) => {
                 const v = e.currentTarget;
-                if (v.paused) v.play().catch(err => console.warn('Manual play error:', err));
+                if (v.paused) v.play().catch(err => addLog(`Manual play error: ${err}`));
               }}
               autoPlay
               playsInline
               muted={isHost}
               className="w-full h-full object-cover"
             />
+            {debugLogs.length > 0 && (
+              <div className="absolute top-20 left-4 right-4 bg-black/60 text-green-400 font-mono text-[10px] p-2 rounded z-50 pointer-events-none max-h-40 overflow-hidden">
+                {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
+              </div>
+            )}
           </div>
         ) : (
           <div className="relative w-full h-full">
