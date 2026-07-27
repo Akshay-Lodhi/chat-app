@@ -493,10 +493,23 @@ export function CallsView() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (call.chatId && otherUser?.id) {
-                        initiateCall(isVideo ? "VIDEO" : "AUDIO", call.chatId, [
-                          otherUser.id,
-                        ]);
+                      if (call.chatId) {
+                        const pList = call.participants && call.participants.length > 0 ? call.participants : (call.groupParticipants || []);
+                        const targetUserIds = call.isGroup
+                          ? Array.from(new Set(pList.map((p: any) => p.userId || p.id || p.user?.id).filter((id: string) => id && id !== user?.id) || []))
+                          : (otherUser?.id ? [otherUser.id] : []);
+
+                        const initialProfiles: Record<string, { name: string; avatar: string | null }> = {};
+                        pList.forEach((p: any) => {
+                          const uid = p.userId || p.id || p.user?.id;
+                          if (uid) {
+                            const name = p.name || p.user?.name || p.user?.displayName || p.displayName;
+                            const avatar = p.avatar || p.profilePicture || p.user?.profilePicture;
+                            initialProfiles[uid] = { name, avatar };
+                          }
+                        });
+
+                        initiateCall(isVideo ? "VIDEO" : "AUDIO", call.chatId, targetUserIds as string[], initialProfiles);
                       }
                     }}
                     className="text-[#25D366] hover:opacity-80 transition-opacity p-1"
@@ -526,10 +539,22 @@ export function CallsView() {
           currentUserId={user?.id}
           onReCall={(type) => {
             if (selectedCall.chatId) {
-              const targetUserIds = selectedCall.otherUser?.id
-                ? [selectedCall.otherUser.id]
-                : [];
-              initiateCall(type, selectedCall.chatId, targetUserIds);
+              const pList = selectedCall.participants && selectedCall.participants.length > 0 ? selectedCall.participants : (selectedCall.groupParticipants || []);
+              const targetUserIds = selectedCall.isGroup
+                ? Array.from(new Set(pList.map((p: any) => p.userId || p.id || p.user?.id).filter((id: string) => id && id !== user?.id) || []))
+                : (selectedCall.otherUser?.id ? [selectedCall.otherUser.id] : []);
+
+              const initialProfiles: Record<string, { name: string; avatar: string | null }> = {};
+              pList.forEach((p: any) => {
+                const uid = p.userId || p.id || p.user?.id;
+                if (uid) {
+                  const name = p.name || p.user?.name || p.user?.displayName || p.displayName;
+                  const avatar = p.avatar || p.profilePicture || p.user?.profilePicture;
+                  initialProfiles[uid] = { name, avatar };
+                }
+              });
+
+              initiateCall(type, selectedCall.chatId, targetUserIds as string[], initialProfiles);
             }
           }}
         />

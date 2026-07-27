@@ -98,13 +98,24 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
                   useCallStore.setState({ caller: chatName });
 
                   let invitedIds: string[] = [];
+                  const initialProfiles: Record<string, { name: string; avatar: string | null }> = {};
                   if (callData?.participants && Array.isArray(callData.participants)) {
                     invitedIds = callData.participants
-                      .map((p: any) => p.userId)
+                      .map((p: any) => p.userId || p.id)
                       .filter((id: string) => id && id !== user?.id);
+
+                    callData.participants.forEach((p: any) => {
+                      const uid = p.userId || p.id;
+                      if (uid) {
+                        initialProfiles[uid] = {
+                          name: p.name || 'Participant',
+                          avatar: p.avatar || p.profilePicture || null
+                        };
+                      }
+                    });
                   }
 
-                  initiateCall(type, activeChatId!, invitedIds);
+                  initiateCall(type, activeChatId!, invitedIds, initialProfiles);
                 }}
                 highlight={searchQuery !== '' && msg.content?.toLowerCase().includes(searchQuery.toLowerCase())}
               />

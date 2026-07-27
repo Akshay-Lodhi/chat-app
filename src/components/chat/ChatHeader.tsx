@@ -81,7 +81,18 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
     // For 1-to-1 calls, pass the other participant's ID as the first invited user.
     // This ensures they always appear on screen even when more people are added later.
     const initialInvitedIds = otherParticipant ? [otherParticipant.userId] : [];
-    useCallStore.getState().initiateCall(type, activeChat.id, initialInvitedIds);
+    
+    const initialProfiles: Record<string, { name: string; avatar: string | null }> = {};
+    activeChat.participants.forEach((p: any) => {
+      if (p.userId) {
+        initialProfiles[p.userId] = {
+          name: p.user?.name || p.user?.phoneNumber || 'Participant',
+          avatar: p.user?.profilePicture || null
+        };
+      }
+    });
+
+    useCallStore.getState().initiateCall(type, activeChat.id, initialInvitedIds, initialProfiles);
   };
 
   const handleClearChat = async () => {

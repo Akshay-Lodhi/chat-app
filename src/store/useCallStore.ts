@@ -44,7 +44,7 @@ interface CallState {
   setCallStartTime: (time: number | null) => void;
   acceptCall: () => void;
   endCall: () => void;
-  initiateCall: (callType: 'AUDIO' | 'VIDEO', chatId: string, invitedUserIds?: string[]) => void;
+  initiateCall: (callType: 'AUDIO' | 'VIDEO', chatId: string, invitedUserIds?: string[], initialProfiles?: Record<string, { name: string; avatar: string | null }>) => void;
   joinOngoingCall: (chatId: string, callType: 'AUDIO' | 'VIDEO') => void;
   setActiveCallInfo: (chatId: string, info: ActiveCallInfo | null) => void;
 }
@@ -147,7 +147,7 @@ export const useCallStore = create<CallState>((set, get) => ({
     });
   },
 
-  initiateCall: (type, chatId, invitedUserIds = []) => {
+  initiateCall: (type, chatId, invitedUserIds = [], initialProfiles = {}) => {
     const { peers, localStream } = get();
     Object.values(peers).forEach(peer => {
       try { peer.destroy(); } catch(e) {}
@@ -155,6 +155,19 @@ export const useCallStore = create<CallState>((set, get) => ({
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
     }
+
+    const roomParts: Record<string, ParticipantInfo> = {};
+    Object.entries(initialProfiles).forEach(([uId, prof]: [string, any]) => {
+      roomParts[uId] = {
+        userId: uId,
+        name: prof.name || 'Participant',
+        avatar: prof.avatar || null,
+        status: 'INVITED',
+        isMuted: false,
+        isVideoOff: false
+      };
+    });
+
     set({
       isCalling: true,
       isInitiator: true,
@@ -166,7 +179,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       pendingOffer: null,
       callStartTime: null,
       invitedUserIds,
-      roomParticipants: {}
+      roomParticipants: roomParts
     });
   },
 
