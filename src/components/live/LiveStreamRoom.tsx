@@ -152,8 +152,9 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       addLog(`Host peer CONNECTED to viewer: ${viewerId}`);
     });
 
-    peer.on('error', (err) => {
-      addLog(`Host Peer Error: ${err.message || err}`);
+    peer.on('error', (err: any) => {
+      addLog(`Host Peer Error: ${err?.message || err?.toString()} ${err?.code || ''}`);
+      console.error(err);
       peer.destroy();
       delete peersRef.current[viewerId];
     });
@@ -411,7 +412,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
               className="w-full h-full object-cover"
             />
             {debugLogs.length > 0 && (
-              <div className="absolute top-20 left-4 right-4 bg-black/60 text-green-400 font-mono text-[10px] p-2 rounded z-50 pointer-events-none max-h-40 overflow-hidden">
+              <div className="absolute top-20 left-4 right-4 bg-black/80 text-green-400 font-mono text-[10px] p-2 rounded z-50 pointer-events-none max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
                 {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
               </div>
             )}
