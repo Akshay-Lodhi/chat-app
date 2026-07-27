@@ -7,7 +7,6 @@ import {
   Share2, Pin, Mic, MicOff, Camera, RefreshCw, Radio, Check, Copy, Gift,
   Volume2, VolumeX
 } from 'lucide-react';
-import Peer from 'simple-peer';
 import { useLiveStore, LiveStreamSession, LiveComment } from '@/store/useLiveStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
@@ -47,8 +46,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const peersRef = useRef<Record<string, Peer.Instance>>({});
-  const viewerPeerRef = useRef<Peer.Instance | null>(null);
+
 
   const handleFollowClick = () => {
     setIsFollowing(prev => !prev);
@@ -113,58 +111,82 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     }
   }, [user, leaveLiveStream, onClose]);
 
-  // WebRTC Host Viewer Connection initiator
-  const initiateViewerConnection = (viewerId: string, stream: MediaStream) => {
+  // We store RTCPeerConnections instead of SimplePeer Instances
+  const peersRef = useRef<Record<string, RTCPeerConnection>>({});
+  const viewerPeerRef = useRef<RTCPeerConnection | null>(null);
+  
+  // Queue ICE candidates that arrive before remote description is set
+  const iceCandidateQueueRef = useRef<Record<string, any[]>>({});
+
+  const RTC_CONFIG = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' }
+    ]
+  };
+
+  const initiateViewerConnection = async (viewerId: string, stream: MediaStream) => {
     const socket = useChatStore.getState().socket;
     if (!socket) return;
 
-    // Do not re-initiate if a peer connection is already active/connecting for this viewer
+    // Do not re-initiate if a peer connection is already active/connecting
     if (peersRef.current[viewerId]) {
       return;
     }
 
-    addLog(`Host creating peer for viewer: ${viewerId}`);
-    const peer = new Peer({
-      initiator: true,
-      trickle: true,
-      stream: stream,
-      config: { 
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' }
-        ] 
-      }
-    });
+    addLog(`[WebRTC] Host creating Native peer for viewer: ${viewerId}`);
+    
+    try {
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      peersRef.current[viewerId] = pc;
+      iceCandidateQueueRef.current[viewerId] = [];
 
-    peer.on('signal', (data) => {
-      addLog(`Host generated signal: ${data.type || 'candidate'}`);
+      // Add local tracks
+      stream.getTracks().forEach(track => {
+        pc.addTrack(track, stream);
+      });
+
+      // Handle ICE Candidates
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          addLog(`Host generated ICE candidate`);
+          socket.emit('live-signal', {
+            streamId: currentStream.id,
+            targetUserId: viewerId,
+            signalData: { type: 'candidate', candidate: event.candidate }
+          });
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        addLog(`Host Peer State (${viewerId}): ${pc.connectionState}`);
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+          pc.close();
+          delete peersRef.current[viewerId];
+        }
+      };
+
+      // Create Offer -> Set Local -> Send
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      
+      addLog(`[WebRTC] Host sending OFFER to viewer`);
       socket.emit('live-signal', {
         streamId: currentStream.id,
         targetUserId: viewerId,
-        signalData: data
+        signalData: { type: offer.type, sdp: offer.sdp }
       });
-    });
-
-    peer.on('connect', () => {
-      addLog(`Host peer CONNECTED to viewer: ${viewerId}`);
-    });
-
-    peer.on('error', (err: any) => {
-      addLog(`Host Peer Error: ${err?.message || err?.toString()} ${err?.code || ''}`);
+    } catch (err: any) {
+      addLog(`[WebRTC Error] Host peer setup failed: ${err.message || err.toString()}`);
       console.error(err);
-      peer.destroy();
-      delete peersRef.current[viewerId];
-    });
-
-    peer.on('close', () => {
-      addLog(`Host Peer Closed: ${viewerId}`);
-      delete peersRef.current[viewerId];
-    });
-
-    peersRef.current[viewerId] = peer;
+      if (peersRef.current[viewerId]) {
+        peersRef.current[viewerId].close();
+        delete peersRef.current[viewerId];
+      }
+    }
   };
 
   // One-time: Join the socket room when entering the live stream
@@ -204,79 +226,104 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     };
 
     // Both: Listen to signaling exchange
-    const handleLiveSignal = ({ signalData, fromUserId }: { signalData: any, fromUserId: string }) => {
-      if (!isHost) {
-        // Viewer receiving offer from Host
-        if (!viewerPeerRef.current) {
-          addLog(`Viewer creating peer...`);
-          const peer = new Peer({
-            initiator: false,
-            trickle: true,
-            config: { 
-              iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' }
-              ] 
-            }
-          });
+    const handleLiveSignal = async ({ signalData, fromUserId }: { signalData: any, fromUserId: string }) => {
+      try {
+        if (!isHost) {
+          // VIEWER LOGIC
+          let pc = viewerPeerRef.current;
 
-          peer.on('signal', (data) => {
-            addLog(`Viewer generated signal: ${data.type || 'candidate'}`);
+          if (signalData.type === 'offer') {
+            addLog(`[WebRTC] Viewer received OFFER`);
+            if (pc) {
+              pc.close();
+            }
+            pc = new RTCPeerConnection(RTC_CONFIG);
+            viewerPeerRef.current = pc;
+            iceCandidateQueueRef.current['host'] = [];
+
+            pc.ontrack = (event) => {
+              addLog(`[WebRTC] Viewer received remote track!`);
+              if (event.streams && event.streams[0]) {
+                setRemoteStream(event.streams[0]);
+              }
+            };
+
+            pc.onicecandidate = (event) => {
+              if (event.candidate) {
+                socket.emit('live-signal', {
+                  streamId: currentStream.id,
+                  targetUserId: fromUserId,
+                  signalData: { type: 'candidate', candidate: event.candidate }
+                });
+              }
+            };
+
+            pc.onconnectionstatechange = () => {
+              addLog(`[WebRTC] Viewer Peer State: ${pc?.connectionState}`);
+              if (pc?.connectionState === 'failed' || pc?.connectionState === 'closed' || pc?.connectionState === 'disconnected') {
+                setRemoteStream(null);
+                viewerPeerRef.current = null;
+              }
+            };
+
+            await pc.setRemoteDescription(new RTCSessionDescription(signalData));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            
+            addLog(`[WebRTC] Viewer sending ANSWER`);
             socket.emit('live-signal', {
               streamId: currentStream.id,
               targetUserId: fromUserId,
-              signalData: data
+              signalData: { type: answer.type, sdp: answer.sdp }
             });
-          });
 
-          peer.on('connect', () => {
-            addLog(`Viewer peer CONNECTED`);
-          });
-
-          peer.on('stream', (stream) => {
-            addLog(`Viewer received remote stream! Tracks: ${stream.getTracks().length}`);
-            setRemoteStream(stream);
-            if (videoRef.current) {
-              addLog(`Attaching remote stream to video element...`);
-              videoRef.current.srcObject = stream;
-              videoRef.current.play()
-                .then(() => addLog(`Video playing successfully!`))
-                .catch(e => addLog(`Video Play Error: ${e.message}`));
+            // Process queued candidates
+            const queue = iceCandidateQueueRef.current['host'] || [];
+            for (const cand of queue) {
+              await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn(e));
             }
-          });
+            iceCandidateQueueRef.current['host'] = [];
+            
+          } else if (signalData.type === 'candidate' && signalData.candidate) {
+            // Buffer candidate if no remote description yet
+            if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+              await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate)).catch(e => console.warn(e));
+            } else {
+              if (!iceCandidateQueueRef.current['host']) iceCandidateQueueRef.current['host'] = [];
+              iceCandidateQueueRef.current['host'].push(signalData.candidate);
+            }
+          }
+        } else {
+          // HOST LOGIC
+          const pc = peersRef.current[fromUserId];
+          if (!pc) {
+            addLog(`[WebRTC Warning] Host received signal for unknown viewer: ${fromUserId}`);
+            return;
+          }
 
-          peer.on('error', (err) => {
-            addLog(`Viewer Peer Error: ${err.message || err}`);
-            viewerPeerRef.current = null;
-          });
-
-          peer.on('close', () => {
-            addLog(`Viewer Peer Closed`);
-            viewerPeerRef.current = null;
-          });
-
-          viewerPeerRef.current = peer;
-        }
-        try {
-          addLog(`Viewer received signal: ${signalData.type || 'candidate'}`);
-          viewerPeerRef.current.signal(signalData);
-        } catch (e: any) {
-          addLog(`Signal Error: ${e.message}`);
-        }
-      } else {
-        // Host receiving answer from Viewer
-        const peer = peersRef.current[fromUserId];
-        if (peer) {
-          try {
-            console.log('%c[WebRTC] Host received signal from viewer:', 'color: #0088ff', fromUserId, signalData.type || 'candidate');
-            peer.signal(signalData);
-          } catch (e) {
-            console.error('%c[WebRTC] Error signaling host peer:', 'color: #ff0000', e);
+          if (signalData.type === 'answer') {
+            addLog(`[WebRTC] Host received ANSWER`);
+            await pc.setRemoteDescription(new RTCSessionDescription(signalData));
+            
+            // Process queued candidates
+            const queue = iceCandidateQueueRef.current[fromUserId] || [];
+            for (const cand of queue) {
+              await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn(e));
+            }
+            iceCandidateQueueRef.current[fromUserId] = [];
+            
+          } else if (signalData.type === 'candidate' && signalData.candidate) {
+            if (pc.remoteDescription && pc.remoteDescription.type) {
+              await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate)).catch(e => console.warn(e));
+            } else {
+              if (!iceCandidateQueueRef.current[fromUserId]) iceCandidateQueueRef.current[fromUserId] = [];
+              iceCandidateQueueRef.current[fromUserId].push(signalData.candidate);
+            }
           }
         }
+      } catch (e: any) {
+        addLog(`[WebRTC Signal Error] ${e.message || e.toString()}`);
+        console.error(e);
       }
     };
 
@@ -304,13 +351,11 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   useEffect(() => {
     if (isHost && localStream && activeViewers) {
       activeViewers.forEach(viewer => {
-        if (viewer.id !== user?.id) {
+        if (viewer.id !== user?.id && !peersRef.current[viewer.id]) {
           initiateViewerConnection(viewer.id, localStream);
         }
       });
     }
-    // We intentionally don't add activeViewers here to avoid recreating peers repeatedly.
-    // This is purely for when localStream first activates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, localStream]);
 
@@ -321,7 +366,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       Object.keys(peersRef.current).forEach(viewerId => {
         if (!viewerIds.includes(viewerId)) {
           try {
-            peersRef.current[viewerId].destroy();
+            peersRef.current[viewerId].close();
           } catch (e) {}
           delete peersRef.current[viewerId];
         }
@@ -332,12 +377,13 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   // Destructor cleanup
   useEffect(() => {
     return () => {
-      Object.values(peersRef.current).forEach(p => {
-        try { p.destroy(); } catch (e) {}
+      Object.values(peersRef.current).forEach(pc => {
+        try { pc.close(); } catch (e) {}
       });
       peersRef.current = {};
+      
       if (viewerPeerRef.current) {
-        try { viewerPeerRef.current.destroy(); } catch (e) {}
+        try { viewerPeerRef.current.close(); } catch (e) {}
         viewerPeerRef.current = null;
       }
       setRemoteStream(null);
