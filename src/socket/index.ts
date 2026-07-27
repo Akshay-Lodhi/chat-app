@@ -822,35 +822,34 @@ export function setupSocket(server: HttpServer) {
     socket.on('disconnect', async () => {
       clearInterval(interval);
 
-      // Live Stream Cleanup on disconnect
-      for (const [streamId, session] of activeLiveStreams.entries()) {
-        if (session.streamerId === userId) {
-          session.isLive = false;
-          activeLiveStreams.delete(streamId);
-          chatNamespace.to(`live_${streamId}`).emit('live-stream-ended', { streamId });
-          chatNamespace.emit('live-stream-ended', { streamId });
-        } else {
-          if (session.viewers.includes(userId)) {
-            session.viewers = session.viewers.filter(id => id !== userId);
-            if (session.viewerProfiles) {
-              session.viewerProfiles = session.viewerProfiles.filter(p => p.id !== userId);
-            }
-            session.viewerCount = Math.max(0, session.viewers.length);
-            chatNamespace.to(`live_${streamId}`).emit('live-viewer-count', {
-              streamId,
-              viewerCount: session.viewerCount,
-              viewers: session.viewerProfiles || [],
-              mutedUserIds: session.mutedUserIds || []
-            });
-            chatNamespace.emit('live-viewer-count', { streamId, viewerCount: session.viewerCount });
-          }
-        }
-      }
-      
       const userSockets = activeUserSockets.get(userId);
       if (userSockets) {
         userSockets.delete(socket.id);
         if (userSockets.size === 0) {
+          // Live Stream Cleanup on disconnect
+          for (const [streamId, session] of activeLiveStreams.entries()) {
+            if (session.streamerId === userId) {
+              session.isLive = false;
+              activeLiveStreams.delete(streamId);
+              chatNamespace.to(`live_${streamId}`).emit('live-stream-ended', { streamId });
+              chatNamespace.emit('live-stream-ended', { streamId });
+            } else {
+              if (session.viewers.includes(userId)) {
+                session.viewers = session.viewers.filter(id => id !== userId);
+                if (session.viewerProfiles) {
+                  session.viewerProfiles = session.viewerProfiles.filter(p => p.id !== userId);
+                }
+                session.viewerCount = Math.max(0, session.viewers.length);
+                chatNamespace.to(`live_${streamId}`).emit('live-viewer-count', {
+                  streamId,
+                  viewerCount: session.viewerCount,
+                  viewers: session.viewerProfiles || [],
+                  mutedUserIds: session.mutedUserIds || []
+                });
+                chatNamespace.emit('live-viewer-count', { streamId, viewerCount: session.viewerCount });
+              }
+            }
+          }
           activeUserSockets.delete(userId);
           await redis.del(`online:${userId}`);
           
