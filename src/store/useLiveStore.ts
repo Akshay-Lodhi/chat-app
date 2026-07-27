@@ -91,11 +91,12 @@ const setupSocketListeners = (socket: any, set: any) => {
     }));
   });
 
-  socket.on('live-viewer-count', ({ viewerCount, viewers, mutedUserIds }: any) => {
+  socket.on('live-viewer-count', ({ streamId, viewerCount, viewers, mutedUserIds }: any) => {
     set((state: any) => ({
-      activeStream: state.activeStream ? { ...state.activeStream, viewerCount } : null,
-      activeViewers: viewers || [],
-      mutedUserIds: mutedUserIds || []
+      activeStream: (state.activeStream && state.activeStream.id === streamId) ? { ...state.activeStream, viewerCount } : state.activeStream,
+      activeViewers: (state.activeStream && state.activeStream.id === streamId) ? (viewers || []) : state.activeViewers,
+      mutedUserIds: (state.activeStream && state.activeStream.id === streamId) ? (mutedUserIds || []) : state.mutedUserIds,
+      streams: state.streams.map((s: any) => s.id === streamId ? { ...s, viewerCount } : s)
     }));
   });
 
@@ -341,7 +342,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
 
     const isHost = currentUser?.id === activeStream.streamerId;
     const viewerProfile = activeViewers.find(v => v.id === currentUser?.id);
-    const resolvedPfp = isHost ? activeStream.streamerPfp : (viewerProfile?.avatar || currentUser?.profilePicture || currentUser?.image);
+    const resolvedPfp = isHost ? activeStream.streamerPfp : (viewerProfile?.avatar || currentUser?.profilePicture || currentUser?.image || null);
 
     const newComment: LiveComment = {
       id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,

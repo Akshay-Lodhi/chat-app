@@ -384,7 +384,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* ==================================================== */}
       {/* 1. TOP HEADER OVERLAY (Matching Instagram Live UI)  */}
       {/* ==================================================== */}
-      <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-14 pb-4 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
+      <div className="absolute top-0 left-0 right-0 z-30 px-4 pt-14 pb-4 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
         {/* Left Side: Streamer Info & Follow Button */}
         <div className="flex items-center min-w-0 shrink mr-2">
           <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10 min-w-0 shrink">
