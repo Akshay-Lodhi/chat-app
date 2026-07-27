@@ -252,14 +252,14 @@ export function LiveView() {
         </div>
 
         {/* Live Feed Grid */}
-        {streams.length === 0 ? (
+        {feedStreams.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center space-y-3 bg-surface/40 rounded-3xl border border-surface-border">
             <div className="p-4 rounded-full bg-surface-hover text-text-secondary">
               <Tv size={36} />
             </div>
-            <h3 className="text-lg font-bold text-text-primary">No Live Streams Found</h3>
+            <h3 className="text-lg font-bold text-text-primary">No Active Live Streams</h3>
             <p className="text-xs text-text-secondary max-w-xs">
-              Be the first to start a live stream or select a different category!
+              Check back later or start your own broadcast!
             </p>
             <button
               onClick={() => setIsGoLiveOpen(true)}
@@ -270,7 +270,7 @@ export function LiveView() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {streams.map((stream) => (
+            {feedStreams.map((stream) => (
               <motion.div
                 key={stream.id}
                 whileHover={{ y: -4 }}

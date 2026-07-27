@@ -330,7 +330,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
   },
 
   sendComment: (text, currentUser) => {
-    const { activeStream, mutedUserIds } = get();
+    const { activeStream, mutedUserIds, activeViewers } = get();
     const socket = useChatStore.getState().socket;
 
     if (!activeStream || !text.trim()) return;
@@ -339,11 +339,15 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       return;
     }
 
+    const isHost = currentUser?.id === activeStream.streamerId;
+    const viewerProfile = activeViewers.find(v => v.id === currentUser?.id);
+    const resolvedPfp = isHost ? activeStream.streamerPfp : (viewerProfile?.avatar || currentUser?.profilePicture || currentUser?.image);
+
     const newComment: LiveComment = {
       id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       userId: currentUser?.id || 'guest',
       username: currentUser?.phoneNumber || currentUser?.email?.split('@')[0] || 'guest',
-      userPfp: currentUser?.profilePicture || currentUser?.image,
+      userPfp: resolvedPfp,
       text: text.trim(),
       createdAt: new Date().toISOString()
     };

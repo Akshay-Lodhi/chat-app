@@ -127,8 +127,9 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   };
 
   // One-time: Join the socket room when entering the live stream
+  const socket = useChatStore((state) => state.socket);
+
   useEffect(() => {
-    const socket = useChatStore.getState().socket;
     if (!socket || !user) return;
 
     socket.emit('join-live', { streamId: currentStream.id, user });
@@ -136,11 +137,10 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     // Cleanup: this only runs on unmount (leave stream)
     return () => {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStream.id, user?.id]);
+  }, [currentStream.id, user?.id, socket]);
 
   // WebRTC socket events and state synchronization
   useEffect(() => {
-    const socket = useChatStore.getState().socket;
     if (!socket) return;
 
     // Host: Listen for live-user-joined to start peer connection
@@ -202,7 +202,14 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     socket.on('live-user-joined', handleUserJoined);
     socket.on('live-signal', handleLiveSignal);
 
-    // If host has existing viewers and localStream changes
+    return () => {
+      socket.off('live-user-joined', handleUserJoined);
+      socket.off('live-signal', handleLiveSignal);
+    };
+  }, [isHost, localStream, currentStream.id, socket]); // Removed activeViewers from deps to prevent dropped events
+
+  // Fallback: If host has existing viewers and localStream changes
+  useEffect(() => {
     if (isHost && localStream && activeViewers) {
       activeViewers.forEach(viewer => {
         if (viewer.id !== user?.id) {
@@ -210,12 +217,10 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
         }
       });
     }
-
-    return () => {
-      socket.off('live-user-joined', handleUserJoined);
-      socket.off('live-signal', handleLiveSignal);
-    };
-  }, [isHost, localStream, activeViewers, user, currentStream.id]);
+    // We intentionally don't add activeViewers here to avoid recreating peers repeatedly.
+    // This is purely for when localStream first activates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, localStream]);
 
   // Clean up peers of disconnected viewers
   useEffect(() => {
@@ -394,7 +399,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
         </div>
 
         {/* Right Side: LIVE badge, Viewer Count, Likes Count & Close Button */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5">
           {/* Red LIVE Badge */}
           <div className="bg-[#FF0050] text-white text-[11px] font-black px-2.5 py-1 rounded-md tracking-wider shadow-sm flex items-center space-x-1">
             <span className="w-2 h-2 rounded-full bg-white animate-ping" />
@@ -404,17 +409,11 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           {/* Viewer Count Badge */}
           <button 
             onClick={() => setShowViewerList(true)}
-            className="bg-black/50 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/10 flex items-center space-x-1.5 shadow-sm cursor-pointer hover:bg-black/75 transition-colors"
+            className="bg-black/50 backdrop-blur-md text-white text-xs font-semibold px-2 py-1 rounded-full border border-white/10 flex items-center space-x-1 shadow-sm cursor-pointer hover:bg-black/75 transition-colors"
           >
             <Eye size={14} className="text-white/90" />
             <span>{(currentStream.viewerCount || 0).toLocaleString()}</span>
           </button>
-
-          {/* Likes Count Badge */}
-          <div className="bg-black/50 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/10 flex items-center space-x-1.5 shadow-sm">
-            <Heart size={14} className="text-red-500 fill-red-500" />
-            <span>{(currentStream.likesCount || 0).toLocaleString()}</span>
-          </div>
 
           {/* Explicit Leave/End Text Button */}
           <button 
@@ -427,28 +426,13 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
               onClose();
             }}
             className={cn(
-              "px-3.5 py-1.5 backdrop-blur-md text-white text-xs font-bold rounded-full border transition-all active:scale-95",
+              "px-3 py-1 backdrop-blur-md text-white text-xs font-bold rounded-full border transition-all active:scale-95 ml-1",
               isHost 
                 ? "bg-red-600 border-red-500 hover:bg-red-700 shadow-[0_0_12px_rgba(220,38,38,0.4)]" 
                 : "bg-red-600/90 border-red-500/30 hover:bg-red-600 hover:border-red-500"
             )}
           >
             {isHost ? "End" : "Leave"}
-          </button>
-
-          {/* Close / End Button Icon */}
-          <button 
-            onClick={() => {
-              if (isHost) {
-                endLiveStream(currentStream.id);
-              } else {
-                leaveLiveStream(user);
-              }
-              onClose();
-            }}
-            className="p-2 bg-black/40 backdrop-blur-md text-white/90 hover:text-white rounded-full border border-white/10 hover:bg-black/60 transition-colors ml-0.5"
-          >
-            <X size={20} />
           </button>
         </div>
       </div>
@@ -481,9 +465,9 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* ==================================================== */}
       {/* 3. BOTTOM-LEFT LIVE CHAT & PINNED COMMENT OVERLAY   */}
       {/* ==================================================== */}
-      <div className="relative z-20 pb-4 px-4 flex flex-col justify-end flex-1 max-w-lg w-full">
+      <div className="relative z-20 pb-4 px-4 flex flex-col justify-end flex-1 max-w-lg w-full pointer-events-none">
         {/* Scrollable Live Comments Container */}
-        <div className="max-h-64 overflow-y-auto space-y-2.5 no-scrollbar pb-2">
+        <div className="max-h-64 overflow-y-auto space-y-2.5 no-scrollbar pb-2 pointer-events-auto">
           {comments.map((comment) => (
             <motion.div 
               key={comment.id}
@@ -539,7 +523,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
 
         {/* Host Control Floating Bar (If Streaming Host) */}
         {isHost && (
-          <div className="mb-3 flex items-center justify-between bg-black/60 backdrop-blur-md p-2 rounded-2xl border border-white/10 text-white">
+          <div className="mb-3 flex items-center justify-between bg-black/60 backdrop-blur-md p-2 rounded-2xl border border-white/10 text-white pointer-events-auto">
             <div className="flex items-center space-x-2">
               <button 
                 onClick={toggleMic}
@@ -565,7 +549,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
         {/* ==================================================== */}
         {/* 4. BOTTOM ACTION INPUT BAR (Matching Instagram UI)  */}
         {/* ==================================================== */}
-        <form onSubmit={handleSendComment} className="flex items-center space-x-3 w-full">
+        <form onSubmit={handleSendComment} className="flex items-center space-x-3 w-full pointer-events-auto">
           {/* Capsule Comment Input */}
           <div className="flex-1 relative flex items-center">
             <input 
