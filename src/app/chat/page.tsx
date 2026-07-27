@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
@@ -66,8 +66,11 @@ export default function ChatPage() {
   };
 
   // Hydration and Connection
+  const profileHydratedRef = useRef(false);
+
   useEffect(() => {
-    if (session?.user && (!user || user.id !== session.user.id || !user.profilePicture)) {
+    if (session?.user && (!user || user.id !== session.user.id || (!user.profilePicture && !profileHydratedRef.current))) {
+      profileHydratedRef.current = true;
       // Start with session data
       useAuthStore.getState().setAuth('better-auth-session', { ...user, ...session.user } as any);
       
