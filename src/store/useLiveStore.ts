@@ -64,6 +64,8 @@ interface LiveState {
   kickUser: (targetUserId: string) => void;
   muteUser: (targetUserId: string) => void;
   unmuteUser: (targetUserId: string) => void;
+  sendGift: (giftType: string, currentUser: any) => void;
+  followStreamer: (currentUser: any) => void;
 }
 
 let pendingActiveStreamsFetch: Promise<any> | null = null;
@@ -109,7 +111,12 @@ export const useLiveStore = create<LiveState>((set, get) => ({
         if (q) queryParams.append('search', q);
 
         const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+        const token = useAuthStore.getState().token;
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const res = await fetch(`${serverUrl}/api/live/active?${queryParams.toString()}`, {
+          headers,
           credentials: 'include'
         });
 
@@ -130,14 +137,21 @@ export const useLiveStore = create<LiveState>((set, get) => ({
   startLiveStream: async ({ title, category, description }) => {
     try {
       const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+      const token = useAuthStore.getState().token;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`${serverUrl}/api/live/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ title, category, description })
       });
 
-      if (!res.ok) throw new Error('Failed to start live stream');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to start live stream');
+      }
       const data = await res.json();
       const newStream = data.stream;
 
@@ -168,8 +182,13 @@ export const useLiveStore = create<LiveState>((set, get) => ({
   endLiveStream: async (streamId) => {
     try {
       const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+      const token = useAuthStore.getState().token;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       await fetch(`${serverUrl}/api/live/${streamId}/end`, {
         method: 'POST',
+        headers,
         credentials: 'include'
       });
 
@@ -220,6 +239,8 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       socket.off('new-live-reaction');
       socket.off('live-viewer-count');
       socket.off('live-comment-pinned');
+      socket.off('new-live-gift');
+      socket.off('new-live-follow');
 
       socket.on('new-live-comment', ({ comment }) => {
         set(state => ({ comments: [...state.comments, comment] }));
@@ -245,6 +266,32 @@ export const useLiveStore = create<LiveState>((set, get) => ({
           activeStream: state.activeStream ? { ...state.activeStream, pinnedComment: comment } : null
         }));
       });
+
+      socket.on('new-live-gift', ({ giftType, user, id }) => {
+        const giftComment: LiveComment = {
+          id,
+          userId: user.id || 'guest',
+          username: user.name || user.username || 'guest',
+          userPfp: user.profilePicture || user.avatar,
+          text: `sent a ${giftType}! 🎁✨`,
+          createdAt: new Date().toISOString(),
+          isGift: true
+        } as any;
+        set(state => ({ comments: [...state.comments, giftComment] }));
+      });
+
+      socket.on('new-live-follow', ({ user, id }) => {
+        const followComment: LiveComment = {
+          id,
+          userId: user.id || 'guest',
+          username: user.name || user.username || 'guest',
+          userPfp: user.profilePicture || user.avatar,
+          text: `followed the host! 💖`,
+          createdAt: new Date().toISOString(),
+          isFollow: true
+        } as any;
+        set(state => ({ comments: [...state.comments, followComment] }));
+      });
     }
   },
 
@@ -258,6 +305,8 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       socket.off('new-live-reaction');
       socket.off('live-viewer-count');
       socket.off('live-comment-pinned');
+      socket.off('new-live-gift');
+      socket.off('new-live-follow');
     }
 
     if (localStream) {
@@ -350,6 +399,22 @@ export const useLiveStore = create<LiveState>((set, get) => ({
     const socket = useChatStore.getState().socket;
     if (activeStream && socket) {
       socket.emit('unmute-user-live', { streamId: activeStream.id, targetUserId });
+    }
+  },
+
+  sendGift: (giftType: string, currentUser: any) => {
+    const { activeStream } = get();
+    const socket = useChatStore.getState().socket;
+    if (activeStream && socket) {
+      socket.emit('live-gift', { streamId: activeStream.id, giftType, user: currentUser });
+    }
+  },
+
+  followStreamer: (currentUser: any) => {
+    const { activeStream } = get();
+    const socket = useChatStore.getState().socket;
+    if (activeStream && socket) {
+      socket.emit('live-follow', { streamId: activeStream.id, user: currentUser });
     }
   }
 }));

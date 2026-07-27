@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Heart, Send, ChevronDown, Eye, Plus, HelpCircle, 
-  Share2, Pin, Mic, MicOff, Camera, RefreshCw, Radio, Check, Copy
+  Share2, Pin, Mic, MicOff, Camera, RefreshCw, Radio, Check, Copy, Gift
 } from 'lucide-react';
 import Peer from 'simple-peer';
 import { useLiveStore, LiveStreamSession, LiveComment } from '@/store/useLiveStore';
@@ -24,7 +24,8 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     leaveLiveStream, sendComment, sendReaction, pinComment, 
     endLiveStream, comments, reactions, isHost, localStream,
     setLocalStream, activeStream, activeViewers, mutedUserIds,
-    kickUser, muteUser, unmuteUser, remoteStream, setRemoteStream
+    kickUser, muteUser, unmuteUser, remoteStream, setRemoteStream,
+    sendGift, followStreamer
   } = useLiveStore();
 
   const currentStream = activeStream || stream;
@@ -34,11 +35,20 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const [cameraOff, setCameraOff] = useState(false);
   const [showShareToast, setShowShareToast] = useState(false);
   const [showViewerList, setShowViewerList] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [showGiftMenu, setShowGiftMenu] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const peersRef = useRef<Record<string, Peer.Instance>>({});
   const viewerPeerRef = useRef<Peer.Instance | null>(null);
+
+  const handleFollowClick = () => {
+    setIsFollowing(prev => !prev);
+    if (!isFollowing) {
+      followStreamer(user);
+    }
+  };
 
   // Initialize Host Camera Stream if host, or bind remoteStream if viewer
   useEffect(() => {
@@ -191,8 +201,8 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       });
     }
 
-    // If viewer joins an active stream, notify to kick start WebRTC connection
-    if (!isHost && user) {
+    // Notify server to join the socket channel room (both host and viewers)
+    if (user) {
       socket.emit('join-live', { streamId: currentStream.id, user });
     }
 
@@ -341,20 +351,35 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* ==================================================== */}
       {/* 1. TOP HEADER OVERLAY (Matching Instagram Live UI)  */}
       {/* ==================================================== */}
-      <div className="relative z-20 pt-10 px-4 flex items-center justify-between">
-        {/* Left Side: Streamer Info */}
-        <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10">
-          <Avatar 
-            src={currentStream.streamerPfp} 
-            fallback={currentStream.streamerUsername} 
-            className="w-9 h-9 border border-white/20"
-          />
-          <div className="flex items-center space-x-1">
-            <span className="text-white font-bold text-sm tracking-wide">
-              {currentStream.streamerUsername}
-            </span>
-            <ChevronDown size={16} className="text-white/80" />
+      <div className="relative z-20 pt-14 px-4 flex items-center justify-between">
+        {/* Left Side: Streamer Info & Follow Button */}
+        <div className="flex items-center">
+          <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10">
+            <Avatar 
+              src={currentStream.streamerPfp} 
+              fallback={currentStream.streamerUsername} 
+              className="w-9 h-9 border border-white/20"
+            />
+            <div className="flex items-center space-x-1">
+              <span className="text-white font-bold text-sm tracking-wide">
+                {currentStream.streamerUsername}
+              </span>
+              <ChevronDown size={16} className="text-white/80" />
+            </div>
           </div>
+          {!isHost && (
+            <button 
+              onClick={handleFollowClick}
+              className={cn(
+                "ml-2 px-3.5 py-1.5 rounded-full text-xs font-black transition-all active:scale-95",
+                isFollowing 
+                  ? "bg-white/10 text-white/60 border border-white/10" 
+                  : "bg-[#25D366] text-black shadow-[0_0_12px_rgba(37,211,102,0.3)] hover:scale-105"
+              )}
+            >
+              {isFollowing ? "Following" : "Follow"}
+            </button>
+          )}
         </div>
 
         {/* Right Side: LIVE badge, Viewer Count, Likes Count & Close Button */}
@@ -380,15 +405,37 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             <span>{(currentStream.likesCount || 0).toLocaleString()}</span>
           </div>
 
-          {/* Close / End Button */}
+          {/* Explicit Leave/End Text Button */}
           <button 
             onClick={() => {
               if (isHost) {
                 endLiveStream(currentStream.id);
+              } else {
+                leaveLiveStream(user);
               }
               onClose();
             }}
-            className="p-2 bg-black/40 backdrop-blur-md text-white/90 hover:text-white rounded-full border border-white/10 hover:bg-black/60 transition-colors ml-1"
+            className={cn(
+              "px-3.5 py-1.5 backdrop-blur-md text-white text-xs font-bold rounded-full border transition-all active:scale-95",
+              isHost 
+                ? "bg-red-600 border-red-500 hover:bg-red-700 shadow-[0_0_12px_rgba(220,38,38,0.4)]" 
+                : "bg-red-600/90 border-red-500/30 hover:bg-red-600 hover:border-red-500"
+            )}
+          >
+            {isHost ? "End" : "Leave"}
+          </button>
+
+          {/* Close / End Button Icon */}
+          <button 
+            onClick={() => {
+              if (isHost) {
+                endLiveStream(currentStream.id);
+              } else {
+                leaveLiveStream(user);
+              }
+              onClose();
+            }}
+            className="p-2 bg-black/40 backdrop-blur-md text-white/90 hover:text-white rounded-full border border-white/10 hover:bg-black/60 transition-colors ml-0.5"
           >
             <X size={20} />
           </button>
@@ -433,7 +480,13 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
               animate={{ opacity: 1, x: 0 }}
               className={cn(
                 "flex items-start space-x-2.5 max-w-[88%]",
-                comment.isPinned ? "bg-black/60 border border-[#25D366]/40 p-2.5 rounded-2xl backdrop-blur-md shadow-lg" : "bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full"
+                comment.isPinned 
+                  ? "bg-black/60 border border-[#25D366]/40 p-2.5 rounded-2xl backdrop-blur-md shadow-lg" 
+                  : (comment as any).isGift
+                    ? "bg-gradient-to-r from-yellow-500/30 to-amber-500/30 border border-yellow-500/40 px-3.5 py-2 rounded-2xl backdrop-blur-md shadow-[0_0_15px_rgba(234,179,8,0.2)]"
+                    : (comment as any).isFollow
+                      ? "bg-gradient-to-r from-pink-500/30 to-rose-500/30 border border-pink-500/40 px-3.5 py-2 rounded-2xl backdrop-blur-md shadow-[0_0_15px_rgba(244,63,94,0.2)]"
+                      : "bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full"
               )}
             >
               <Avatar 
@@ -563,7 +616,45 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
               </svg>
             </button>
 
-            {/* 4. Heart Reaction Icon */}
+            {/* 4. Gift Icon */}
+            {!isHost && (
+              <div className="relative">
+                <button 
+                  type="button"
+                  onClick={() => setShowGiftMenu(prev => !prev)}
+                  className={cn("hover:opacity-80 transition-transform active:scale-125 cursor-pointer", showGiftMenu ? "text-[#25D366]" : "text-white")}
+                  title="Send Gift"
+                >
+                  <Gift size={26} />
+                </button>
+
+                {showGiftMenu && (
+                  <div className="absolute bottom-12 right-0 bg-black/90 backdrop-blur-md p-3 rounded-2xl border border-white/10 flex items-center space-x-3 z-50 shadow-2xl">
+                    {[
+                      { name: 'Rose', emoji: '🌹' },
+                      { name: 'Heart', emoji: '💖' },
+                      { name: 'Crown', emoji: '👑' },
+                      { name: 'Diamond', emoji: '💎' }
+                    ].map((gift) => (
+                      <button
+                        key={gift.name}
+                        type="button"
+                        onClick={() => {
+                          sendGift(gift.emoji, user);
+                          setShowGiftMenu(false);
+                        }}
+                        className="flex flex-col items-center p-2 hover:bg-white/10 rounded-xl transition-colors active:scale-95 cursor-pointer"
+                      >
+                        <span className="text-2xl mb-1">{gift.emoji}</span>
+                        <span className="text-[10px] text-white/70 font-semibold">{gift.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 5. Heart Reaction Icon */}
             <button 
               type="button"
               onClick={handleHeartClick}
