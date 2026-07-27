@@ -55,12 +55,14 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   // Initialize Host Camera Stream if host, or bind remoteStream if viewer
   useEffect(() => {
     if (isHost && !localStream) {
+      console.log('%c[WebRTC] Host requesting camera permissions...', 'color: #00ff00');
       navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
         .then((media) => {
+          console.log('%c[WebRTC] Host camera access GRANTED', 'color: #00ff00; font-weight: bold', 'Tracks:', media.getTracks().length);
           setLocalStream(media);
         })
         .catch((err) => {
-          console.warn('Camera access denied or unavailable:', err);
+          console.error('%c[WebRTC] Host camera access DENIED or unavailable:', 'color: #ff0000; font-weight: bold', err);
         });
     }
   }, [isHost, localStream, setLocalStream]);
@@ -116,6 +118,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       return;
     }
 
+    console.log('%c[WebRTC] Host creating peer for viewer:', 'color: #00ff00; font-weight: bold', viewerId);
     const peer = new Peer({
       initiator: true,
       trickle: true,
@@ -132,6 +135,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     });
 
     peer.on('signal', (data) => {
+      console.log('%c[WebRTC] Host generated signal for viewer:', 'color: #0088ff', viewerId, data.type || 'candidate');
       socket.emit('live-signal', {
         streamId: currentStream.id,
         targetUserId: viewerId,
@@ -139,8 +143,19 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       });
     });
 
+    peer.on('connect', () => {
+      console.log('%c[WebRTC] Host peer CONNECTED to viewer:', 'color: #00ff00; font-weight: bold', viewerId);
+    });
+
     peer.on('error', (err) => {
-      console.error('Host WebRTC Peer error for viewer:', viewerId, err);
+      console.error('%c[WebRTC] Host WebRTC Peer error for viewer:', 'color: #ff0000; font-weight: bold', viewerId, err);
+      peer.destroy();
+      delete peersRef.current[viewerId];
+    });
+
+    peer.on('close', () => {
+      console.log('%c[WebRTC] Host WebRTC Peer closed for viewer:', 'color: #ffaa00', viewerId);
+      delete peersRef.current[viewerId];
     });
 
     peersRef.current[viewerId] = peer;
@@ -148,6 +163,18 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
 
   // One-time: Join the socket room when entering the live stream
   const socket = useChatStore((state) => state.socket);
+
+  // Sync Late Joiners: If localStream becomes ready after viewers joined
+  useEffect(() => {
+    if (isHost && localStream) {
+      activeViewers.forEach(viewer => {
+        if (viewer.id !== user?.id && !peersRef.current[viewer.id]) {
+          console.log('%c[WebRTC] Syncing late joiner / existing viewer:', 'color: #ff00ff', viewer.id);
+          initiateViewerConnection(viewer.id, localStream);
+        }
+      });
+    }
+  }, [isHost, localStream, activeViewers, user?.id]);
 
   useEffect(() => {
     if (!socket || !user) return;
@@ -175,6 +202,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       if (!isHost) {
         // Viewer receiving offer from Host
         if (!viewerPeerRef.current) {
+          console.log('%c[WebRTC] Viewer creating peer to answer host:', 'color: #00ff00; font-weight: bold', fromUserId);
           const peer = new Peer({
             initiator: false,
             trickle: true,
@@ -190,6 +218,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           });
 
           peer.on('signal', (data) => {
+            console.log('%c[WebRTC] Viewer generated signal for host:', 'color: #0088ff', data.type || 'candidate');
             socket.emit('live-signal', {
               streamId: currentStream.id,
               targetUserId: fromUserId,
@@ -197,32 +226,47 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             });
           });
 
+          peer.on('connect', () => {
+            console.log('%c[WebRTC] Viewer peer CONNECTED to host:', 'color: #00ff00; font-weight: bold');
+          });
+
           peer.on('stream', (stream) => {
+            console.log('%c[WebRTC] Viewer received remote stream!', 'color: #ff00ff; font-weight: bold', stream.id, 'Tracks:', stream.getTracks().length);
             setRemoteStream(stream);
             if (videoRef.current) {
+              console.log('%c[WebRTC] Attaching remote stream to video element directly in event', 'color: #ff00ff');
               videoRef.current.srcObject = stream;
+              videoRef.current.play().catch(e => console.warn('Play error on track:', e));
             }
           });
 
           peer.on('error', (err) => {
-            console.error('Viewer WebRTC Peer error:', err);
+            console.error('%c[WebRTC] Viewer WebRTC Peer error:', 'color: #ff0000; font-weight: bold', err);
+            viewerPeerRef.current = null;
+          });
+
+          peer.on('close', () => {
+            console.log('%c[WebRTC] Viewer WebRTC Peer closed', 'color: #ffaa00');
+            viewerPeerRef.current = null;
           });
 
           viewerPeerRef.current = peer;
         }
         try {
+          console.log('%c[WebRTC] Viewer received signal from host:', 'color: #0088ff', signalData.type || 'candidate');
           viewerPeerRef.current.signal(signalData);
         } catch (e) {
-          console.error('Error signaling viewer peer:', e);
+          console.error('%c[WebRTC] Error signaling viewer peer:', 'color: #ff0000', e);
         }
       } else {
         // Host receiving answer from Viewer
         const peer = peersRef.current[fromUserId];
         if (peer) {
           try {
+            console.log('%c[WebRTC] Host received signal from viewer:', 'color: #0088ff', fromUserId, signalData.type || 'candidate');
             peer.signal(signalData);
           } catch (e) {
-            console.error('Error signaling host peer:', e);
+            console.error('%c[WebRTC] Error signaling host peer:', 'color: #ff0000', e);
           }
         }
       }
