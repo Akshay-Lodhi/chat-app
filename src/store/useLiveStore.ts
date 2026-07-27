@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useChatStore } from './useChatStore';
+import { useAuthStore } from './useAuthStore';
 
 export interface LiveComment {
   id: string;
@@ -45,6 +46,8 @@ interface LiveState {
   isLoading: boolean;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
+  activeViewers: Array<{ id: string; name: string; username: string; avatar?: string | null }>;
+  mutedUserIds: string[];
 
   setActiveCategory: (cat: string) => void;
   setSearchQuery: (q: string) => void;
@@ -58,6 +61,9 @@ interface LiveState {
   pinComment: (comment: LiveComment) => void;
   setLocalStream: (stream: MediaStream | null) => void;
   setRemoteStream: (stream: MediaStream | null) => void;
+  kickUser: (targetUserId: string) => void;
+  muteUser: (targetUserId: string) => void;
+  unmuteUser: (targetUserId: string) => void;
 }
 
 let pendingActiveStreamsFetch: Promise<any> | null = null;
@@ -73,6 +79,8 @@ export const useLiveStore = create<LiveState>((set, get) => ({
   isLoading: false,
   localStream: null,
   remoteStream: null,
+  activeViewers: [],
+  mutedUserIds: [],
 
   setActiveCategory: (category) => {
     set({ activeCategory: category });
@@ -141,9 +149,10 @@ export const useLiveStore = create<LiveState>((set, get) => ({
             id: 'system-welcome',
             userId: newStream.streamerId,
             username: newStream.streamerUsername,
+            userPfp: newStream.streamerPfp || useAuthStore.getState().user?.profilePicture,
             text: `Welcome to ${newStream.streamerName}'s live stream! ✨`,
             createdAt: new Date().toISOString(),
-            isPinned: true
+            isPinned: !!newStream.pinnedComment
           }
         ],
         reactions: []
@@ -194,10 +203,10 @@ export const useLiveStore = create<LiveState>((set, get) => ({
           id: 'welcome-msg',
           userId: stream.streamerId,
           username: stream.streamerUsername,
-          userPfp: stream.streamerPfp,
+          userPfp: stream.streamerPfp || (currentUser?.id === stream.streamerId ? currentUser?.profilePicture : undefined),
           text: stream.pinnedComment?.text || `Welcome to ${stream.streamerName}'s live session! ✨`,
           createdAt: new Date().toISOString(),
-          isPinned: true
+          isPinned: !!stream.pinnedComment
         }
       ],
       reactions: []
@@ -223,9 +232,11 @@ export const useLiveStore = create<LiveState>((set, get) => ({
         }));
       });
 
-      socket.on('live-viewer-count', ({ viewerCount }) => {
+      socket.on('live-viewer-count', ({ viewerCount, viewers, mutedUserIds }) => {
         set(state => ({
-          activeStream: state.activeStream ? { ...state.activeStream, viewerCount } : null
+          activeStream: state.activeStream ? { ...state.activeStream, viewerCount } : null,
+          activeViewers: viewers || [],
+          mutedUserIds: mutedUserIds || []
         }));
       });
 
@@ -259,15 +270,21 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       localStream: null,
       remoteStream: null,
       comments: [],
-      reactions: []
+      reactions: [],
+      activeViewers: [],
+      mutedUserIds: []
     });
   },
 
   sendComment: (text, currentUser) => {
-    const { activeStream } = get();
+    const { activeStream, mutedUserIds } = get();
     const socket = useChatStore.getState().socket;
 
     if (!activeStream || !text.trim()) return;
+    if (mutedUserIds.includes(currentUser?.id)) {
+      alert("You have been muted by the host and cannot comment.");
+      return;
+    }
 
     const newComment: LiveComment = {
       id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -309,6 +326,30 @@ export const useLiveStore = create<LiveState>((set, get) => ({
 
     if (socket) {
       socket.emit('live-pin-comment', { streamId: activeStream.id, comment });
+    }
+  },
+
+  kickUser: (targetUserId) => {
+    const { activeStream } = get();
+    const socket = useChatStore.getState().socket;
+    if (activeStream && socket) {
+      socket.emit('kick-user-live', { streamId: activeStream.id, targetUserId });
+    }
+  },
+
+  muteUser: (targetUserId) => {
+    const { activeStream } = get();
+    const socket = useChatStore.getState().socket;
+    if (activeStream && socket) {
+      socket.emit('mute-user-live', { streamId: activeStream.id, targetUserId });
+    }
+  },
+
+  unmuteUser: (targetUserId) => {
+    const { activeStream } = get();
+    const socket = useChatStore.getState().socket;
+    if (activeStream && socket) {
+      socket.emit('unmute-user-live', { streamId: activeStream.id, targetUserId });
     }
   }
 }));

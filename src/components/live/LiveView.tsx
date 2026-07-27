@@ -8,6 +8,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLiveStore, LiveStreamSession } from '@/store/useLiveStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useChatStore } from '@/store/useChatStore';
+import { Avatar } from '@/components/ui/Avatar';
 import { LiveStreamRoom } from './LiveStreamRoom';
 import { GoLiveModal } from './GoLiveModal';
 import { cn } from '@/lib/utils';
@@ -31,6 +33,33 @@ export function LiveView() {
   useEffect(() => {
     fetchActiveStreams(activeCategory, searchQuery);
   }, [fetchActiveStreams, activeCategory, searchQuery]);
+
+  // Real-time socket stream list updates
+  useEffect(() => {
+    const socket = useChatStore.getState().socket;
+    if (socket) {
+      const handleNewStream = (stream: LiveStreamSession) => {
+        useLiveStore.setState(state => {
+          if (state.streams.some(s => s.id === stream.id)) return state;
+          return { streams: [stream, ...state.streams] };
+        });
+      };
+
+      const handleStreamEnded = ({ streamId }: { streamId: string }) => {
+        useLiveStore.setState(state => ({
+          streams: state.streams.filter(s => s.id !== streamId)
+        }));
+      };
+
+      socket.on('new-live-stream', handleNewStream);
+      socket.on('live-stream-ended', handleStreamEnded);
+
+      return () => {
+        socket.off('new-live-stream', handleNewStream);
+        socket.off('live-stream-ended', handleStreamEnded);
+      };
+    }
+  }, []);
 
   const featuredStream = streams.find(s => s.isLive) || streams[0];
   const feedStreams = featuredStream ? streams.filter(s => s.id !== featuredStream.id) : streams;
@@ -167,10 +196,10 @@ export function LiveView() {
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                   <div className="space-y-2 max-w-xl">
                     <div className="flex items-center space-x-3">
-                      <img 
-                        src={featuredStream.streamerPfp || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                        alt={featuredStream.streamerName}
-                        className="w-11 h-11 rounded-full object-cover border-2 border-[#25D366]"
+                      <Avatar 
+                        src={featuredStream.streamerPfp} 
+                        fallback={featuredStream.streamerUsername} 
+                        className="w-11 h-11 border-2 border-[#25D366]"
                       />
                       <div>
                         <h3 className="text-white font-bold text-base md:text-lg drop-shadow">
@@ -272,10 +301,10 @@ export function LiveView() {
 
                 {/* Card Details */}
                 <div className="p-3.5 flex items-start space-x-3">
-                  <img 
-                    src={stream.streamerPfp || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                    alt={stream.streamerName}
-                    className="w-10 h-10 rounded-full object-cover border border-surface-border shrink-0"
+                  <Avatar 
+                    src={stream.streamerPfp} 
+                    fallback={stream.streamerUsername} 
+                    className="w-10 h-10 border border-surface-border shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-text-primary text-sm line-clamp-1 group-hover:text-[#25D366] transition-colors">

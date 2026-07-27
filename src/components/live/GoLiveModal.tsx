@@ -27,6 +27,8 @@ export function GoLiveModal({ isOpen, onClose }: GoLiveModalProps) {
 
   useEffect(() => {
     if (isOpen) {
+      setTitle('');
+      setDescription('');
       navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
         .then((stream) => {
           streamRef.current = stream;
@@ -119,14 +121,25 @@ export function GoLiveModal({ isOpen, onClose }: GoLiveModalProps) {
               <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
                 Live Stream Title *
               </label>
-              <input 
-                type="text"
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="What is your live stream about?"
-                className="w-full bg-chat-bg border border-surface-border text-text-primary px-4 py-3 rounded-xl focus:outline-none focus:border-[#25D366] transition-colors text-sm"
-              />
+              <div className="relative flex items-center">
+                <input 
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="What is your live stream about?"
+                  className="w-full bg-chat-bg border border-surface-border text-text-primary pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:border-[#25D366] transition-colors text-sm"
+                />
+                {title && (
+                  <button
+                    type="button"
+                    onClick={() => setTitle('')}
+                    className="absolute right-3 text-text-tertiary hover:text-text-primary transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Category Select */}

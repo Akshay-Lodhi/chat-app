@@ -6,8 +6,11 @@ import {
   X, Heart, Send, ChevronDown, Eye, Plus, HelpCircle, 
   Share2, Pin, Mic, MicOff, Camera, RefreshCw, Radio, Check, Copy
 } from 'lucide-react';
+import Peer from 'simple-peer';
 import { useLiveStore, LiveStreamSession, LiveComment } from '@/store/useLiveStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useChatStore } from '@/store/useChatStore';
+import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
 
 interface LiveStreamRoomProps {
@@ -20,44 +23,214 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const { 
     leaveLiveStream, sendComment, sendReaction, pinComment, 
     endLiveStream, comments, reactions, isHost, localStream,
-    setLocalStream
+    setLocalStream, activeStream, activeViewers, mutedUserIds,
+    kickUser, muteUser, unmuteUser, remoteStream, setRemoteStream
   } = useLiveStore();
+
+  const currentStream = activeStream || stream;
 
   const [inputText, setInputText] = useState('');
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [showShareToast, setShowShareToast] = useState(false);
+  const [showViewerList, setShowViewerList] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Initialize Host Camera Stream if host
-  useEffect(() => {
-    let streamTracks: MediaStream | null = null;
-    if (isHost && !localStream) {
-      navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
-        .then((media) => {
-          streamTracks = media;
-          setLocalStream(media);
-          if (videoRef.current) {
-            videoRef.current.srcObject = media;
-          }
-        })
-        .catch((err) => {
-          console.warn('Camera access denied or unavailable:', err);
-        });
-    } else if (localStream && videoRef.current) {
-      videoRef.current.srcObject = localStream;
-    }
+  const peersRef = useRef<Record<string, Peer.Instance>>({});
+  const viewerPeerRef = useRef<Peer.Instance | null>(null);
 
-    return () => {
-      // Don't auto kill stream here to keep smooth transitions
-    };
-  }, [isHost, localStream, setLocalStream]);
+  // Initialize Host Camera Stream if host, or bind remoteStream if viewer
+  useEffect(() => {
+    if (isHost) {
+      if (!localStream) {
+        navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
+          .then((media) => {
+            setLocalStream(media);
+            if (videoRef.current) {
+              videoRef.current.srcObject = media;
+            }
+          })
+          .catch((err) => {
+            console.warn('Camera access denied or unavailable:', err);
+          });
+      } else if (videoRef.current && videoRef.current.srcObject !== localStream) {
+        videoRef.current.srcObject = localStream;
+      }
+    } else {
+      if (remoteStream && videoRef.current && videoRef.current.srcObject !== remoteStream) {
+        videoRef.current.srcObject = remoteStream;
+      }
+    }
+  }, [isHost, localStream, remoteStream, setLocalStream]);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments]);
+
+  // Listen to kick event
+  useEffect(() => {
+    const socket = useChatStore.getState().socket;
+    if (socket && user) {
+      const handleKicked = ({ targetUserId }: { targetUserId: string }) => {
+        if (targetUserId === user.id) {
+          alert('You have been kicked from this live session by the host.');
+          leaveLiveStream(user);
+          onClose();
+        }
+      };
+
+      socket.on('user-kicked-live', handleKicked);
+      return () => {
+        socket.off('user-kicked-live', handleKicked);
+      };
+    }
+  }, [user, leaveLiveStream, onClose]);
+
+  // WebRTC Host Viewer Connection initiator
+  const initiateViewerConnection = (viewerId: string, stream: MediaStream) => {
+    const socket = useChatStore.getState().socket;
+    if (!socket) return;
+
+    if (peersRef.current[viewerId]) {
+      try { peersRef.current[viewerId].destroy(); } catch (e) {}
+    }
+
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream: stream
+    });
+
+    peer.on('signal', (data) => {
+      socket.emit('live-signal', {
+        streamId: currentStream.id,
+        targetUserId: viewerId,
+        signalData: data
+      });
+    });
+
+    peer.on('error', (err) => {
+      console.error('Host WebRTC Peer error for viewer:', viewerId, err);
+    });
+
+    peersRef.current[viewerId] = peer;
+  };
+
+  // WebRTC socket events and state synchronization
+  useEffect(() => {
+    const socket = useChatStore.getState().socket;
+    if (!socket) return;
+
+    // Host: Listen for live-user-joined to start peer connection
+    const handleUserJoined = ({ user: joinedUser }: { user: any }) => {
+      if (isHost && localStream) {
+        initiateViewerConnection(joinedUser.id, localStream);
+      }
+    };
+
+    // Both: Listen to signaling exchange
+    const handleLiveSignal = ({ signalData, fromUserId }: { signalData: any, fromUserId: string }) => {
+      if (!isHost) {
+        // Viewer receiving offer from Host
+        if (!viewerPeerRef.current) {
+          const peer = new Peer({
+            initiator: false,
+            trickle: false
+          });
+
+          peer.on('signal', (data) => {
+            socket.emit('live-signal', {
+              streamId: currentStream.id,
+              targetUserId: fromUserId,
+              signalData: data
+            });
+          });
+
+          peer.on('stream', (stream) => {
+            setRemoteStream(stream);
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+            }
+          });
+
+          peer.on('error', (err) => {
+            console.error('Viewer WebRTC Peer error:', err);
+          });
+
+          viewerPeerRef.current = peer;
+        }
+        try {
+          viewerPeerRef.current.signal(signalData);
+        } catch (e) {
+          console.error('Error signaling viewer peer:', e);
+        }
+      } else {
+        // Host receiving answer from Viewer
+        const peer = peersRef.current[fromUserId];
+        if (peer) {
+          try {
+            peer.signal(signalData);
+          } catch (e) {
+            console.error('Error signaling host peer:', e);
+          }
+        }
+      }
+    };
+
+    socket.on('live-user-joined', handleUserJoined);
+    socket.on('live-signal', handleLiveSignal);
+
+    // If host has existing viewers and localStream changes
+    if (isHost && localStream && activeViewers) {
+      activeViewers.forEach(viewer => {
+        if (viewer.id !== user?.id) {
+          initiateViewerConnection(viewer.id, localStream);
+        }
+      });
+    }
+
+    // If viewer joins an active stream, notify to kick start WebRTC connection
+    if (!isHost && user) {
+      socket.emit('join-live', { streamId: currentStream.id, user });
+    }
+
+    return () => {
+      socket.off('live-user-joined', handleUserJoined);
+      socket.off('live-signal', handleLiveSignal);
+    };
+  }, [isHost, localStream, activeViewers, user, currentStream.id]);
+
+  // Clean up peers of disconnected viewers
+  useEffect(() => {
+    if (isHost && activeViewers) {
+      const viewerIds = activeViewers.map(v => v.id);
+      Object.keys(peersRef.current).forEach(viewerId => {
+        if (!viewerIds.includes(viewerId)) {
+          try {
+            peersRef.current[viewerId].destroy();
+          } catch (e) {}
+          delete peersRef.current[viewerId];
+        }
+      });
+    }
+  }, [activeViewers, isHost]);
+
+  // Destructor cleanup
+  useEffect(() => {
+    return () => {
+      Object.values(peersRef.current).forEach(p => {
+        try { p.destroy(); } catch (e) {}
+      });
+      peersRef.current = {};
+      if (viewerPeerRef.current) {
+        try { viewerPeerRef.current.destroy(); } catch (e) {}
+        viewerPeerRef.current = null;
+      }
+      setRemoteStream(null);
+    };
+  }, [setRemoteStream]);
 
   const handleSendComment = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -73,8 +246,8 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: stream.title,
-        text: `Watch ${stream.streamerName} live on NexusChat!`,
+        title: currentStream.title,
+        text: `Watch ${currentStream.streamerName} live on NexusChat!`,
         url: window.location.href
       }).catch(() => {});
     } else {
@@ -103,43 +276,43 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
-      className="fixed inset-0 z-[100] bg-black flex flex-col justify-between overflow-hidden select-none"
+      className="fixed inset-0 z-[100] bg-black flex flex-col justify-between overflow-hidden"
     >
       {/* Background Live Video Container */}
       <div className="absolute inset-0 z-0 bg-neutral-900 flex items-center justify-center overflow-hidden">
-        {isHost && localStream && !cameraOff ? (
+        {((isHost && localStream) || (!isHost && remoteStream)) ? (
           <video 
             ref={videoRef} 
             autoPlay 
             playsInline 
-            muted 
+            muted={isHost}
             className="w-full h-full object-cover" 
           />
         ) : (
           <div className="relative w-full h-full">
             {/* Stream Thumbnail Background with Blur */}
             <img 
-              src={stream.thumbnail || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200'} 
-              alt={stream.title}
+              src={currentStream.thumbnail || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200'} 
+              alt={currentStream.title}
               className="w-full h-full object-cover filter brightness-[0.7] blur-sm scale-105"
             />
             {/* Foreground Live Content */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 flex flex-col items-center justify-center">
               <div className="relative">
-                <img 
-                  src={stream.streamerPfp || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'} 
-                  alt={stream.streamerName}
-                  className="w-28 h-28 rounded-full border-4 border-[#25D366] shadow-[0_0_30px_rgba(37,211,102,0.4)] object-cover animate-pulse"
+                <Avatar 
+                  src={currentStream.streamerPfp} 
+                  fallback={currentStream.streamerUsername} 
+                  className="w-28 h-28 border-4 border-[#25D366] shadow-[0_0_30px_rgba(37,211,102,0.4)] animate-pulse"
                 />
                 <span className="absolute bottom-0 right-0 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full border-2 border-black">
                   LIVE
                 </span>
               </div>
               <h2 className="text-white text-xl font-bold mt-4 text-center px-6 drop-shadow-md">
-                {stream.streamerName}
+                {currentStream.streamerName}
               </h2>
               <p className="text-white/80 text-sm mt-1 max-w-xs text-center line-clamp-2 px-4">
-                {stream.title}
+                {currentStream.title}
               </p>
             </div>
           </div>
@@ -171,20 +344,20 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       <div className="relative z-20 pt-10 px-4 flex items-center justify-between">
         {/* Left Side: Streamer Info */}
         <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10">
-          <img 
-            src={stream.streamerPfp || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'} 
-            alt={stream.streamerUsername}
-            className="w-9 h-9 rounded-full object-cover border border-white/20"
+          <Avatar 
+            src={currentStream.streamerPfp} 
+            fallback={currentStream.streamerUsername} 
+            className="w-9 h-9 border border-white/20"
           />
           <div className="flex items-center space-x-1">
             <span className="text-white font-bold text-sm tracking-wide">
-              {stream.streamerUsername}
+              {currentStream.streamerUsername}
             </span>
             <ChevronDown size={16} className="text-white/80" />
           </div>
         </div>
 
-        {/* Right Side: LIVE badge, Viewer Count & Close Button */}
+        {/* Right Side: LIVE badge, Viewer Count, Likes Count & Close Button */}
         <div className="flex items-center space-x-2">
           {/* Red LIVE Badge */}
           <div className="bg-[#FF0050] text-white text-[11px] font-black px-2.5 py-1 rounded-md tracking-wider shadow-sm flex items-center space-x-1">
@@ -193,16 +366,25 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           </div>
 
           {/* Viewer Count Badge */}
-          <div className="bg-black/50 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/10 flex items-center space-x-1.5 shadow-sm">
+          <button 
+            onClick={() => setShowViewerList(true)}
+            className="bg-black/50 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/10 flex items-center space-x-1.5 shadow-sm cursor-pointer hover:bg-black/75 transition-colors"
+          >
             <Eye size={14} className="text-white/90" />
-            <span>{(stream.viewerCount || 1).toLocaleString()}</span>
+            <span>{(currentStream.viewerCount || 1).toLocaleString()}</span>
+          </button>
+
+          {/* Likes Count Badge */}
+          <div className="bg-black/50 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/10 flex items-center space-x-1.5 shadow-sm">
+            <Heart size={14} className="text-red-500 fill-red-500" />
+            <span>{(currentStream.likesCount || 0).toLocaleString()}</span>
           </div>
 
           {/* Close / End Button */}
           <button 
             onClick={() => {
               if (isHost) {
-                endLiveStream(stream.id);
+                endLiveStream(currentStream.id);
               }
               onClose();
             }}
@@ -241,7 +423,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* ==================================================== */}
       {/* 3. BOTTOM-LEFT LIVE CHAT & PINNED COMMENT OVERLAY   */}
       {/* ==================================================== */}
-      <div className="relative z-20 pb-4 px-4 flex flex-col justify-end flex-1 max-w-lg">
+      <div className="relative z-20 pb-4 px-4 flex flex-col justify-end flex-1 max-w-lg w-full">
         {/* Scrollable Live Comments Container */}
         <div className="max-h-64 overflow-y-auto space-y-2.5 no-scrollbar pb-2">
           {comments.map((comment) => (
@@ -254,10 +436,10 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
                 comment.isPinned ? "bg-black/60 border border-[#25D366]/40 p-2.5 rounded-2xl backdrop-blur-md shadow-lg" : "bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full"
               )}
             >
-              <img 
-                src={comment.userPfp || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'} 
-                alt={comment.username}
-                className="w-7 h-7 rounded-full object-cover border border-white/20 shrink-0 mt-0.5"
+              <Avatar 
+                src={comment.userPfp} 
+                fallback={comment.username} 
+                className="w-7 h-7 border border-white/20 shrink-0 mt-0.5"
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-1.5">
@@ -395,6 +577,93 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           </div>
         </form>
       </div>
+
+      {/* ─── Viewer Management Modal (Host only / View only for users) ─── */}
+      <AnimatePresence>
+        {showViewerList && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center"
+            onClick={() => setShowViewerList(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+              className="bg-[#1f2c34] border-t border-white/10 w-full max-w-md rounded-t-3xl p-5 pb-8 space-y-4 max-h-[70vh] flex flex-col pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 className="text-white font-bold text-base flex items-center space-x-2">
+                  <Eye size={18} className="text-[#25D366]" />
+                  <span>Live Viewers ({activeViewers.length})</span>
+                </h3>
+                <button 
+                  onClick={() => setShowViewerList(false)}
+                  className="p-1 rounded-full bg-white/5 text-white/70 hover:bg-white/10"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {activeViewers.length === 0 ? (
+                  <p className="text-white/40 text-xs text-center py-6">No active viewers.</p>
+                ) : (
+                  activeViewers.map((viewer) => {
+                    const isMuted = mutedUserIds.includes(viewer.id);
+                    const isViewerHost = viewer.id === currentStream.streamerId;
+                    return (
+                      <div key={viewer.id} className="flex items-center justify-between bg-black/20 p-2.5 rounded-xl border border-white/5">
+                        <div className="flex items-center space-x-2.5">
+                          <Avatar 
+                            src={viewer.avatar} 
+                            fallback={viewer.name || viewer.username} 
+                            className="w-8 h-8 border border-white/10"
+                          />
+                          <div className="text-left">
+                            <p className="text-white text-xs font-semibold">{viewer.name}</p>
+                            <p className="text-white/50 text-[10px]">@{viewer.username}</p>
+                          </div>
+                        </div>
+
+                        {/* Moderation Controls (Only visible to host, and cannot moderate oneself) */}
+                        {isHost && !isViewerHost && (
+                          <div className="flex items-center space-x-1.5">
+                            <button
+                              onClick={() => isMuted ? unmuteUser(viewer.id) : muteUser(viewer.id)}
+                              className={cn(
+                                "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all",
+                                isMuted ? "bg-emerald-500/20 text-[#25D366] border border-emerald-500/30" : "bg-white/5 text-white/80 hover:bg-white/10 border border-white/10"
+                              )}
+                            >
+                              {isMuted ? 'Unmute' : 'Mute'}
+                            </button>
+                            <button
+                              onClick={() => kickUser(viewer.id)}
+                              className="px-2.5 py-1 rounded-md bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 text-[10px] font-bold transition-all"
+                            >
+                              Kick
+                            </button>
+                          </div>
+                        )}
+                        {isViewerHost && (
+                          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                            Host
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
