@@ -76,6 +76,7 @@ export default function ChatPage() {
       
       // Fetch full profile from backend to get profilePicture
       fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/me`, {
+        credentials: 'include',
         headers: { 'Authorization': `Bearer better-auth-session` }
       })
       .then(res => res.ok ? res.json() : null)

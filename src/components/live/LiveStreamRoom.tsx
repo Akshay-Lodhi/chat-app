@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Heart, Send, ChevronDown, Eye, Plus, HelpCircle, 
-  Share2, Pin, Mic, MicOff, Camera, RefreshCw, Radio, Check, Copy, Gift
+  Share2, Pin, Mic, MicOff, Camera, RefreshCw, Radio, Check, Copy, Gift,
+  Volume2, VolumeX
 } from 'lucide-react';
 import Peer from 'simple-peer';
 import { useLiveStore, LiveStreamSession, LiveComment } from '@/store/useLiveStore';
@@ -33,6 +34,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const [inputText, setInputText] = useState('');
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [viewerMuted, setViewerMuted] = useState(!isHost);
   const [showShareToast, setShowShareToast] = useState(false);
   const [showViewerList, setShowViewerList] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -337,17 +339,31 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* Background Live Video Container */}
       <div className="absolute inset-0 z-0 bg-neutral-900 flex items-center justify-center overflow-hidden">
         {((isHost && localStream) || (!isHost && remoteStream)) ? (
-          <video
-            ref={videoRef}
-            onClick={(e) => {
-              const v = e.currentTarget;
-              if (v.paused) v.play().catch(err => console.warn('Manual play error:', err));
-            }}
-            autoPlay
-            playsInline
-            muted={isHost}
-            className="w-full h-full object-cover"
-          />
+          <div className="relative w-full h-full">
+            <video
+              ref={videoRef}
+              onClick={(e) => {
+                const v = e.currentTarget;
+                if (v.paused) v.play().catch(err => console.warn('Manual play error:', err));
+                if (viewerMuted) setViewerMuted(false);
+              }}
+              autoPlay
+              playsInline
+              muted={isHost || viewerMuted}
+              className="w-full h-full object-cover"
+            />
+            {!isHost && viewerMuted && (
+              <div 
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 cursor-pointer backdrop-blur-[2px]"
+                onClick={() => setViewerMuted(false)}
+              >
+                <div className="bg-black/60 rounded-full p-4 mb-2 animate-pulse">
+                  <VolumeX className="w-8 h-8 text-white" />
+                </div>
+                <span className="text-white font-medium drop-shadow-md">Tap to Unmute & Play</span>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="relative w-full h-full">
             {/* Stream Thumbnail Background with Blur */}
