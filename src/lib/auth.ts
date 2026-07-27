@@ -18,6 +18,9 @@ export const auth = betterAuth({
         defaultCookieAttributes: {
             sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
             secure: process.env.NODE_ENV === "production",
+        },
+        ipAddress: {
+            ipAddressHeaders: ["x-forwarded-for"]
         }
     },
     database: prismaAdapter(prisma, {
