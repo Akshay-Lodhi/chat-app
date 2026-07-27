@@ -302,17 +302,19 @@ export function setupSocket(server: HttpServer) {
 
       const session = activeLiveStreams.get(streamId);
       if (session) {
-        if (!session.viewers.includes(user.id)) {
-          session.viewers.push(user.id);
-          if (!session.viewerProfiles) session.viewerProfiles = [];
-          session.viewerProfiles.push({
-            id: user.id,
-            name: user.name || 'User',
-            username: user.phoneNumber || user.email?.split('@')[0] || 'user',
-            avatar: user.profilePicture || user.image || null
-          });
-          session.viewerCount = Math.max(session.viewerCount + 1, session.viewers.length);
+        if (session.streamerId !== user.id) {
+          if (!session.viewers.includes(user.id)) {
+            session.viewers.push(user.id);
+            if (!session.viewerProfiles) session.viewerProfiles = [];
+            session.viewerProfiles.push({
+              id: user.id,
+              name: user.name || 'User',
+              username: user.phoneNumber || user.email?.split('@')[0] || 'user',
+              avatar: user.profilePicture || user.image || null
+            });
+          }
         }
+        session.viewerCount = session.viewers.length;
         chatNamespace.to(`live_${streamId}`).emit('live-viewer-count', {
           streamId,
           viewerCount: session.viewerCount,
@@ -442,6 +444,25 @@ export function setupSocket(server: HttpServer) {
           mutedUserIds: session.mutedUserIds || []
         });
       }
+    });
+
+    socket.on('live-gift', ({ streamId, giftType, user }) => {
+      if (!streamId) return;
+      chatNamespace.to(`live_${streamId}`).emit('new-live-gift', {
+        streamId,
+        giftType,
+        id: `gift-${Date.now()}-${Math.random()}`,
+        user
+      });
+    });
+
+    socket.on('live-follow', ({ streamId, user }) => {
+      if (!streamId) return;
+      chatNamespace.to(`live_${streamId}`).emit('new-live-follow', {
+        streamId,
+        id: `follow-${Date.now()}-${Math.random()}`,
+        user
+      });
     });
 
     socket.on('live-signal', ({ streamId, signalData, targetUserId }) => {
@@ -793,6 +814,30 @@ export function setupSocket(server: HttpServer) {
 
     socket.on('disconnect', async () => {
       clearInterval(interval);
+
+      // Live Stream Cleanup on disconnect
+      for (const [streamId, session] of activeLiveStreams.entries()) {
+        if (session.streamerId === userId) {
+          session.isLive = false;
+          activeLiveStreams.delete(streamId);
+          chatNamespace.to(`live_${streamId}`).emit('live-stream-ended', { streamId });
+          chatNamespace.emit('live-stream-ended', { streamId });
+        } else {
+          if (session.viewers.includes(userId)) {
+            session.viewers = session.viewers.filter(id => id !== userId);
+            if (session.viewerProfiles) {
+              session.viewerProfiles = session.viewerProfiles.filter(p => p.id !== userId);
+            }
+            session.viewerCount = Math.max(0, session.viewers.length);
+            chatNamespace.to(`live_${streamId}`).emit('live-viewer-count', {
+              streamId,
+              viewerCount: session.viewerCount,
+              viewers: session.viewerProfiles || [],
+              mutedUserIds: session.mutedUserIds || []
+            });
+          }
+        }
+      }
       
       const userSockets = activeUserSockets.get(userId);
       if (userSockets) {
