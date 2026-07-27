@@ -83,17 +83,18 @@ export const startLiveStream = async (req: AuthRequest, res: Response) => {
       category: category || 'General',
       thumbnail: thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800',
       isLive: true,
-      viewerCount: 1,
+      viewerCount: 0,
       likesCount: 0,
       pinnedComment: null,
       startedAt: new Date().toISOString(),
-      viewers: [userId]
+      viewers: []
     };
 
     activeLiveStreams.set(streamId, newStream);
 
+    // Emit on /chat namespace so the client receives it
     const io = getIO();
-    io.emit('new-live-stream', newStream);
+    io.of('/chat').emit('new-live-stream', newStream);
 
     res.json({ success: true, stream: newStream });
   } catch (error) {
@@ -116,8 +117,9 @@ export const endLiveStream = async (req: AuthRequest, res: Response) => {
       stream.isLive = false;
       activeLiveStreams.delete(streamId);
 
+      // Emit on /chat namespace so the client receives it
       const io = getIO();
-      io.emit('live-stream-ended', { streamId });
+      io.of('/chat').emit('live-stream-ended', { streamId });
     }
 
     res.json({ success: true });
@@ -126,3 +128,4 @@ export const endLiveStream = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+

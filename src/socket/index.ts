@@ -315,12 +315,16 @@ export function setupSocket(server: HttpServer) {
           }
         }
         session.viewerCount = session.viewers.length;
-        chatNamespace.to(`live_${streamId}`).emit('live-viewer-count', {
+        const viewerPayload = {
           streamId,
           viewerCount: session.viewerCount,
           viewers: session.viewerProfiles || [],
           mutedUserIds: session.mutedUserIds || []
-        });
+        };
+        // Emit to stream room participants (for LiveStreamRoom)
+        chatNamespace.to(`live_${streamId}`).emit('live-viewer-count', viewerPayload);
+        // Also emit to all clients (for LiveView grid cards)
+        chatNamespace.emit('live-viewer-count', viewerPayload);
       }
 
       // Notify others that user joined live
@@ -347,6 +351,7 @@ export function setupSocket(server: HttpServer) {
           viewers: session.viewerProfiles || [],
           mutedUserIds: session.mutedUserIds || []
         });
+        chatNamespace.emit('live-viewer-count', { streamId, viewerCount: session.viewerCount });
       }
     });
 
