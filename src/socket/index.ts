@@ -309,7 +309,7 @@ export function setupSocket(server: HttpServer) {
             session.viewerProfiles.push({
               id: user.id,
               name: user.name || 'User',
-              username: user.phoneNumber || user.email?.split('@')[0] || 'user',
+              username: user.name?.replace(/\s+/g, '').toLowerCase() || user.email?.split('@')[0] || 'user',
               avatar: user.profilePicture || user.image || null
             });
           }

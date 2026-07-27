@@ -76,7 +76,7 @@ export const startLiveStream = async (req: AuthRequest, res: Response) => {
       id: streamId,
       streamerId: userId,
       streamerName: dbUser?.name || 'User',
-      streamerUsername: dbUser?.phoneNumber || dbUser?.email?.split('@')[0] || 'user',
+      streamerUsername: dbUser?.name?.replace(/\s+/g, '').toLowerCase() || dbUser?.email?.split('@')[0] || 'user',
       streamerPfp: dbUser?.profilePicture || dbUser?.image || undefined,
       title,
       description: description || '',
