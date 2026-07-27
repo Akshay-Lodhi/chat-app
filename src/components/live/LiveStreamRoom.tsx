@@ -34,7 +34,6 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const [inputText, setInputText] = useState('');
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
-  const [viewerMuted, setViewerMuted] = useState(!isHost);
   const [showShareToast, setShowShareToast] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showViewerList, setShowViewerList] = useState(false);
@@ -354,29 +353,12 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
               onClick={(e) => {
                 const v = e.currentTarget;
                 if (v.paused) v.play().catch(err => console.warn('Manual play error:', err));
-                if (viewerMuted) setViewerMuted(false);
               }}
               autoPlay
               playsInline
-              muted={isHost || viewerMuted}
+              muted={isHost}
               className="w-full h-full object-cover"
             />
-            {!isHost && viewerMuted && (
-              <div 
-                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 cursor-pointer backdrop-blur-[2px]"
-                onClick={() => {
-                  setViewerMuted(false);
-                  if (videoRef.current && videoRef.current.paused) {
-                    videoRef.current.play().catch(e => console.warn('Overlay play error:', e));
-                  }
-                }}
-              >
-                <div className="bg-black/60 rounded-full p-4 mb-2 animate-pulse">
-                  <VolumeX className="w-8 h-8 text-white" />
-                </div>
-                <span className="text-white font-medium drop-shadow-md">Tap to Unmute & Play</span>
-              </div>
-            )}
           </div>
         ) : (
           <div className="relative w-full h-full">
