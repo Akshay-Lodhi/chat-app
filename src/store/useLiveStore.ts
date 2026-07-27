@@ -70,6 +70,68 @@ interface LiveState {
 
 let pendingActiveStreamsFetch: Promise<any> | null = null;
 
+const setupSocketListeners = (socket: any, set: any) => {
+  if (!socket) return;
+  
+  socket.off('new-live-comment');
+  socket.off('new-live-reaction');
+  socket.off('live-viewer-count');
+  socket.off('live-comment-pinned');
+  socket.off('new-live-gift');
+  socket.off('new-live-follow');
+
+  socket.on('new-live-comment', ({ comment }: any) => {
+    set((state: any) => ({ comments: [...state.comments, comment] }));
+  });
+
+  socket.on('new-live-reaction', (reaction: any) => {
+    set((state: any) => ({
+      reactions: [...state.reactions.slice(-20), reaction],
+      activeStream: state.activeStream ? { ...state.activeStream, likesCount: state.activeStream.likesCount + 1 } : null
+    }));
+  });
+
+  socket.on('live-viewer-count', ({ viewerCount, viewers, mutedUserIds }: any) => {
+    set((state: any) => ({
+      activeStream: state.activeStream ? { ...state.activeStream, viewerCount } : null,
+      activeViewers: viewers || [],
+      mutedUserIds: mutedUserIds || []
+    }));
+  });
+
+  socket.on('live-comment-pinned', ({ comment }: any) => {
+    set((state: any) => ({
+      activeStream: state.activeStream ? { ...state.activeStream, pinnedComment: comment } : null
+    }));
+  });
+
+  socket.on('new-live-gift', ({ giftType, user, id }: any) => {
+    const giftComment: LiveComment = {
+      id,
+      userId: user.id || 'guest',
+      username: user.name || user.username || 'guest',
+      userPfp: user.profilePicture || user.avatar,
+      text: `sent a ${giftType}! 🎁✨`,
+      createdAt: new Date().toISOString(),
+      isGift: true
+    } as any;
+    set((state: any) => ({ comments: [...state.comments, giftComment] }));
+  });
+
+  socket.on('new-live-follow', ({ user, id }: any) => {
+    const followComment: LiveComment = {
+      id,
+      userId: user.id || 'guest',
+      username: user.name || user.username || 'guest',
+      userPfp: user.profilePicture || user.avatar,
+      text: `followed the host! 💖`,
+      createdAt: new Date().toISOString(),
+      isFollow: true
+    } as any;
+    set((state: any) => ({ comments: [...state.comments, followComment] }));
+  });
+};
+
 export const useLiveStore = create<LiveState>((set, get) => ({
   streams: [],
   activeStream: null,
@@ -172,6 +234,9 @@ export const useLiveStore = create<LiveState>((set, get) => ({
         reactions: []
       });
 
+      const socket = useChatStore.getState().socket;
+      setupSocketListeners(socket, set);
+
       return newStream;
     } catch (err) {
       console.error('Error starting live:', err);
@@ -231,66 +296,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       reactions: []
     });
 
-    if (socket) {
-      // Socket Listeners — remove previous to avoid stacking
-      socket.off('new-live-comment');
-      socket.off('new-live-reaction');
-      socket.off('live-viewer-count');
-      socket.off('live-comment-pinned');
-      socket.off('new-live-gift');
-      socket.off('new-live-follow');
-
-      socket.on('new-live-comment', ({ comment }) => {
-        set(state => ({ comments: [...state.comments, comment] }));
-      });
-
-      socket.on('new-live-reaction', (reaction) => {
-        set(state => ({
-          reactions: [...state.reactions.slice(-20), reaction],
-          activeStream: state.activeStream ? { ...state.activeStream, likesCount: state.activeStream.likesCount + 1 } : null
-        }));
-      });
-
-      socket.on('live-viewer-count', ({ viewerCount, viewers, mutedUserIds }) => {
-        set(state => ({
-          activeStream: state.activeStream ? { ...state.activeStream, viewerCount } : null,
-          activeViewers: viewers || [],
-          mutedUserIds: mutedUserIds || []
-        }));
-      });
-
-      socket.on('live-comment-pinned', ({ comment }) => {
-        set(state => ({
-          activeStream: state.activeStream ? { ...state.activeStream, pinnedComment: comment } : null
-        }));
-      });
-
-      socket.on('new-live-gift', ({ giftType, user, id }) => {
-        const giftComment: LiveComment = {
-          id,
-          userId: user.id || 'guest',
-          username: user.name || user.username || 'guest',
-          userPfp: user.profilePicture || user.avatar,
-          text: `sent a ${giftType}! 🎁✨`,
-          createdAt: new Date().toISOString(),
-          isGift: true
-        } as any;
-        set(state => ({ comments: [...state.comments, giftComment] }));
-      });
-
-      socket.on('new-live-follow', ({ user, id }) => {
-        const followComment: LiveComment = {
-          id,
-          userId: user.id || 'guest',
-          username: user.name || user.username || 'guest',
-          userPfp: user.profilePicture || user.avatar,
-          text: `followed the host! 💖`,
-          createdAt: new Date().toISOString(),
-          isFollow: true
-        } as any;
-        set(state => ({ comments: [...state.comments, followComment] }));
-      });
-    }
+    setupSocketListeners(socket, set);
   },
 
   leaveLiveStream: (currentUser) => {

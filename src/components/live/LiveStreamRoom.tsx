@@ -52,23 +52,20 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
 
   // Initialize Host Camera Stream if host, or bind remoteStream if viewer
   useEffect(() => {
-    if (isHost) {
-      if (!localStream) {
-        navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
-          .then((media) => {
-            setLocalStream(media);
-            if (videoRef.current) {
-              videoRef.current.srcObject = media;
-            }
-          })
-          .catch((err) => {
-            console.warn('Camera access denied or unavailable:', err);
-          });
-      } else if (videoRef.current && videoRef.current.srcObject !== localStream) {
+    if (isHost && !localStream) {
+      navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
+        .then((media) => {
+          setLocalStream(media);
+        })
+        .catch((err) => {
+          console.warn('Camera access denied or unavailable:', err);
+        });
+    }
+
+    if (videoRef.current) {
+      if (isHost && localStream && videoRef.current.srcObject !== localStream) {
         videoRef.current.srcObject = localStream;
-      }
-    } else {
-      if (remoteStream && videoRef.current && videoRef.current.srcObject !== remoteStream) {
+      } else if (!isHost && remoteStream && videoRef.current.srcObject !== remoteStream) {
         videoRef.current.srcObject = remoteStream;
       }
     }
@@ -103,8 +100,9 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     const socket = useChatStore.getState().socket;
     if (!socket) return;
 
+    // Do not re-initiate if a peer connection is already active/connecting for this viewer
     if (peersRef.current[viewerId]) {
-      try { peersRef.current[viewerId].destroy(); } catch (e) {}
+      return;
     }
 
     const peer = new Peer({
@@ -298,12 +296,18 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* Background Live Video Container */}
       <div className="absolute inset-0 z-0 bg-neutral-900 flex items-center justify-center overflow-hidden">
         {((isHost && localStream) || (!isHost && remoteStream)) ? (
-          <video 
-            ref={videoRef} 
-            autoPlay 
-            playsInline 
+          <video
+            ref={(node) => {
+              videoRef.current = node;
+              if (node) {
+                if (isHost && localStream && node.srcObject !== localStream) node.srcObject = localStream;
+                else if (!isHost && remoteStream && node.srcObject !== remoteStream) node.srcObject = remoteStream;
+              }
+            }}
+            autoPlay
+            playsInline
             muted={isHost}
-            className="w-full h-full object-cover" 
+            className="w-full h-full object-cover"
           />
         ) : (
           <div className="relative w-full h-full">
@@ -358,7 +362,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* ==================================================== */}
       {/* 1. TOP HEADER OVERLAY (Matching Instagram Live UI)  */}
       {/* ==================================================== */}
-      <div className="relative z-20 px-4 flex items-center justify-between" style={{ paddingTop: 'max(3.5rem, calc(env(safe-area-inset-top, 0px) + 1rem))' }}>
+      <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-14 pb-4 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
         {/* Left Side: Streamer Info & Follow Button */}
         <div className="flex items-center">
           <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10">
