@@ -56,7 +56,7 @@ interface LiveState {
   endLiveStream: (streamId: string) => Promise<void>;
   joinLiveStream: (stream: LiveStreamSession, currentUser: any) => void;
   leaveLiveStream: (currentUser: any) => void;
-  sendComment: (text: string, currentUser: any) => void;
+  sendComment: (text: string, currentUser: any) => boolean;
   sendReaction: (emoji: string, currentUser: any) => void;
   pinComment: (comment: LiveComment) => void;
   setLocalStream: (stream: MediaStream | null) => void;
@@ -334,10 +334,9 @@ export const useLiveStore = create<LiveState>((set, get) => ({
     const { activeStream, mutedUserIds, activeViewers } = get();
     const socket = useChatStore.getState().socket;
 
-    if (!activeStream || !text.trim()) return;
+    if (!activeStream || !text.trim()) return false;
     if (mutedUserIds.includes(currentUser?.id)) {
-      alert("You have been muted by the host and cannot comment.");
-      return;
+      return false;
     }
 
     const isHost = currentUser?.id === activeStream.streamerId;
@@ -358,6 +357,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
     } else {
       set(state => ({ comments: [...state.comments, newComment] }));
     }
+    return true;
   },
 
   sendReaction: (emoji, currentUser) => {

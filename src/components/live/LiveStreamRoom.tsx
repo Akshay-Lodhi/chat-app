@@ -36,6 +36,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const [cameraOff, setCameraOff] = useState(false);
   const [viewerMuted, setViewerMuted] = useState(!isHost);
   const [showShareToast, setShowShareToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showViewerList, setShowViewerList] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showGiftMenu, setShowGiftMenu] = useState(false);
@@ -90,10 +91,12 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     const socket = useChatStore.getState().socket;
     if (socket && user) {
       const handleKicked = ({ targetUserId }: { targetUserId: string }) => {
-        if (targetUserId === user.id) {
-          alert('You have been kicked from this live session by the host.');
-          leaveLiveStream(user);
-          onClose();
+        if (targetUserId === user?.id) {
+          setToastMessage('You have been kicked from this live session by the host.');
+          setTimeout(() => {
+            leaveLiveStream(user);
+            onClose();
+          }, 2500);
         }
       };
 
@@ -116,7 +119,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
 
     const peer = new Peer({
       initiator: true,
-      trickle: false,
+      trickle: true,
       stream: stream,
       config: { 
         iceServers: [
@@ -175,7 +178,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
         if (!viewerPeerRef.current) {
           const peer = new Peer({
             initiator: false,
-            trickle: false,
+            trickle: true,
             config: { 
               iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -290,11 +293,17 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     };
   }, [setRemoteStream]);
 
-  const handleSendComment = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!inputText.trim()) return;
-    sendComment(inputText, user);
-    setInputText('');
+  const handleSendComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputText.trim()) {
+      const success = sendComment(inputText, user);
+      if (success) {
+        setInputText('');
+      } else {
+        setToastMessage("You have been muted by the host and cannot comment.");
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    }
   };
 
   const handleHeartClick = () => {
@@ -355,7 +364,12 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             {!isHost && viewerMuted && (
               <div 
                 className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 cursor-pointer backdrop-blur-[2px]"
-                onClick={() => setViewerMuted(false)}
+                onClick={() => {
+                  setViewerMuted(false);
+                  if (videoRef.current && videoRef.current.paused) {
+                    videoRef.current.play().catch(e => console.warn('Overlay play error:', e));
+                  }
+                }}
               >
                 <div className="bg-black/60 rounded-full p-4 mb-2 animate-pulse">
                   <VolumeX className="w-8 h-8 text-white" />
@@ -410,6 +424,19 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           >
             <Check size={16} />
             <span>Live stream link copied to clipboard!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] bg-danger text-white font-semibold px-6 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 text-center max-w-[80vw]"
+          >
+            <span>{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
