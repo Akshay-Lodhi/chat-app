@@ -346,7 +346,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
     const newComment: LiveComment = {
       id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       userId: currentUser?.id || 'guest',
-      username: currentUser?.phoneNumber || currentUser?.email?.split('@')[0] || 'guest',
+      username: currentUser?.name || currentUser?.email?.split('@')[0] || 'guest',
       userPfp: resolvedPfp,
       text: text.trim(),
       createdAt: new Date().toISOString()

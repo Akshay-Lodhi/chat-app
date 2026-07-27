@@ -115,6 +115,9 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
   const peersRef = useRef<Record<string, RTCPeerConnection>>({});
   const viewerPeerRef = useRef<RTCPeerConnection | null>(null);
   
+  // Track peers currently being initialized to prevent double-execution
+  const initiatingPeersRef = useRef<Set<string>>(new Set());
+
   // Queue ICE candidates that arrive before remote description is set
   const iceCandidateQueueRef = useRef<Record<string, any[]>>({});
 
@@ -133,9 +136,11 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
     if (!socket) return;
 
     // Do not re-initiate if a peer connection is already active/connecting
-    if (peersRef.current[viewerId]) {
+    if (peersRef.current[viewerId] || initiatingPeersRef.current.has(viewerId)) {
       return;
     }
+    
+    initiatingPeersRef.current.add(viewerId);
 
     addLog(`[WebRTC] Host creating Native peer for viewer: ${viewerId}`);
     
@@ -186,6 +191,8 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
         peersRef.current[viewerId].close();
         delete peersRef.current[viewerId];
       }
+    } finally {
+      initiatingPeersRef.current.delete(viewerId);
     }
   };
 
@@ -535,12 +542,12 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
           <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md p-1.5 pr-3 rounded-full border border-white/10 min-w-0 shrink">
             <Avatar 
               src={currentStream.streamerPfp} 
-              fallback={currentStream.streamerUsername} 
+              fallback={currentStream.streamerName} 
               className="w-9 h-9 border border-white/20 shrink-0"
             />
             <div className="flex items-center space-x-1 min-w-0">
               <span className="text-white font-bold text-sm tracking-wide truncate">
-                {currentStream.streamerUsername}
+                {currentStream.streamerName}
               </span>
               <ChevronDown size={16} className="text-white/80 shrink-0" />
             </div>

@@ -209,7 +209,7 @@ export function LiveView() {
                     <div className="flex items-center space-x-3">
                       <Avatar 
                         src={featuredStream.streamerPfp} 
-                        fallback={featuredStream.streamerUsername} 
+                        fallback={featuredStream.streamerName} 
                         className="w-11 h-11 border-2 border-[#25D366]"
                       />
                       <div>
@@ -217,7 +217,7 @@ export function LiveView() {
                           {featuredStream.streamerName}
                         </h3>
                         <p className="text-white/70 text-xs font-medium">
-                          @{featuredStream.streamerUsername} • <span className="text-[#25D366]">{featuredStream.category}</span>
+                          @{featuredStream.streamerName} • <span className="text-[#25D366]">{featuredStream.category}</span>
                         </p>
                       </div>
                     </div>
@@ -310,20 +310,21 @@ export function LiveView() {
                   </div>
                 </div>
 
-                {/* Card Details */}
-                <div className="p-3.5 flex items-start space-x-3">
-                  <Avatar 
-                    src={stream.streamerPfp} 
-                    fallback={stream.streamerUsername} 
-                    className="w-10 h-10 border border-surface-border shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-text-primary text-sm line-clamp-1 group-hover:text-[#25D366] transition-colors">
-                      {stream.title}
-                    </h3>
-                    <p className="text-text-secondary text-xs mt-0.5 truncate">
-                      {stream.streamerName} (@{stream.streamerUsername})
-                    </p>
+                <div className="p-3">
+                  <div className="flex items-center space-x-2.5">
+                    <Avatar 
+                      src={stream.streamerPfp} 
+                      fallback={stream.streamerName} 
+                      className="w-8 h-8 border border-surface-border group-hover:border-[#25D366] transition-colors"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-text-primary truncate">
+                        {stream.title}
+                      </h3>
+                      <p className="text-xs text-text-secondary truncate font-medium">
+                        {stream.streamerName}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </motion.div>
