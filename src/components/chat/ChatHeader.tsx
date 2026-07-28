@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
@@ -47,19 +48,22 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
     };
   }, [isMessageSearchOpen, onSearchChange, setIsMessageSearchOpen]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
+
+  const toggleMenu = (e: React.MouseEvent) => {
     if (menuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      setMenuOpen(false);
+    } else {
+      const rect = menuRef.current?.getBoundingClientRect();
+      if (rect) {
+        setMenuPosition({
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right
+        });
+      }
+      setMenuOpen(true);
     }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [menuOpen]);
+  };
 
   const activeChat = chats.find(c => c.id === activeChatId);
   if (!activeChat) return null;
@@ -156,54 +160,64 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setMenuOpen(prev => !prev)}
+              onClick={toggleMenu}
               title="More options"
             >
               <MoreVertical size={20} />
             </Button>
 
             <AnimatePresence>
-              {menuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-                  className="fixed right-4 top-16 mt-2 w-52 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl z-[9999] py-2"
+              {menuOpen && typeof document !== 'undefined' && createPortal(
+                <div 
+                  className="fixed inset-0 z-[99999]" 
+                  onMouseDown={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
                 >
-                  {/* Search */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsMessageSearchOpen(true);
-                      if (onSearchClick) onSearchClick();
-                      setMenuOpen(false);
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-text-primary hover:bg-white/5 transition-colors text-sm"
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+                    style={{ position: 'absolute', top: menuPosition.top, right: menuPosition.right }}
+                    className="w-52 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl py-2"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Search size={16} className="text-text-secondary" />
-                    <span>Search Messages</span>
-                  </button>
+                    {/* Search */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsMessageSearchOpen(true);
+                        if (onSearchClick) onSearchClick();
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-text-primary hover:bg-white/5 transition-colors text-sm"
+                    >
+                      <Search size={16} className="text-text-secondary" />
+                      <span>Search Messages</span>
+                    </button>
 
-                  <div className="h-px bg-surface-border mx-3" />
+                    <div className="h-px bg-surface-border mx-3" />
 
-                  {/* Clear Chat */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowClearConfirm(true);
-                      setMenuOpen(false);
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-danger hover:bg-danger/10 transition-colors text-sm"
-                  >
-                    <Trash2 size={16} />
-                    <span>Clear Chat</span>
-                  </button>
-                </motion.div>
+                    {/* Clear Chat */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowClearConfirm(true);
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-danger hover:bg-danger/10 transition-colors text-sm"
+                    >
+                      <Trash2 size={16} />
+                      <span>Clear Chat</span>
+                    </button>
+                  </motion.div>
+                </div>,
+                document.body
               )}
             </AnimatePresence>
           </div>

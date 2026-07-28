@@ -217,7 +217,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
       {/* Floating Action Button for Nexus AI */}
       <button 
         onClick={handleAiChat}
-        className="absolute bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center overflow-hidden border-2 border-surface-hover z-50 bg-surface"
+        className="absolute bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center overflow-hidden border-2 border-surface-hover z-50 bg-surface animate-float"
         title="Chat with Nexus AI"
       >
         <img 
