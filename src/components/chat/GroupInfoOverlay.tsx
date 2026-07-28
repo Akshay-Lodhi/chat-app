@@ -1,7 +1,8 @@
+import { apiClient } from '@/lib/apiClient';
 import React, { useRef, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
-import { ArrowLeft, UserPlus, Camera, Edit2, LogOut, Check } from 'lucide-react';
+import { ArrowLeft, UserPlus, Camera, Edit2, LogOut, Check, UserMinus } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -15,7 +16,7 @@ interface GroupInfoOverlayProps {
 
 export function GroupInfoOverlay({ isOpen, onClose, onAddMemberClick }: GroupInfoOverlayProps) {
   const { user } = useAuthStore();
-  const { chats, activeChatId, updateGroupPicture } = useChatStore();
+  const { chats, activeChatId, updateGroupPicture, removeGroupParticipant } = useChatStore();
   
   const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +36,7 @@ export function GroupInfoOverlay({ isOpen, onClose, onAddMemberClick }: GroupInf
     formData.append('file', file);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
         method: 'POST',
         credentials: 'include',
         body: formData
@@ -46,6 +47,12 @@ export function GroupInfoOverlay({ isOpen, onClose, onAddMemberClick }: GroupInf
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleRemoveParticipant = async (participantId: string) => {
+    if (window.confirm('Are you sure you want to remove this participant?')) {
+      await removeGroupParticipant(activeChat.id, participantId);
     }
   };
 
@@ -147,7 +154,16 @@ export function GroupInfoOverlay({ isOpen, onClose, onAddMemberClick }: GroupInf
                     {p.user?.about && <p className="text-sm text-text-secondary truncate">{p.user?.about}</p>}
                   </div>
                   {activeChat.adminId === p.userId && (
-                    <span className="text-xs border border-primary text-primary px-2 py-0.5 rounded-full font-medium">Group Admin</span>
+                    <span className="text-xs border border-primary text-primary px-2 py-0.5 rounded-full font-medium shrink-0">Group Admin</span>
+                  )}
+                  {isAdmin && p.userId !== user?.id && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleRemoveParticipant(p.userId); }}
+                      className="ml-3 text-text-tertiary hover:text-danger p-2 transition-colors shrink-0"
+                      title="Remove participant"
+                    >
+                      <UserMinus size={18} />
+                    </button>
                   )}
                 </div>
               ))}

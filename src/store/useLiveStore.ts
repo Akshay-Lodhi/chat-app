@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/apiClient';
 import { create } from 'zustand';
 import { useChatStore } from './useChatStore';
 import { useAuthStore } from './useAuthStore';
@@ -178,7 +179,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
         const headers: Record<string, string> = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const res = await fetch(`${serverUrl}/api/live/active?${queryParams.toString()}`, {
+        const res = await apiClient(`${serverUrl}/api/live/active?${queryParams.toString()}`, {
           headers,
           credentials: 'include'
         });
@@ -204,7 +205,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${serverUrl}/api/live/start`, {
+      const res = await apiClient(`${serverUrl}/api/live/start`, {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -252,7 +253,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      await fetch(`${serverUrl}/api/live/${streamId}/end`, {
+      await apiClient(`${serverUrl}/api/live/${streamId}/end`, {
         method: 'POST',
         headers,
         credentials: 'include'

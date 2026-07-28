@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/apiClient';
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from './useAuthStore';
@@ -72,9 +73,11 @@ interface ChatState {
   fetchMessages: (chatId: string, token: string) => Promise<void>;
   fetchCalls: (token: string, page?: number, limit?: number) => Promise<void>;
   clearCallLogs: () => Promise<boolean>;
+  clearChatMessages: (chatId: string) => Promise<void>;
   createChat: (contactId: string, token: string) => Promise<string | null>;
-  createGroupChat: (name: string, participantIds: string[]) => Promise<string | null>;
+  createGroupChat: (name: string, participantIds: string[], groupPicture?: string) => Promise<string | null>;
   addGroupParticipants: (chatId: string, participantIds: string[]) => Promise<void>;
+  removeGroupParticipant: (chatId: string, participantId: string) => Promise<void>;
   updateGroupPicture: (chatId: string, pictureUrl: string) => Promise<void>;
   deleteGroupChat: (chatId: string) => Promise<void>;
   markChatAsRead: (chatId: string) => void;
@@ -308,6 +311,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }));
     });
 
+    socket.on('chat-created', (chat: Chat) => {
+      set((state) => {
+        if (state.chats.some(c => c.id === chat.id)) return state;
+        return { chats: [chat, ...state.chats] };
+      });
+    });
+
+    socket.on('chat-updated', (chat: Chat) => {
+      set((state) => ({
+        chats: state.chats.map(c => c.id === chat.id ? chat : c)
+      }));
+    });
+
+    socket.on('chat-deleted', ({ chatId }) => {
+      set(state => {
+        const activeChatId = state.activeChatId === chatId ? null : state.activeChatId;
+        return {
+          chats: state.chats.filter(c => c.id !== chatId),
+          activeChatId
+        };
+      });
+    });
+
     socket.on('message-reaction-update', ({ messageId, chatId, reactions }) => {
       set((state) => {
         const newMessages = { ...state.messages };
@@ -361,7 +387,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   
   fetchChats: async (token: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -392,7 +418,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const fetchPromise = (async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
+        const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
           credentials: 'include'
         });
         if (res.ok) {
@@ -423,7 +449,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     pendingCallsFetch = (async () => {
       try {
         const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
-        const res = await fetch(`${serverUrl}/api/chats/calls?page=${page}&limit=${limit}`, {
+        const res = await apiClient(`${serverUrl}/api/chats/calls?page=${page}&limit=${limit}`, {
           credentials: 'include'
         });
         if (res.ok) {
@@ -443,7 +469,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearCallLogs: async () => {
     try {
       const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
-      const res = await fetch(`${serverUrl}/api/chats/calls`, {
+      const res = await apiClient(`${serverUrl}/api/chats/calls`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -464,9 +490,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  clearChatMessages: async (chatId: string) => {
+    // Implementation for clearing local messages if needed
+  },
+
   createChat: async (contactId: string, token: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -490,13 +520,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return null;
   },
 
-  createGroupChat: async (name: string, participantIds: string[]) => {
+  createGroupChat: async (name: string, participantIds: string[], groupPicture?: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/group`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/group`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name, participantIds })
+        body: JSON.stringify({ name, participantIds, groupPicture })
       });
       if (res.ok) {
         const newChat = await res.json();
@@ -511,7 +541,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   addGroupParticipants: async (chatId: string, participantIds: string[]) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/participants`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/participants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -532,9 +562,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  updateGroupPicture: async (chatId, pictureUrl) => {
+  removeGroupParticipant: async (chatId: string, participantId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/picture`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/participants/${participantId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const updatedChat = await res.json();
+        set(state => ({
+          chats: state.chats.map(c => c.id === chatId ? updatedChat : c)
+        }));
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to remove participant');
+      }
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : 'Failed to remove participant');
+    }
+  },
+
+  updateGroupPicture: async (chatId: string, pictureUrl: string) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/picture`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupPicture: pictureUrl }),
@@ -557,7 +608,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   
   deleteGroupChat: async (chatId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -705,7 +756,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   fetchBlockedUsers: async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/blocked`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/blocked`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -719,7 +770,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   blockUser: async (userId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/block/${userId}`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/block/${userId}`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -735,7 +786,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   unblockUser: async (userId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/block/${userId}`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/block/${userId}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -778,7 +829,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const method = isBulk ? 'POST' : 'DELETE';
       const body = isBulk ? JSON.stringify({ messageIds, deleteFor }) : JSON.stringify({ deleteFor });
 
-      const res = await fetch(endpoint, {
+      const res = await apiClient(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body,
@@ -799,7 +850,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearChat: async (chatId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -820,7 +871,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   reportUser: async (userId: string, reason?: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/report/${userId}`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/report/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),

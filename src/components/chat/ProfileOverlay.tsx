@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/apiClient';
 import React, { useRef, useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { ArrowLeft, Search, Camera, Palette } from 'lucide-react';
@@ -35,7 +36,7 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
     formData.append('file', file);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
         method: 'POST',
         credentials: 'include',
         body: formData

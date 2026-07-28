@@ -1,4 +1,5 @@
 'use client';
+import { apiClient } from '@/lib/apiClient';
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -80,7 +81,7 @@ export default function ChatPage() {
       useAuthStore.getState().setAuth('better-auth-session', { ...user, ...session.user } as any);
       
       // Fetch full profile from backend to get profilePicture
-      fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/me`, {
+      apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/me`, {
         credentials: 'include',
         headers: { 'Authorization': `Bearer better-auth-session` }
       })
@@ -133,7 +134,7 @@ export default function ChatPage() {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
         method: 'POST', credentials: 'include', body: formData
       });
       if (res.ok) {
@@ -167,7 +168,7 @@ export default function ChatPage() {
     const formData = new FormData();
     formData.append('file', blob, 'voicenote.webm');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/upload`, {
         method: 'POST', credentials: 'include', body: formData
       });
       if (res.ok) {

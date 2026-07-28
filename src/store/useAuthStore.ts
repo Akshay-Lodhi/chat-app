@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/apiClient';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -27,7 +28,7 @@ export const useAuthStore = create<AuthState>()(
         const { token, user } = get();
         if (!token || !user) return;
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/profile`, {
+          const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/profile`, {
             method: 'PUT',
             credentials: 'include',
             headers: {
