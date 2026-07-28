@@ -10,6 +10,9 @@ export interface Story {
   createdAt: string;
   expiresAt: string;
   isViewed: boolean;
+  isLikedByMe?: boolean;
+  views?: { userId: string; name: string; profilePicture?: string; viewedAt: string }[];
+  likes?: { userId: string; name: string; profilePicture?: string; likedAt: string }[];
 }
 
 export interface GroupedStories {
@@ -29,6 +32,8 @@ interface StoryStore {
   fetchStories: (sessionCookieName: string) => Promise<void>;
   createStory: (data: { type: 'TEXT' | 'IMAGE' | 'VIDEO'; content?: string; mediaUrl?: string; bgColor?: string }) => Promise<void>;
   markAsViewed: (storyId: string) => Promise<void>;
+  likeStory: (storyId: string) => Promise<void>;
+  unlikeStory: (storyId: string) => Promise<void>;
   deleteStory: (storyId: string) => Promise<void>;
 }
 
@@ -103,6 +108,48 @@ export const useStoryStore = create<StoryStore>((set, get) => ({
       }
     } catch (err) {
       console.error('Failed to delete story', err);
+    }
+  },
+
+  likeStory: async (storyId) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/stories/${storyId}/like`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        // Optimistically update
+        set((state) => {
+          const newGroups = state.groupedStories.map(g => ({
+            ...g,
+            stories: g.stories.map(s => s.id === storyId ? { ...s, isLikedByMe: true } : s)
+          }));
+          return { groupedStories: newGroups };
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  },
+
+  unlikeStory: async (storyId) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/stories/${storyId}/like`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        // Optimistically update
+        set((state) => {
+          const newGroups = state.groupedStories.map(g => ({
+            ...g,
+            stories: g.stories.map(s => s.id === storyId ? { ...s, isLikedByMe: false } : s)
+          }));
+          return { groupedStories: newGroups };
+        });
+      }
+    } catch (err) {
+      console.error(err);
     }
   },
 }));
