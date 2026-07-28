@@ -155,6 +155,7 @@ export function MessageBubble({
     deleteMessage,
     selectedMessageIds,
     toggleMessageSelection,
+    socket
   } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
@@ -455,16 +456,95 @@ export function MessageBubble({
             })()}
           </>
         );
+      case "POLL":
+        const poll = message.metadata?.poll;
+        if (!poll) return null;
+        const totalVotes = poll.options.reduce((sum: number, opt: any) => sum + (opt.votes?.length || 0), 0);
+        
+        return (
+          <div className="flex flex-col min-w-[240px] space-y-3 p-1">
+            <h4 className="font-semibold text-[15px]">{poll.question}</h4>
+            <div className="space-y-2">
+              {poll.options.map((opt: any) => {
+                const voteCount = opt.votes?.length || 0;
+                const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+                const hasVoted = opt.votes?.includes(currentUser?.id);
+
+                return (
+                  <div 
+                    key={opt.id}
+                    onClick={() => socket?.emit('vote-poll', { messageId: message.id, optionId: opt.id, chatId: message.chatId })}
+                    className="relative overflow-hidden rounded-lg bg-black/10 hover:bg-black/20 cursor-pointer transition-colors p-2 flex items-center justify-between"
+                  >
+                    <div 
+                      className="absolute left-0 top-0 bottom-0 bg-[#00a884]/20 transition-all duration-300" 
+                      style={{ width: `${percentage}%` }}
+                    />
+                    <div className="flex items-center space-x-2 relative z-10 w-full">
+                      <div className={cn(
+                        "w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
+                        poll.multipleAnswers ? "rounded" : "rounded-full",
+                        hasVoted ? "border-[#00a884] bg-[#00a884]" : "border-text-secondary"
+                      )}>
+                        {hasVoted && <Check size={12} className="text-white" />}
+                      </div>
+                      <span className="text-sm flex-1">{opt.text}</span>
+                    </div>
+                    {voteCount > 0 && (
+                      <span className="text-xs text-text-secondary relative z-10 ml-2 font-medium">
+                        {voteCount}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-xs text-text-secondary pt-1 border-t border-black/10">
+              {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
+            </div>
+          </div>
+        );
       default:
         return (
-          <p
-            className={cn(
-              "text-sm whitespace-pre-wrap break-words leading-relaxed",
-              highlight && "bg-warning/30 text-warning px-1 rounded",
+          <div className="flex flex-col">
+            <p
+              className={cn(
+                "text-sm whitespace-pre-wrap break-words leading-relaxed",
+                highlight && "bg-warning/30 text-warning px-1 rounded",
+              )}
+            >
+              {message.content}
+            </p>
+            {message.metadata?.linkPreview && (
+              <a 
+                href={message.metadata.linkPreview.url} 
+                target="_blank" 
+                rel="noreferrer"
+                className="mt-2 flex flex-col overflow-hidden rounded-lg bg-black/5 hover:bg-black/10 transition-colors border border-black/5"
+              >
+                {message.metadata.linkPreview.image && (
+                  <img 
+                    src={message.metadata.linkPreview.image} 
+                    alt="Preview" 
+                    className="w-full h-[140px] object-cover"
+                  />
+                )}
+                <div className="p-2.5 flex flex-col">
+                  <span className="text-xs font-semibold truncate text-text-primary">
+                    {message.metadata.linkPreview.title}
+                  </span>
+                  {message.metadata.linkPreview.description && (
+                    <span className="text-[11px] line-clamp-2 text-text-secondary mt-0.5">
+                      {message.metadata.linkPreview.description}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-text-tertiary uppercase mt-1 truncate">
+                    {new URL(message.metadata.linkPreview.url).hostname.replace('www.', '')}
+                  </span>
+                </div>
+              </a>
             )}
-          >
-            {message.content}
-          </p>
+          </div>
         );
     }
   };

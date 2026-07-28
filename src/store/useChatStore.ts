@@ -19,7 +19,7 @@ interface Message {
   chatId: string;
   senderId: string;
   content: string | null;
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'CALL_LOG' | 'LOCATION' | 'STORY_REPLY';
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'CALL_LOG' | 'LOCATION' | 'STORY_REPLY' | 'POLL';
   mediaUrl: string | null;
   metadata?: any;
   createdAt: string;
@@ -236,6 +236,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
           });
         }
       }
+    });
+
+    socket.on('message-updated', (updatedMessage: Message) => {
+      set((state) => {
+        const chatId = updatedMessage.chatId;
+        if (!state.messages[chatId]) return state;
+
+        const newMessages = [...state.messages[chatId]];
+        const idx = newMessages.findIndex(m => m.id === updatedMessage.id);
+        if (idx !== -1) {
+          newMessages[idx] = updatedMessage;
+          return {
+            messages: {
+              ...state.messages,
+              [chatId]: newMessages
+            }
+          };
+        }
+        return state;
+      });
     });
 
     socket.on('message-status-update', ({ messageId, status, chatId, time }) => {

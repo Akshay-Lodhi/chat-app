@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone } from 'lucide-react';
+import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useChatStore } from '@/store/useChatStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EmojiPicker } from './EmojiPicker';
+import CreatePollModal from './CreatePollModal';
 
 interface MessageComposerProps {
   onSendMessage: (text: string) => void;
@@ -28,6 +29,7 @@ export function MessageComposer({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showPollModal, setShowPollModal] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
@@ -232,6 +234,13 @@ export function MessageComposer({
               <div className="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-full"><MapPin size={20} /></div>
               <span className="text-sm font-medium">Location</span>
             </button>
+            <button 
+              onClick={() => { setShowPollModal(true); setShowAttachMenu(false); }}
+              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+            >
+              <div className="bg-yellow-500/20 text-yellow-400 p-2.5 rounded-full"><BarChart2 size={20} /></div>
+              <span className="text-sm font-medium">Poll</span>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -324,6 +333,15 @@ export function MessageComposer({
           </button>
         )}
       </form>
+
+      <AnimatePresence>
+        {showPollModal && activeChatId && (
+          <CreatePollModal 
+            chatId={activeChatId} 
+            onClose={() => setShowPollModal(false)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
-import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed } from 'lucide-react';
+import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed, BarChart2 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
@@ -183,6 +183,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                                 </>
                               );
                             }
+                            if (lastMessage.type === 'POLL') return <><BarChart2 size={14} className="mr-1 shrink-0" /> <span className="truncate">Poll: {lastMessage.metadata?.poll?.question}</span></>;
                             if (lastMessage.type === 'IMAGE') return <><ImageIcon size={14} className="mr-1 shrink-0" /> Photo</>;
                             if (lastMessage.type === 'VIDEO') return <><Video size={14} className="mr-1 shrink-0" /> Video</>;
                             if (lastMessage.type === 'AUDIO') return <><Mic size={14} className="mr-1 shrink-0" /> Voice message</>;
