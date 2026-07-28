@@ -166,11 +166,11 @@ export function setupSocket(server: HttpServer) {
     });
 
     socket.on('send-message', async (data, callback) => {
-      const { chatId, content, type, mediaUrl, tempId, replyToId } = data;
+      const { chatId, content, type, mediaUrl, tempId, replyToId, metadata } = data;
       // In a real app, you'd save the message to the DB here and then broadcast
       // For performance, we broadcast immediately and save async
       const message = await prisma.message.create({
-        data: { chatId, senderId: userId, content, type, mediaUrl, replyToId },
+        data: { chatId, senderId: userId, content, type, mediaUrl, replyToId, metadata } as any,
         include: { replyTo: true, sender: true }
       });
       

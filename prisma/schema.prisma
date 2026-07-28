@@ -140,6 +140,7 @@ model Message {
   replies   Message[] @relation("MessageReplies")
 
   reactions Json?
+  metadata  Json?
 }
 
 enum MessageType {
@@ -150,6 +151,7 @@ enum MessageType {
   DOCUMENT
   CALL_LOG
   LOCATION
+  STORY_REPLY
 }
 
 model MessageStatus {
