@@ -1,6 +1,7 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
+import { generateAIResponse } from '../services/ai.service';
 import Redis from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 
@@ -170,13 +171,58 @@ export function setupSocket(server: HttpServer) {
       // For performance, we broadcast immediately and save async
       const message = await prisma.message.create({
         data: { chatId, senderId: userId, content, type, mediaUrl, replyToId },
-        include: { replyTo: true }
+        include: { replyTo: true, sender: true }
       });
       
       socket.to(chatId).emit('receive-message', message);
       
       if (typeof callback === 'function') {
         callback({ message, tempId });
+      }
+
+      // --- NEXUS AI INTEGRATION ---
+      try {
+        const chat = await prisma.chat.findUnique({
+          where: { id: chatId },
+          include: { participants: true }
+        });
+
+        if (chat) {
+          const isAiInChat = chat.participants.some(p => p.userId === 'nexus-ai-system');
+          const isAiMentioned = content?.includes('@NexusAI');
+          
+          if (isAiInChat || isAiMentioned) {
+            // Show typing indicator
+            chatNamespace.to(chatId).emit('typing', { chatId, isTyping: true, userId: 'nexus-ai-system' });
+            
+            // Generate response
+            const aiReply = await generateAIResponse(chatId, content || '', message.sender.name || 'User');
+            
+            // Mark user's message as READ by Nexus AI
+            await prisma.messageStatus.upsert({
+              where: { messageId_userId: { messageId: message.id, userId: 'nexus-ai-system' } },
+              update: { status: 'READ' },
+              create: { messageId: message.id, userId: 'nexus-ai-system', status: 'READ' }
+            });
+            chatNamespace.to(message.senderId).emit('message-status-update', { 
+              messageId: message.id, status: 'READ', by: 'nexus-ai-system', chatId, time: new Date() 
+            });
+
+            // Stop typing
+            chatNamespace.to(chatId).emit('typing', { chatId, isTyping: false, userId: 'nexus-ai-system' });
+
+            // Create AI message
+            const aiMessage = await prisma.message.create({
+              data: { chatId, senderId: 'nexus-ai-system', content: aiReply, type: 'TEXT' },
+              include: { replyTo: true, sender: true }
+            });
+
+            // Broadcast AI message
+            chatNamespace.to(chatId).emit('receive-message', aiMessage);
+          }
+        }
+      } catch (aiError) {
+        console.error('Failed to process AI response:', aiError);
       }
     });
 
