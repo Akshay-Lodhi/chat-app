@@ -28,10 +28,15 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   const [menuOpen, setMenuOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   const { user } = useAuthStore();
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -48,21 +53,8 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
     };
   }, [isMessageSearchOpen, onSearchChange, setIsMessageSearchOpen]);
 
-  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
-
   const toggleMenu = (e: React.MouseEvent) => {
-    if (menuOpen) {
-      setMenuOpen(false);
-    } else {
-      const rect = menuRef.current?.getBoundingClientRect();
-      if (rect) {
-        setMenuPosition({
-          top: rect.bottom + 8,
-          right: window.innerWidth - rect.right
-        });
-      }
-      setMenuOpen(true);
-    }
+    setMenuOpen(!menuOpen);
   };
 
   const activeChat = chats.find(c => c.id === activeChatId);
@@ -82,8 +74,6 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
 
   const startCall = (type: 'AUDIO' | 'VIDEO') => {
     useCallStore.setState({ caller: chatName });
-    // For 1-to-1 calls, pass the other participant's ID as the first invited user.
-    // This ensures they always appear on screen even when more people are added later.
     const initialInvitedIds = otherParticipant ? [otherParticipant.userId] : [];
     
     const initialProfiles: Record<string, { name: string; avatar: string | null }> = {};
@@ -165,21 +155,22 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
             >
               <MoreVertical size={20} />
             </Button>
-
+            
+            {/* Three Dot Menu Dropdown */}
             <AnimatePresence>
-              {menuOpen && typeof document !== 'undefined' && createPortal(
-                <div 
-                  className="fixed inset-0 z-[99999]" 
-                  onMouseDown={(e) => { e.stopPropagation(); setMenuOpen(false); }}
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
-                >
+              {menuOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-[9998]" 
+                    onMouseDown={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+                  />
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: -8 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -8 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-                    style={{ position: 'absolute', top: menuPosition.top, right: menuPosition.right }}
-                    className="w-52 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl py-2"
+                    className="absolute top-12 right-0 w-52 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl py-2 z-[9999]"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -216,8 +207,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                       <span>Clear Chat</span>
                     </button>
                   </motion.div>
-                </div>,
-                document.body
+                </>
               )}
             </AnimatePresence>
           </div>
@@ -295,49 +285,6 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
             </motion.div>
           )}
         </AnimatePresence>
-
-        <AnimatePresence>
-          {isMessageSearchOpen && (
-            <>
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[9998]"
-                onClick={() => {
-                  setIsMessageSearchOpen(false);
-                  if (onSearchChange) onSearchChange('');
-                }}
-              />
-              <motion.div 
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: '100%', opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="absolute inset-y-0 right-0 bg-surface-hover flex items-center px-4 overflow-hidden z-[9999]"
-                ref={searchContainerRef}
-              >
-                <button 
-                  onClick={() => {
-                    setIsMessageSearchOpen(false);
-                    if (onSearchChange) onSearchChange('');
-                  }}
-                  className="mr-3 text-text-secondary hover:text-text-primary"
-                >
-                  <ArrowLeft size={20} />
-                </button>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
-                  placeholder="Search messages..."
-                  className="flex-1 bg-surface border border-surface-border text-text-primary rounded-full px-4 py-1.5 focus:outline-none focus:border-primary text-sm transition-colors"
-                  autoFocus
-                />
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Ongoing Call Join Banner */}
@@ -362,61 +309,111 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
         </motion.div>
       )}
 
-      {/* Clear Chat Confirmation Modal */}
-      <AnimatePresence>
-        {showClearConfirm && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowClearConfirm(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl p-6 w-full max-w-sm z-50 relative"
-            >
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2.5 rounded-full bg-danger/20">
-                  <AlertTriangle size={20} className="text-danger" />
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold text-base">Clear Chat</h3>
-                  <p className="text-text-secondary text-xs">This cannot be undone</p>
-                </div>
-              </div>
-              <p className="text-text-secondary text-sm mb-6">
-                All messages in this chat will be permanently deleted for everyone. Are you sure?
-              </p>
-              <div className="flex items-center justify-end space-x-3">
-                <button
-                  onClick={() => setShowClearConfirm(false)}
-                  className="px-4 py-2 rounded-xl text-sm text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+      {/* Search Toolbar Overlay Portal */}
+      {isMounted && createPortal(
+        <AnimatePresence>
+          {isMessageSearchOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[9998] bg-black/10"
+                onClick={() => {
+                  setIsMessageSearchOpen(false);
+                  if (onSearchChange) onSearchChange('');
+                }}
+              />
+              <motion.div 
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: '100%', opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="fixed top-0 right-0 h-16 w-full md:w-[calc(100%-20rem)] lg:w-[calc(100%-24rem)] bg-surface-hover flex items-center px-4 overflow-hidden z-[9999] shadow-md border-b border-surface-border"
+                ref={searchContainerRef}
+              >
+                <button 
+                  onClick={() => {
+                    setIsMessageSearchOpen(false);
+                    if (onSearchChange) onSearchChange('');
+                  }}
+                  className="mr-3 text-text-secondary hover:text-text-primary"
                 >
-                  Cancel
+                  <ArrowLeft size={20} />
                 </button>
-                <button
-                  onClick={handleClearChat}
-                  disabled={clearing}
-                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-danger hover:bg-danger/90 text-white transition-colors cursor-pointer disabled:opacity-60 flex items-center space-x-1.5"
-                >
-                  {clearing ? (
-                    <span>Clearing...</span>
-                  ) : (
-                    <>
-                      <Trash2 size={14} />
-                      <span>Clear All</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+                  placeholder="Search messages..."
+                  className="flex-1 bg-surface border border-surface-border text-text-primary rounded-full px-4 py-1.5 focus:outline-none focus:border-primary text-sm transition-colors"
+                  autoFocus
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Clear Chat Confirmation Modal Portal */}
+      {isMounted && createPortal(
+        <AnimatePresence>
+          {showClearConfirm && (
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => setShowClearConfirm(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl p-6 w-full max-w-sm z-50 relative"
+              >
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="p-2.5 rounded-full bg-danger/20">
+                    <AlertTriangle size={20} className="text-danger" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold text-base">Clear Chat</h3>
+                    <p className="text-text-secondary text-xs">This cannot be undone</p>
+                  </div>
+                </div>
+                <p className="text-text-secondary text-sm mb-6">
+                  All messages in this chat will be permanently deleted for everyone. Are you sure?
+                </p>
+                <div className="flex items-center justify-end space-x-3">
+                  <button
+                    onClick={() => setShowClearConfirm(false)}
+                    className="px-4 py-2 rounded-xl text-sm text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleClearChat}
+                    disabled={clearing}
+                    className="px-5 py-2 rounded-xl text-sm font-semibold bg-danger hover:bg-danger/90 text-white transition-colors cursor-pointer disabled:opacity-60 flex items-center space-x-1.5"
+                  >
+                    {clearing ? (
+                      <span>Clearing...</span>
+                    ) : (
+                      <>
+                        <Trash2 size={14} />
+                        <span>Clear All</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
