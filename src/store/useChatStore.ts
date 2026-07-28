@@ -19,8 +19,9 @@ interface Message {
   chatId: string;
   senderId: string;
   content: string | null;
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'CALL_LOG' | 'LOCATION';
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'CALL_LOG' | 'LOCATION' | 'STORY_REPLY';
   mediaUrl: string | null;
+  metadata?: any;
   createdAt: string;
   status?: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ';
   deliveredAt?: string;
@@ -69,7 +70,7 @@ interface ChatState {
   deleteGroupChat: (chatId: string) => Promise<void>;
   markChatAsRead: (chatId: string) => void;
   incrementUnreadCount: (chatId: string) => void;
-  sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null, replyToId?: string | null) => void;
+  sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null, replyToId?: string | null, metadata?: any) => void;
   deleteMessage: (chatId: string, messageId: string, deleteFor?: 'everyone' | 'me') => Promise<boolean>;
   clearChat: (chatId: string) => Promise<boolean>;
   sendTypingStatus: (chatId: string, isTyping: boolean) => void;
@@ -700,7 +701,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
   }),
 
-  sendMessage: (chatId, content, type = 'TEXT', mediaUrl = null, replyToId = null) => {
+  sendMessage: (chatId, content, type = 'TEXT', mediaUrl = null, replyToId = null, metadata = null) => {
     const { socket } = get();
     if (socket && socket.connected) {
       // Optimistic update
@@ -723,7 +724,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         replyToId,
         replyTo: replyToObj,
         createdAt: new Date().toISOString(),
-        status: 'PENDING'
+        status: 'PENDING',
+        metadata
       };
       
       get().addMessage(chatId, newMessage);
@@ -734,7 +736,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         type,
         mediaUrl,
         replyToId,
-        tempId
+        tempId,
+        metadata
       }, (response: any) => {
         if (response && response.message) {
           const updatedMsg = { ...response.message, tempId: tempId };

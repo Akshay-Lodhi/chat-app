@@ -540,6 +540,48 @@ export function MessageBubble({
           </div>
         )}
 
+        {/* Story Reply Context */}
+        {message.type === 'STORY_REPLY' && message.metadata && (
+          <div
+            className={cn(
+              "relative overflow-hidden rounded-r-xl rounded-l-md p-2 mb-2 text-xs flex flex-col border-l-[4px] transition-colors",
+              isMine
+                ? "bg-black/20 border-[#06cf9c]"
+                : "bg-black/20 border-[#00a884]",
+            )}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent pointer-events-none" />
+            <span
+              className={cn(
+                "font-semibold text-[11px] mb-1 relative z-10 flex items-center justify-between",
+                isMine ? "text-[#06cf9c]" : "text-[#00a884]",
+              )}
+            >
+              <span>{isMine ? "You" : message.sender?.name || "User"} replied to {isMine ? "a" : "your"} {message.metadata.storyType === 'VIDEO' ? 'video' : message.metadata.storyType === 'IMAGE' ? 'photo' : 'status'}</span>
+            </span>
+            <div className="flex items-center space-x-2 relative z-10">
+              {message.metadata.storyMediaUrl && (
+                <div className="w-10 h-10 rounded shrink-0 overflow-hidden bg-black/40 flex items-center justify-center relative">
+                   {message.metadata.storyType === 'VIDEO' && (
+                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+                       <Video size={16} className="text-white" />
+                     </div>
+                   )}
+                   <img src={message.metadata.storyMediaUrl} alt="Story" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <span
+                className={cn(
+                  "truncate max-w-[200px] text-[13px]",
+                  isMine ? "text-white/95" : "text-[#e9edef]/95",
+                )}
+              >
+                {message.metadata.storyContent || (message.metadata.storyType === 'VIDEO' ? 'Video' : message.metadata.storyType === 'IMAGE' ? 'Photo' : 'Status')}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Content */}
         {renderContent()}
         <div

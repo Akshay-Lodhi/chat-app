@@ -35,10 +35,15 @@ export const StoryViewerModal = ({ storyGroup, onClose }: StoryViewerModalProps)
     try {
       const chatId = await createChat(storyGroup.user.id, '');
       if (chatId) {
-        // Prepend an indicator so it looks like a story reply in chat
-        await sendMessage(chatId, `[Reply to Status]: ${replyText.trim()}`);
+        // Send STORY_REPLY with metadata
+        const metadata = {
+          storyId: currentStory.id,
+          storyType: currentStory.type,
+          storyMediaUrl: currentStory.mediaUrl,
+          storyContent: currentStory.content
+        };
+        await sendMessage(chatId, replyText.trim(), 'STORY_REPLY', null, null, metadata);
         setReplyText('');
-        // We could also auto-close or toast here, but just clearing is fine
       }
     } finally {
       setIsSendingReply(false);

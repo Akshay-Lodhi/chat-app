@@ -150,16 +150,39 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                     {typingStatus?.isTyping ? (
                       <span className="text-[#25D366] font-medium animate-pulse">typing...</span>
                     ) : lastMessage ? (
-                      <div className="flex items-center space-x-1 overflow-hidden">
-                        {lastMessage.senderId === user?.id && lastMessage.type !== 'CALL_LOG' && (
+                      <div className="flex items-center space-x-1 overflow-hidden w-full">
+                        {lastMessage.senderId === user?.id && lastMessage.type !== 'CALL_LOG' && lastMessage.type !== 'STORY_REPLY' && (
                           <span className="mr-1 shrink-0">
                             {lastMessage.status === 'READ' ? <CheckCheck size={16} className="text-[#53bdeb]" /> :
                              lastMessage.status === 'DELIVERED' ? <CheckCheck size={16} className="text-text-secondary" /> :
                              <Check size={16} className="text-text-secondary" />}
                           </span>
                         )}
-                        <span className="truncate flex items-center">
+                        <span className={cn("flex w-full min-w-0", lastMessage.type === 'STORY_REPLY' ? "flex-col" : "truncate items-center")}>
                           {(() => {
+                            if (lastMessage.type === 'STORY_REPLY') {
+                              const isMe = lastMessage.senderId === user?.id;
+                              const storyType = lastMessage.metadata?.storyType === 'VIDEO' ? 'video' : lastMessage.metadata?.storyType === 'IMAGE' ? 'photo' : 'status';
+                              const prefixText = isMe ? `You replied to a ${storyType}` : `Replied to your ${storyType}`;
+                              
+                              return (
+                                <>
+                                  <span className="text-[#25D366] text-xs font-medium mb-0.5 truncate">{prefixText}</span>
+                                  <span className="flex items-center text-text-secondary truncate text-sm">
+                                    {isMe && (
+                                      <span className="mr-1 shrink-0">
+                                        {lastMessage.status === 'READ' ? <CheckCheck size={16} className="text-[#53bdeb]" /> :
+                                         lastMessage.status === 'DELIVERED' ? <CheckCheck size={16} className="text-text-secondary" /> :
+                                         <Check size={16} className="text-text-secondary" />}
+                                      </span>
+                                    )}
+                                    {lastMessage.metadata?.storyType === 'VIDEO' ? <Video size={14} className="mr-1 shrink-0" /> : 
+                                     lastMessage.metadata?.storyType === 'IMAGE' ? <ImageIcon size={14} className="mr-1 shrink-0" /> : null}
+                                    <span className="truncate">{lastMessage.content || 'Status reply'}</span>
+                                  </span>
+                                </>
+                              );
+                            }
                             if (lastMessage.type === 'IMAGE') return <><ImageIcon size={14} className="mr-1 shrink-0" /> Photo</>;
                             if (lastMessage.type === 'VIDEO') return <><Video size={14} className="mr-1 shrink-0" /> Video</>;
                             if (lastMessage.type === 'AUDIO') return <><Mic size={14} className="mr-1 shrink-0" /> Voice message</>;
