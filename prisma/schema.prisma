@@ -8,37 +8,38 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  phoneNumber   String    @unique
-  phoneNumberVerified Boolean @default(false)
-  email         String?   @unique
-  emailVerified Boolean   @default(false)
-  name          String?
-  about         String    @default("Hey there! I am using NexusChat.")
-  profilePicture String?
-  image         String?
-  lastSeen      DateTime  @default(now())
-  isOnline      Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                  String   @id @default(uuid())
+  phoneNumber         String   @unique
+  phoneNumberVerified Boolean  @default(false)
+  email               String?  @unique
+  emailVerified       Boolean  @default(false)
+  name                String?
+  about               String   @default("Hey there! I am using NexusChat.")
+  profilePicture      String?
+  image               String?
+  lastSeen            DateTime @default(now())
+  isOnline            Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  sessions      Session[]
-  accounts      Account[]
-  chats         ChatParticipant[]
-  messages      Message[]
-  messageStatuses MessageStatus[]
-  callsMade     Call[]            @relation("Caller")
-  callsReceived Call[]            @relation("Receiver")
+  sessions           Session[]
+  accounts           Account[]
+  chats              ChatParticipant[]
+  messages           Message[]
+  messageStatuses    MessageStatus[]
+  callsMade          Call[]            @relation("Caller")
+  callsReceived      Call[]            @relation("Receiver")
   callParticipations CallParticipant[]
-  contacts      Contact[]         @relation("UserContacts")
-  contactOf     Contact[]         @relation("ContactOf")
-  blocking      BlockedUser[]     @relation("Blocker")
-  blockedBy     BlockedUser[]     @relation("Blocked")
-  reportsMade   Report[]          @relation("Reporter")
-  reportsReceived Report[]        @relation("Reported")
-  liveStreams   LiveStream[]
-  stories       Story[]
-  storyViews    StoryView[]
+  contacts           Contact[]         @relation("UserContacts")
+  contactOf          Contact[]         @relation("ContactOf")
+  blocking           BlockedUser[]     @relation("Blocker")
+  blockedBy          BlockedUser[]     @relation("Blocked")
+  reportsMade        Report[]          @relation("Reporter")
+  reportsReceived    Report[]          @relation("Reported")
+  liveStreams        LiveStream[]
+  stories            Story[]
+  storyViews         StoryView[]
+  storyLikes         StoryLike[]
 }
 
 model Session {
@@ -86,24 +87,24 @@ model Contact {
   name      String?
   createdAt DateTime @default(now())
 
-  user      User     @relation("UserContacts", fields: [userId], references: [id])
-  contact   User     @relation("ContactOf", fields: [contactId], references: [id])
+  user    User @relation("UserContacts", fields: [userId], references: [id])
+  contact User @relation("ContactOf", fields: [contactId], references: [id])
 
   @@unique([userId, contactId])
 }
 
 model Chat {
-  id           String            @id @default(uuid())
-  isGroup      Boolean           @default(false)
+  id           String   @id @default(uuid())
+  isGroup      Boolean  @default(false)
   name         String?
   groupPicture String?
   adminId      String?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   participants ChatParticipant[]
   messages     Message[]
-  calls        Call[]            // Calls can be linked to a chat (e.g. group calls)
+  calls        Call[] // Calls can be linked to a chat (e.g. group calls)
 }
 
 model ChatParticipant {
@@ -118,26 +119,26 @@ model ChatParticipant {
 }
 
 model Message {
-  id        String   @id @default(uuid())
-  chatId    String
-  senderId  String
-  content   String?
-  type      MessageType @default(TEXT)
-  mediaUrl  String?
-  createdAt DateTime @default(now())
-  isDeleted Boolean  @default(false) // keeping for backward compatibility if needed
-  deletedForEveryone Boolean @default(false)
-  deletedForUsers String[] @default([])
-  deletedAt DateTime?
+  id                 String      @id @default(uuid())
+  chatId             String
+  senderId           String
+  content            String?
+  type               MessageType @default(TEXT)
+  mediaUrl           String?
+  createdAt          DateTime    @default(now())
+  isDeleted          Boolean     @default(false) // keeping for backward compatibility if needed
+  deletedForEveryone Boolean     @default(false)
+  deletedForUsers    String[]    @default([])
+  deletedAt          DateTime?
 
-  chat      Chat     @relation(fields: [chatId], references: [id])
-  sender    User     @relation(fields: [senderId], references: [id])
-  statuses  MessageStatus[]
+  chat     Chat            @relation(fields: [chatId], references: [id])
+  sender   User            @relation(fields: [senderId], references: [id])
+  statuses MessageStatus[]
 
   replyToId String?
-  replyTo   Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   Message[] @relation("MessageReplies")
-  
+
   reactions Json?
 }
 
@@ -172,23 +173,23 @@ enum DeliveryStatus {
 model Call {
   id         String     @id @default(uuid())
   callerId   String
-  receiverId String?    // Nullable for group calls
-  chatId     String?    // Link to chat if group call
+  receiverId String? // Nullable for group calls
+  chatId     String? // Link to chat if group call
   status     CallStatus @default(ONGOING)
   type       CallType
   startedAt  DateTime   @default(now())
   endedAt    DateTime?
 
-  caller     User       @relation("Caller", fields: [callerId], references: [id])
-  receiver   User?      @relation("Receiver", fields: [receiverId], references: [id])
-  chat       Chat?      @relation(fields: [chatId], references: [id])
+  caller       User              @relation("Caller", fields: [callerId], references: [id])
+  receiver     User?             @relation("Receiver", fields: [receiverId], references: [id])
+  chat         Chat?             @relation(fields: [chatId], references: [id])
   participants CallParticipant[]
 }
 
 model CallParticipant {
   callId   String
   userId   String
-  joinedAt DateTime @default(now())
+  joinedAt DateTime  @default(now())
   leftAt   DateTime?
 
   call Call @relation(fields: [callId], references: [id])
@@ -232,44 +233,56 @@ model Report {
 }
 
 model LiveStream {
-  id           String    @id @default(uuid())
-  streamerId   String
-  title        String
-  description  String?
-  category     String    @default("All")
-  thumbnail    String?
-  isLive       Boolean   @default(true)
-  viewerCount  Int       @default(0)
-  peakViewers  Int       @default(0)
-  likesCount   Int       @default(0)
+  id            String    @id @default(uuid())
+  streamerId    String
+  title         String
+  description   String?
+  category      String    @default("All")
+  thumbnail     String?
+  isLive        Boolean   @default(true)
+  viewerCount   Int       @default(0)
+  peakViewers   Int       @default(0)
+  likesCount    Int       @default(0)
   pinnedComment String?
-  startedAt    DateTime  @default(now())
-  endedAt      DateTime?
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
 
-  streamer     User      @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+  streamer User @relation(fields: [streamerId], references: [id], onDelete: Cascade)
 }
 
 model Story {
-  id          String    @id @default(uuid())
-  userId      String
-  content     String?
-  mediaUrl    String?
-  type        StoryType @default(TEXT)
-  bgColor     String?
-  createdAt   DateTime  @default(now())
-  expiresAt   DateTime
+  id        String    @id @default(uuid())
+  userId    String
+  content   String?
+  mediaUrl  String?
+  type      StoryType @default(TEXT)
+  bgColor   String?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  views       StoryView[]
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views StoryView[]
+  likes StoryLike[]
 }
 
 model StoryView {
-  storyId   String
-  userId    String
-  viewedAt  DateTime @default(now())
+  storyId  String
+  userId   String
+  viewedAt DateTime @default(now())
 
-  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, userId])
+}
+
+model StoryLike {
+  storyId String
+  userId  String
+  likedAt DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([storyId, userId])
 }

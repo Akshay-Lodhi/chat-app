@@ -40,8 +40,12 @@ export class StoryService {
           select: { id: true, name: true, profilePicture: true, phoneNumber: true },
         },
         views: {
-          where: { userId }, // Only include views by the CURRENT user
-          select: { userId: true },
+          include: { user: { select: { id: true, name: true, profilePicture: true } } },
+          orderBy: { viewedAt: 'desc' }
+        },
+        likes: {
+          include: { user: { select: { id: true, name: true, profilePicture: true } } },
+          orderBy: { likedAt: 'desc' }
         },
       },
       orderBy: { createdAt: 'asc' }, // Oldest to newest (like WhatsApp)
@@ -51,7 +55,10 @@ export class StoryService {
     const grouped = new Map<string, any>();
 
     stories.forEach((story: any) => {
-      const isViewed = story.views.length > 0;
+      const isMine = story.userId === userId;
+      const isViewed = story.views.some((v: any) => v.userId === userId);
+      const isLikedByMe = story.likes.some((l: any) => l.userId === userId);
+
       const storyData = {
         id: story.id,
         content: story.content,
@@ -61,6 +68,21 @@ export class StoryService {
         createdAt: story.createdAt,
         expiresAt: story.expiresAt,
         isViewed,
+        isLikedByMe,
+        ...(isMine ? {
+          views: story.views.map((v: any) => ({
+            userId: v.userId,
+            name: v.user.name,
+            profilePicture: v.user.profilePicture,
+            viewedAt: v.viewedAt,
+          })),
+          likes: story.likes.map((l: any) => ({
+            userId: l.userId,
+            name: l.user.name,
+            profilePicture: l.user.profilePicture,
+            likedAt: l.likedAt,
+          }))
+        } : {}),
       };
 
       if (grouped.has(story.userId)) {
@@ -94,9 +116,43 @@ export class StoryService {
   static async deleteStory(storyId: string, userId: string) {
     const story = await prisma.story.findUnique({ where: { id: storyId } });
     if (!story) throw new Error('Story not found');
-    if (story.userId !== userId) throw new Error('Unauthorized');
+    if (story.userId !== userId) throw new Error('Unauthorized to delete this story');
 
-    return prisma.story.delete({ where: { id: storyId } });
+    await prisma.story.delete({ where: { id: storyId } });
+  }
+
+  static async likeStory(storyId: string, userId: string) {
+    const story = await prisma.story.findUnique({ where: { id: storyId } });
+    if (!story) throw new Error('Story not found');
+
+    return await prisma.storyLike.upsert({
+      where: {
+        storyId_userId: {
+          storyId,
+          userId,
+        },
+      },
+      update: {},
+      create: {
+        storyId,
+        userId,
+      },
+    });
+  }
+
+  static async unlikeStory(storyId: string, userId: string) {
+    try {
+      await prisma.storyLike.delete({
+        where: {
+          storyId_userId: {
+            storyId,
+            userId,
+          },
+        },
+      });
+    } catch (error) {
+      // Ignore if not found
+    }
   }
 }
 

@@ -1,7 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { StoryService } from '../services/story.service';
-import { StoryType } from '@prisma/client';
 
 export const createStory = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,7 +10,7 @@ export const createStory = async (req: AuthRequest, res: Response) => {
     const story = await StoryService.createStory(userId, {
       content,
       mediaUrl,
-      type: type as StoryType,
+      type: type as any,
       bgColor,
     });
 
@@ -59,4 +58,30 @@ export const deleteStory = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// Trigger TS Server Sync
+export const likeStory = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+
+    const like = await StoryService.likeStory(id as string, userId);
+    res.json(like);
+  } catch (error) {
+    console.error('Like Story Error:', error);
+    res.status(500).json({ error: 'Failed to like story' });
+  }
+};
+
+export const unlikeStory = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+
+    await StoryService.unlikeStory(id as string, userId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Unlike Story Error:', error);
+    res.status(500).json({ error: 'Failed to unlike story' });
+  }
+};
+
+// TS Server Sync Trigger 2
