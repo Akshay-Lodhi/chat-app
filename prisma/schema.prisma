@@ -152,6 +152,7 @@ enum MessageType {
   CALL_LOG
   LOCATION
   STORY_REPLY
+  POLL
 }
 
 model MessageStatus {

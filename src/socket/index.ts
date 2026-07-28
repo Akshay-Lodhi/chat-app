@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { generateAIResponse } from '../services/ai.service';
 import Redis from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
+import * as cheerio from 'cheerio';
 
 import { fromNodeHeaders } from 'better-auth/node';
 import { auth } from '../lib/auth';
@@ -178,6 +179,52 @@ export function setupSocket(server: HttpServer) {
       
       if (typeof callback === 'function') {
         callback({ message, tempId });
+      }
+
+      // --- LINK PREVIEW EXTRACTION (Async) ---
+      if (type === 'TEXT' && content) {
+        // Find the first URL in the content
+        const urlMatch = content.match(/(https?:\/\/[^\s]+)/g);
+        if (urlMatch && urlMatch.length > 0) {
+          const url = urlMatch[0];
+          // We don't await this so it doesn't block the message loop
+          fetch(url, { headers: { 'User-Agent': 'NexusBot/1.0' } })
+            .then(res => {
+               const contentType = res.headers.get('content-type');
+               if (contentType && contentType.includes('text/html')) {
+                 return res.text();
+               }
+               return null;
+            })
+            .then(async (html) => {
+               if (!html) return;
+               const $ = cheerio.load(html);
+               const title = $('meta[property="og:title"]').attr('content') || $('title').text() || '';
+               const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+               let image = $('meta[property="og:image"]').attr('content') || '';
+               
+               // Resolve relative image URLs if needed
+               if (image && image.startsWith('/')) {
+                 const urlObj = new URL(url);
+                 image = `${urlObj.protocol}//${urlObj.host}${image}`;
+               }
+
+               if (title || description || image) {
+                 const currentMeta = (metadata as any) || {};
+                 const newMetadata = { ...currentMeta, linkPreview: { title, description, image, url } };
+                 
+                 const updatedMessage = await prisma.message.update({
+                   where: { id: message.id },
+                   data: { metadata: newMetadata } as any,
+                   include: { replyTo: true, sender: true }
+                 });
+
+                 // Broadcast the updated message so UI can render the link preview
+                 chatNamespace.to(chatId).emit('message-updated', updatedMessage);
+               }
+            })
+            .catch(err => console.error('Failed to fetch link preview:', err));
+        }
       }
 
       // --- NEXUS AI INTEGRATION ---
@@ -641,6 +688,59 @@ export function setupSocket(server: HttpServer) {
         p.isVideoOff = Boolean(isVideoOff);
         socket.to(`call-room-${chatId}`).emit('participant-media-toggled', { userId, isMuted: p.isMuted, isVideoOff: p.isVideoOff });
         broadcastRoomState(chatId);
+      }
+    });
+
+    socket.on('vote-poll', async ({ messageId, optionId, chatId }) => {
+      try {
+        const message = await prisma.message.findUnique({
+          where: { id: messageId }
+        });
+        
+        if (message && (message.type as any) === 'POLL' && (message as any).metadata) {
+          const meta = (message as any).metadata as any;
+          if (meta.poll && meta.poll.options) {
+            // Find if user already voted (remove previous vote if not multipleAnswers)
+            let userVotedOptionId: string | null = null;
+            meta.poll.options.forEach((opt: any) => {
+              if (opt.votes && opt.votes.includes(userId)) {
+                userVotedOptionId = opt.id;
+              }
+            });
+
+            // If user clicked the same option they already voted for, remove their vote
+            if (userVotedOptionId === optionId) {
+               const option = meta.poll.options.find((o: any) => o.id === optionId);
+               if (option && option.votes) {
+                 option.votes = option.votes.filter((id: string) => id !== userId);
+               }
+            } else {
+               // Add new vote, remove from old if multipleAnswers is false
+               if (!meta.poll.multipleAnswers && userVotedOptionId) {
+                  const oldOption = meta.poll.options.find((o: any) => o.id === userVotedOptionId);
+                  if (oldOption && oldOption.votes) {
+                    oldOption.votes = oldOption.votes.filter((id: string) => id !== userId);
+                  }
+               }
+               
+               const option = meta.poll.options.find((o: any) => o.id === optionId);
+               if (option) {
+                 if (!option.votes) option.votes = [];
+                 option.votes.push(userId);
+               }
+            }
+
+            const updatedMessage = await prisma.message.update({
+              where: { id: messageId },
+              data: { metadata: meta } as any,
+              include: { replyTo: true, sender: true }
+            });
+
+            chatNamespace.to(chatId).emit('message-updated', updatedMessage);
+          }
+        }
+      } catch (err) {
+        console.error('Error voting on poll:', err);
       }
     });
 
