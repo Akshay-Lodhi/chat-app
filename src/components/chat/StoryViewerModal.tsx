@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, ChevronLeft, ChevronRight, Heart, Eye, Trash2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Heart, Eye, Trash2, Send } from 'lucide-react';
 import { useStoryStore } from '@/store/useStoryStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useChatStore } from '@/store/useChatStore';
 import { formatRelativeTime } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,14 +16,35 @@ const STORY_DURATION = 5000; // 5 seconds per story
 export const StoryViewerModal = ({ storyGroup, onClose }: StoryViewerModalProps) => {
   const { markAsViewed, likeStory, unlikeStory, deleteStory } = useStoryStore();
   const { user } = useAuthStore();
+  const { createChat, sendMessage, setActiveChat } = useChatStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [showViews, setShowViews] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
 
   const stories = storyGroup.stories;
   const currentStory = stories[currentIndex];
   const isMyStory = storyGroup.user.id === user?.id;
+
+  const handleReply = async () => {
+    if (!replyText.trim() || isSendingReply) return;
+    setIsSendingReply(true);
+    
+    try {
+      const chatId = await createChat(storyGroup.user.id, '');
+      if (chatId) {
+        // Prepend an indicator so it looks like a story reply in chat
+        await sendMessage(chatId, `[Reply to Status]: ${replyText.trim()}`);
+        setReplyText('');
+        // We could also auto-close or toast here, but just clearing is fine
+      }
+    } finally {
+      setIsSendingReply(false);
+      setIsPaused(false);
+    }
+  };
 
   const handleLikeToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -187,10 +209,40 @@ export const StoryViewerModal = ({ storyGroup, onClose }: StoryViewerModalProps)
               </button>
             </div>
           ) : (
-            <div className="flex justify-end w-full">
+            <div className="flex items-center gap-3 w-full z-40">
+              <div className="flex-1 bg-black/40 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 focus-within:border-white/50 focus-within:bg-black/60 transition-colors flex items-center">
+                <input 
+                  type="text" 
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Reply..."
+                  className="w-full bg-transparent text-white placeholder-white/70 outline-none text-[15px]"
+                  onClick={(e) => { e.stopPropagation(); setIsPaused(true); }}
+                  onFocus={() => setIsPaused(true)}
+                  onBlur={() => {
+                    // Only unpause if we didn't just click send
+                    setTimeout(() => setIsPaused(false), 200);
+                  }}
+                  onKeyDown={(e) => {
+                     if (e.key === 'Enter') {
+                       e.preventDefault();
+                       handleReply();
+                     }
+                  }}
+                />
+                {replyText.trim() && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleReply(); }}
+                    disabled={isSendingReply}
+                    className="ml-2 text-primary hover:text-primary-hover disabled:opacity-50"
+                  >
+                    <Send size={20} />
+                  </button>
+                )}
+              </div>
               <button 
                 onClick={handleLikeToggle}
-                className="p-3 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-md transition-all z-40 group"
+                className="p-3 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-md transition-all shrink-0 group"
               >
                 <motion.div
                   whileTap={{ scale: 0.8 }}

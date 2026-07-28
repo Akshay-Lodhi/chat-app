@@ -43,6 +43,7 @@ export const useStoryStore = create<StoryStore>((set, get) => ({
   error: null,
 
   fetchStories: async (sessionCookieName) => {
+    if (get().isLoading) return; // Prevent concurrent fetches (e.g. from React Strict Mode or double mounting)
     set({ isLoading: true, error: null });
     try {
       const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/stories`, {
