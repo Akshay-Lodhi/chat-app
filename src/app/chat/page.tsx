@@ -26,6 +26,7 @@ import { BottomNav } from '@/components/chat/BottomNav';
 import { LiveView } from '@/components/live/LiveView';
 import { LiveStreamRoom } from '@/components/live/LiveStreamRoom';
 import { CallsView } from '@/components/chat/CallsView';
+import { UpdatesView } from '@/components/chat/UpdatesView';
 import { useLiveStore } from '@/store/useLiveStore';
 
 import CallOverlay from './CallOverlay';
@@ -181,7 +182,7 @@ export default function ChatPage() {
     }
   };
 
-  const { getChatWallpaper, chatWallpapers, hydrate } = useWallpaperStore();
+  const { getChatWallpaper, hydrate } = useWallpaperStore();
   const activeWallpaper = getChatWallpaper(activeChatId);
 
   useEffect(() => {
@@ -230,6 +231,8 @@ export default function ChatPage() {
             {activeTab === 'live' && <LiveView />}
 
             {activeTab === 'calls' && <CallsView />}
+            
+            {activeTab === 'updates' && <UpdatesView />}
           </div>
         </div>
 
@@ -269,6 +272,10 @@ export default function ChatPage() {
           <LiveView />
         ) : activeTab === 'calls' ? (
           <CallsView />
+        ) : activeTab === 'updates' ? (
+          <div className="w-full h-full overflow-y-auto">
+            <UpdatesView />
+          </div>
         ) : activeChatId ? (
           <div 
             className={cn("w-full h-full flex flex-col relative overflow-hidden transition-colors duration-300", getWallpaperClass(activeWallpaper.wallpaper))}
@@ -395,3 +402,5 @@ export default function ChatPage() {
     </div>
   );
 }
+
+// Trigger TS Server Sync

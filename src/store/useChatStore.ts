@@ -38,19 +38,6 @@ interface Message {
 interface ChatState {
   socket: Socket | null;
   chats: Chat[];
-  activeChatId: string | null;
-  messages: Record<string, Message[]>; // chatId -> messages
-  isConnecting: boolean;
-  onlineUsers: Record<string, boolean>;
-  typingStatuses: Record<string, { isTyping: boolean, timer?: NodeJS.Timeout }>;
-  blockedUsers: any[];
-  activeTab: 'chats' | 'live' | 'calls';
-  setActiveTab: (tab: 'chats' | 'live' | 'calls') => void;
-  calls: any[];
-  isMessageSearchOpen: boolean;
-  setIsMessageSearchOpen: (isOpen: boolean) => void;
-  messageForInfo: any | null;
-  setMessageForInfo: (message: any | null) => void;
   notificationToast: {
     id: string;
     chatId: string;
@@ -96,6 +83,20 @@ interface ChatState {
   selectedMessageIds: string[];
   toggleMessageSelection: (messageId: string) => void;
   clearMessageSelection: () => void;
+  
+  activeChatId: string | null;
+  activeTab: 'chats' | 'updates' | 'live' | 'calls';
+  setActiveTab: (tab: 'chats' | 'updates' | 'live' | 'calls') => void;
+  calls: any[];
+  messages: Record<string, Message[]>; // chatId -> messages
+  isConnecting: boolean;
+  onlineUsers: Record<string, boolean>;
+  typingStatuses: Record<string, { isTyping: boolean, timer?: NodeJS.Timeout }>;
+  blockedUsers: any[];
+  isMessageSearchOpen: boolean;
+  setIsMessageSearchOpen: (isOpen: boolean) => void;
+  messageForInfo: any | null;
+  setMessageForInfo: (message: any | null) => void;
 }
 
 const pendingMessageFetches = new Map<string, Promise<any>>();
@@ -750,10 +751,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-
-
-
-
   fetchBlockedUsers: async () => {
     try {
       const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/blocked`, {
@@ -800,6 +797,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return false;
   },
 
+  reportUser: async (userId: string, reason?: string) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/report/${userId}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Error reporting user:', err);
+      return false;
+    }
+  },
+
   deleteMessage: async (chatId: string, messageId: string, deleteFor: 'everyone' | 'me' = 'everyone') => {
     const isBulk = messageId.includes(',');
     const messageIds = isBulk ? messageId.split(',') : [messageId];
@@ -811,51 +823,54 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (newMessages[chatId]) {
         if (deleteFor === 'me') {
           newMessages[chatId] = newMessages[chatId].map(msg => 
-            messageIds.includes(msg.id) ? { ...msg, deletedForUsers: [...(msg.deletedForUsers || []), currentUserId || ''] } : msg
+            messageIds.includes(msg.id) 
+              ? { 
+                  ...msg, 
+                  deletedForUsers: [...(msg.deletedForUsers || []), currentUserId]
+                }
+              : msg
           );
         } else {
           newMessages[chatId] = newMessages[chatId].map(msg => 
-            messageIds.includes(msg.id) ? { ...msg, deletedForEveryone: true, deletedAt: new Date().toISOString(), content: null, mediaUrl: null } : msg
+            messageIds.includes(msg.id) 
+              ? { 
+                  ...msg, 
+                  deletedForEveryone: true,
+                  content: null,
+                  mediaUrl: null,
+                  deletedAt: new Date().toISOString()
+                }
+              : msg
           );
         }
       }
-      return { messages: newMessages };
+      return { messages: newMessages, selectedMessageIds: [] };
     });
 
     try {
-      const endpoint = isBulk 
-        ? `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/bulk-delete`
-        : `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/${messageId}`;
-      const method = isBulk ? 'POST' : 'DELETE';
-      const body = isBulk ? JSON.stringify({ messageIds, deleteFor }) : JSON.stringify({ deleteFor });
-
-      const res = await apiClient(endpoint, {
-        method,
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages/${messageId}`, {
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body,
-        credentials: 'include'
+        credentials: 'include',
+        body: JSON.stringify({ deleteFor })
       });
-      if (res.ok) {
-        if (isBulk) get().clearMessageSelection();
-        return true;
-      }
-      // TODO: Handle failure and revert optimistic update
-      return false;
+      
+      return res.ok;
     } catch (err) {
       console.error('Error deleting message:', err);
+      // Revert optimistic update here if needed
       return false;
     }
   },
 
-
   clearChat: async (chatId: string) => {
     try {
-      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/clear`, {
         method: 'DELETE',
         credentials: 'include'
       });
+      
       if (res.ok) {
-        // Clear messages locally
         set(state => ({
           messages: { ...state.messages, [chatId]: [] },
           chats: state.chats.map(c => c.id === chatId ? { ...c, lastMessage: undefined } : c)
@@ -865,21 +880,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return false;
     } catch (err) {
       console.error('Error clearing chat:', err);
-      return false;
-    }
-  },
-
-  reportUser: async (userId: string, reason?: string) => {
-    try {
-      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/users/report/${userId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-        credentials: 'include'
-      });
-      return res.ok;
-    } catch (err) {
-      console.error('Error reporting user:', err);
       return false;
     }
   }

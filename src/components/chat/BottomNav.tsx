@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
-import { MessageSquare, Tv, Phone } from 'lucide-react';
+import { MessageSquare, Tv, Phone, CircleDashed } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface BottomNavProps {
-  activeTab: 'chats' | 'live' | 'calls';
-  onTabChange: (tab: 'chats' | 'live' | 'calls') => void;
+  activeTab: 'chats' | 'updates' | 'live' | 'calls';
+  onTabChange: (tab: 'chats' | 'updates' | 'live' | 'calls') => void;
   unreadChatsCount?: number;
   activeLiveCount?: number;
 }
@@ -24,6 +24,11 @@ export function BottomNav({
       label: 'Chats',
       icon: MessageSquare,
       badge: unreadChatsCount > 0 ? unreadChatsCount : undefined
+    },
+    {
+      id: 'updates' as const,
+      label: 'Updates',
+      icon: CircleDashed,
     },
     {
       id: 'live' as const,
