@@ -4,7 +4,7 @@ import { getActiveStreams, startLiveStream, endLiveStream } from '../controllers
 
 const router = Router();
 
-router.get('/active', requireAuth, getActiveStreams as any);
+router.get('/active', getActiveStreams as any);
 router.post('/start', requireAuth, startLiveStream as any);
 router.post('/:id/end', requireAuth, endLiveStream as any);
 

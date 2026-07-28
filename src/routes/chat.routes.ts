@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getChats, createChat, getMessages, createGroup, addParticipants, deleteGroup, updateGroupPicture, deleteMessage, clearChatMessages, getCalls, clearCallLogs } from '../controllers/chat.controller';
+import { getChats, createChat, getMessages, createGroup, addParticipants, removeParticipant, deleteGroup, updateGroupPicture, deleteMessage, clearChatMessages, getCalls, clearCallLogs } from '../controllers/chat.controller';
 
 const router = Router();
 
@@ -24,6 +24,9 @@ router.get('/:chatId/messages', requireAuth, getMessages as any);
 
 // Add participants to a group
 router.post('/:chatId/participants', requireAuth, addParticipants as any);
+
+// Remove a participant from a group
+router.delete('/:chatId/participants/:participantId', requireAuth, removeParticipant as any);
 
 // Update a group picture
 router.patch('/:chatId/picture', requireAuth, updateGroupPicture as any);

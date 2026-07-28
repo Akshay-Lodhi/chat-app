@@ -19,6 +19,14 @@ export const createChat = async (req: AuthRequest, res: Response) => {
     if (!contactId) return res.status(400).json({ error: 'Contact ID is required' });
 
     const chat = await ChatService.createOneOnOneChat(req.user!.userId, contactId);
+    
+    // Auto-join sockets and notify
+    const io = getIO().of('/chat');
+    chat.participants.forEach((p: any) => {
+      io.in(p.userId).socketsJoin(chat.id);
+    });
+    io.to(chat.id).emit('chat-created', chat);
+
     res.json(chat);
   } catch (error) {
     console.error(error);
@@ -48,6 +56,14 @@ export const createGroup = async (req: AuthRequest, res: Response) => {
     }
 
     const chat = await ChatService.createGroupChat(req.user!.userId, name, participantIds, groupPicture);
+    
+    // Auto-join sockets and notify
+    const io = getIO().of('/chat');
+    chat.participants.forEach((p: any) => {
+      io.in(p.userId).socketsJoin(chat.id);
+    });
+    io.to(chat.id).emit('chat-created', chat);
+
     res.json(chat);
   } catch (error) {
     console.error(error);
@@ -65,10 +81,52 @@ export const addParticipants = async (req: AuthRequest, res: Response) => {
     }
 
     const chat = await ChatService.addParticipantsToGroup(req.user!.userId, chatId, participantIds);
+    
+    const io = getIO().of('/chat');
+    // Join new participants' sockets to the chat room
+    participantIds.forEach(id => {
+      io.in(id).socketsJoin(chatId);
+    });
+    // Tell everyone (including new participants) about the updated chat
+    // For new participants, this acts like creating a new chat since they will just add it if it doesn't exist
+    // Actually, `chat-created` is better for new participants, but `chat-updated` works if the client handles it safely.
+    // Wait, let's use `chat-updated` for existing members, and `chat-created` for the newly added ones.
+    // Or just let `chat-updated` update if exists, else ignore, and `chat-created` creates it.
+    // We can just emit `chat-updated` to everyone, and if they don't have it, they can add it.
+    // Better yet, just emit `chat-updated` and `chat-created` to everyone, the client will deduplicate!
+    
+    io.to(chatId).emit('chat-created', chat); // For the new members
+    io.to(chatId).emit('chat-updated', chat); // For existing members
+    
     res.json(chat);
   } catch (error: any) {
     console.error(error);
     res.status(400).json({ error: error.message || 'Server error' });
+  }
+};
+
+export const removeParticipant = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const participantId = req.params.participantId as string;
+
+    const chat = await ChatService.removeParticipantFromGroup(req.user!.userId, chatId, participantId);
+    
+    const io = getIO().of('/chat');
+    
+    // Notify the removed user first so their client can handle being removed
+    io.in(participantId).emit('chat-deleted', { chatId });
+    
+    // Remove the user's sockets from the room
+    io.in(participantId).socketsLeave(chatId);
+    
+    // Notify remaining participants about the updated chat
+    io.to(chatId).emit('chat-updated', chat);
+    
+    res.json(chat);
+  } catch (error: any) {
+    console.error(error);
+    res.status(403).json({ error: error.message || 'Server error' });
   }
 };
 
@@ -94,6 +152,9 @@ export const updateGroupPicture = async (req: AuthRequest, res: Response) => {
     if (!groupPicture) return res.status(400).json({ error: 'groupPicture is required' });
 
     const chat = await ChatService.updateGroupPicture(req.user!.userId, chatId, groupPicture);
+    
+    getIO().of('/chat').to(chatId).emit('chat-updated', chat);
+
     res.json(chat);
   } catch (error: any) {
     console.error(error);

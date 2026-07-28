@@ -190,6 +190,42 @@ export class ChatService {
     });
   }
 
+  static async removeParticipantFromGroup(userId: string, chatId: string, participantId: string) {
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: { participants: true }
+    });
+
+    if (!chat || !chat.isGroup) {
+      throw new Error('Group chat not found');
+    }
+    
+    // Only admins can remove people (or the person themselves leaving)
+    if (chat.adminId !== userId && participantId !== userId) {
+      throw new Error('Only the group admin can remove participants');
+    }
+
+    if (chat.adminId === participantId) {
+      throw new Error('Admin cannot be removed. Transfer admin rights or delete the group.');
+    }
+
+    await prisma.chatParticipant.deleteMany({
+      where: {
+        chatId,
+        userId: participantId
+      }
+    });
+
+    return await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, about: true } } }
+        }
+      }
+    });
+  }
+
   static async updateGroupPicture(userId: string, chatId: string, pictureUrl: string) {
     const chat = await prisma.chat.findUnique({
       where: { id: chatId }
