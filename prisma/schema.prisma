@@ -37,6 +37,8 @@ model User {
   reportsMade   Report[]          @relation("Reporter")
   reportsReceived Report[]        @relation("Reported")
   liveStreams   LiveStream[]
+  stories       Story[]
+  storyViews    StoryView[]
 }
 
 model Session {
@@ -245,4 +247,35 @@ model LiveStream {
   endedAt      DateTime?
 
   streamer     User      @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+}
+
+model Story {
+  id          String    @id @default(uuid())
+  userId      String
+  content     String?
+  mediaUrl    String?
+  type        StoryType @default(TEXT)
+  bgColor     String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views       StoryView[]
+}
+
+model StoryView {
+  storyId   String
+  userId    String
+  viewedAt  DateTime @default(now())
+
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, userId])
+}
+
+enum StoryType {
+  TEXT
+  IMAGE
+  VIDEO
 }
