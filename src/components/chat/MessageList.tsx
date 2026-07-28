@@ -37,7 +37,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
 
   return (
     <div 
-      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border relative z-0"
+      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border"
       style={{
         paddingLeft: 'max(16px, env(safe-area-inset-left))',
         paddingRight: 'max(16px, env(safe-area-inset-right))'

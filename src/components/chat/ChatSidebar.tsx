@@ -26,6 +26,31 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
     window.location.href = '/login';
   };
 
+  const handleAiChat = async () => {
+    const aiUserId = 'nexus-ai-system';
+    
+    // Check if chat already exists
+    const existingChat = chats.find(c => 
+      !c.isGroup && 
+      c.participants.some((p: any) => p.userId === aiUserId)
+    );
+
+    if (existingChat) {
+      setActiveChat(existingChat.id);
+    } else {
+      // Create new chat with AI
+      try {
+        const token = useAuthStore.getState().token;
+        const newChatId = await useChatStore.getState().createChat(aiUserId, token || '');
+        if (newChatId) {
+          setActiveChat(newChatId);
+        }
+      } catch (err) {
+        console.error('Failed to start AI chat', err);
+      }
+    }
+  };
+
   const filteredChats = chats.filter(chat => {
     const q = searchQuery.toLowerCase();
     if (chat.name?.toLowerCase().includes(q)) return true;
@@ -188,6 +213,23 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
           );
         })}
       </div>
+
+      {/* Floating Action Button for Nexus AI */}
+      <button 
+        onClick={handleAiChat}
+        className="absolute bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center overflow-hidden border-2 border-surface-hover z-50 bg-surface"
+        title="Chat with Nexus AI"
+      >
+        <img 
+          src="/image.png" 
+          alt="Nexus AI" 
+          className="w-full h-full object-cover" 
+          onError={(e) => {
+            // Fallback to bottts if local image fails to load
+            e.currentTarget.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=Nexus&backgroundColor=10b981';
+          }}
+        />
+      </button>
     </div>
   );
 }
