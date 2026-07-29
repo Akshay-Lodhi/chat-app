@@ -84,6 +84,11 @@ interface ChatState {
   togglePinChat: (chatId: string) => Promise<void>;
   togglePinMessage: (chatId: string, messageId: string) => Promise<void>;
   setDisappearingTimer: (chatId: string, timer: number) => Promise<void>;
+  scheduleMessage: (chatId: string, content: string, scheduledAt: string, type?: string, mediaUrl?: string | null, replyToId?: string | null) => Promise<boolean>;
+  fetchPendingScheduledMessages: (chatId: string) => Promise<any[]>;
+  cancelScheduledMessage: (chatId: string, messageId: string) => Promise<boolean>;
+  transcribeAudioMessage: (messageId: string) => Promise<string>;
+  summarizeChat: (chatId: string) => Promise<{ mainTopic: string; summary: string; keyPoints: string[]; decisions: string[] }>;
 
   fetchBlockedUsers: () => Promise<void>;
   blockUser: (userId: string) => Promise<boolean>;
@@ -252,6 +257,93 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (err) {
       console.error('Error setting disappearing timer', err);
     }
+  },
+
+  scheduleMessage: async (chatId, content, scheduledAt, type = 'TEXT', mediaUrl = null, replyToId = null) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, scheduledAt, type, mediaUrl, replyToId }),
+        credentials: 'include'
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Error scheduling message', err);
+      return false;
+    }
+  },
+
+  fetchPendingScheduledMessages: async (chatId) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/scheduled`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      return [];
+    } catch (err) {
+      console.error('Error fetching scheduled messages', err);
+      return [];
+    }
+  },
+
+  cancelScheduledMessage: async (chatId, messageId) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/scheduled/${messageId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Error canceling scheduled message', err);
+      return false;
+    }
+  },
+
+  transcribeAudioMessage: async (messageId) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/${messageId}/transcribe`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set(state => {
+          const newMessages = { ...state.messages };
+          for (const cid in newMessages) {
+            const idx = newMessages[cid].findIndex(m => m.id === messageId);
+            if (idx !== -1) {
+              newMessages[cid] = [...newMessages[cid]];
+              const currentMeta = newMessages[cid][idx].metadata || {};
+              newMessages[cid][idx] = {
+                ...newMessages[cid][idx],
+                metadata: { ...currentMeta, transcription: data.transcription }
+              };
+              break;
+            }
+          }
+          return { messages: newMessages };
+        });
+        return data.transcription;
+      }
+      throw new Error('Failed to transcribe audio');
+    } catch (err: any) {
+      console.error('Error transcribing audio message', err);
+      throw err;
+    }
+  },
+
+  summarizeChat: async (chatId) => {
+    const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/summarize`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      throw new Error('Failed to generate AI summary');
+    }
+    return await res.json();
   },
   
   notificationToast: null,

@@ -4,9 +4,8 @@ import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { motion } from 'framer-motion';
-import { Lock } from 'lucide-react';
+import { Lock, Pin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
 
 interface MessageListProps {
   onReply: (message: any) => void;
@@ -24,6 +23,9 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
 
   const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
   const chatMessages = activeChatId ? (messages[activeChatId] || []) : [];
+
+  const pinnedMessages = chatMessages.filter((m: any) => m.isPinned);
+  const lastPinnedMessage = pinnedMessages[pinnedMessages.length - 1];
   
   const filteredMessages = searchQuery ? chatMessages.filter(m => 
     m.content?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -37,12 +39,13 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
 
   return (
     <div 
-      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border"
+      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border relative"
       style={{
         paddingLeft: 'max(16px, env(safe-area-inset-left))',
         paddingRight: 'max(16px, env(safe-area-inset-right))'
       }}
     >
+
       {/* End-to-End Encryption Notice */}
       <div className="flex justify-center mb-4 px-2">
         <div className="bg-[#182229] border border-[#222d34] rounded-xl px-4 py-2.5 max-w-sm md:max-w-md text-center shadow-sm flex items-start space-x-2">

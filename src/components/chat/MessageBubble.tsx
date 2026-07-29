@@ -15,7 +15,12 @@ import {
   X,
   User,
   Star,
-  Clock
+  Clock,
+  Sparkles,
+  Loader2,
+  Pin,
+  ChevronDown,
+  MoreVertical
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useDragControls, AnimatePresence } from "framer-motion";
@@ -161,10 +166,12 @@ export function MessageBubble({
     socket,
     setEditingMessageId,
     toggleStar,
-    togglePinMessage
+    togglePinMessage,
+    transcribeAudioMessage
   } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const activeChat = chats.find(
     (c) => c.id === activeChatId || c.id === message.chatId,
   );
@@ -215,14 +222,24 @@ export function MessageBubble({
 
   const startLongPress = useCallback(
     (e: any) => {
-      // Persist event so we can use its coordinates later
       e.persist?.();
       longPressTimerRef.current = setTimeout(() => {
+        let x = window.innerWidth / 2;
+        let y = window.innerHeight / 2;
+        if (e && "clientX" in e && e.clientX > 0) {
+          x = e.clientX;
+          y = e.clientY;
+        } else if (e && e.touches && e.touches[0]) {
+          x = e.touches[0].clientX;
+          y = e.touches[0].clientY;
+        }
+        setMenuPosition({ x, y });
+        setShowContextMenu(true);
         setShowReactions(true);
         if (!selectedMessageIds.includes(message.id)) {
-          handleInteraction(e); // Toggle selection on long press
+          handleInteraction(e);
         }
-      }, 500); // 500ms long press
+      }, 400);
     },
     [message.id, selectedMessageIds, toggleMessageSelection],
   );
@@ -347,8 +364,55 @@ export function MessageBubble({
             </div>
           </div>
         );
-      case "AUDIO":
-        return <AudioPlayer src={message.mediaUrl || message.content || ""} />;
+      case "AUDIO": {
+        const transcription = message.metadata?.transcription;
+        return (
+          <div className="flex flex-col gap-2 min-w-[230px] max-w-[320px]">
+            <AudioPlayer src={message.mediaUrl || message.content || ""} />
+            
+            {transcription ? (
+              <div className="bg-black/15 border border-purple-500/20 rounded-xl p-2.5 flex flex-col gap-1 text-xs mt-1">
+                <div className="flex items-center justify-between text-purple-400 font-semibold">
+                  <span className="flex items-center gap-1 text-[11px]">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>AI Voice Transcript</span>
+                  </span>
+                </div>
+                <p className="text-text-primary/95 text-xs leading-relaxed select-text font-normal">{transcription}</p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (isTranscribing) return;
+                  setIsTranscribing(true);
+                  try {
+                    await transcribeAudioMessage(message.id);
+                  } catch (err) {
+                    console.error(err);
+                  } finally {
+                    setIsTranscribing(false);
+                  }
+                }}
+                className="self-start flex items-center gap-1.5 text-[11px] font-medium text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 px-2.5 py-1 rounded-lg transition-all cursor-pointer mt-0.5"
+              >
+                {isTranscribing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Transcribing with AI...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Transcribe Voice Note</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        );
+      }
       case "LOCATION":
         let loc;
         try {
@@ -624,6 +688,7 @@ export function MessageBubble({
       )}
     >
       <div
+        id={`msg-${message.id}`}
         className={cn(
           "relative rounded-2xl px-3 py-1.5 flex flex-col shadow-sm cursor-pointer transition-all duration-200",
           fullWidth
@@ -648,6 +713,19 @@ export function MessageBubble({
         onMouseLeave={clearLongPress}
         onClick={handleInteraction}
       >
+        {/* Dropdown Options Arrow Trigger */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleContextMenu(e);
+          }}
+          className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full bg-black/40 hover:bg-black/70 text-white z-20 cursor-pointer shadow-md"
+          title="Message options (Pin, Edit, Star...)"
+        >
+          <ChevronDown size={14} />
+        </button>
+
         {/* Reply Context */}
         {message.replyToId && (
           <div
@@ -731,6 +809,7 @@ export function MessageBubble({
           )}
         >
           {message.expiresAt && <span title="Disappearing message"><Clock size={11} className="mr-0.5 text-emerald-400" /></span>}
+          {message.isPinned && <span title="Pinned message"><Pin size={11} className="mr-0.5 fill-current text-amber-400 rotate-45" /></span>}
           {message.isStarred && <Star size={11} className="mr-0.5 fill-current" />}
           {message.isEdited && <span className="italic mr-0.5">(Edited)</span>}
           <span>{msgTime}</span>
@@ -801,6 +880,16 @@ export function MessageBubble({
                       title="Message Info"
                     >
                       <Info size={18} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleContextMenu(e);
+                      }}
+                      className="flex items-center text-text-secondary hover:text-text-primary px-1"
+                      title="More Options (Pin, Edit, Star, Delete...)"
+                    >
+                      <MoreVertical size={18} />
                     </button>
                   </>
                 ) : null}

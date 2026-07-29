@@ -7,7 +7,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { 
   Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Maximize2, 
-  SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users, BellRing 
+  SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users, BellRing, Monitor
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -82,7 +82,8 @@ export default function CallOverlay() {
   const { 
     isCalling, isReceivingCall, isInitiator, caller, callType, activeCallChatId, 
     localStream, remoteStreams, peers, callStartTime, roomParticipants,
-    setLocalStream, addRemoteStream, removeRemoteStream, addPeer, removePeer, acceptCall, endCall 
+    setLocalStream, addRemoteStream, removeRemoteStream, addPeer, removePeer, acceptCall, endCall,
+    isScreenSharing, toggleScreenShare
   } = useCallStore();
   
   const { socket, chats } = useChatStore();
@@ -1119,6 +1120,19 @@ export default function CallOverlay() {
                       title={isVideoOff ? "Turn Video On" : "Turn Video Off"}
                     >
                       {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                    </button>
+                  )}
+
+                  {callType === 'VIDEO' && (
+                    <button
+                      onClick={toggleScreenShare}
+                      className={cn(
+                        "w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer",
+                        isScreenSharing ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-white/10 text-white hover:bg-white/20"
+                      )}
+                      title={isScreenSharing ? "Stop Screen Share" : "Share Screen"}
+                    >
+                      <Monitor size={20} />
                     </button>
                   )}
 

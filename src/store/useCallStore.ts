@@ -32,6 +32,7 @@ interface CallState {
 
   roomParticipants: Record<string, ParticipantInfo>;
   activeCalls: Record<string, ActiveCallInfo>;
+  isScreenSharing: boolean;
 
   setIncomingCall: (caller: any, callType: 'AUDIO' | 'VIDEO', chatId: string, offer: any) => void;
   setLocalStream: (stream: MediaStream | null) => void;
@@ -47,6 +48,7 @@ interface CallState {
   initiateCall: (callType: 'AUDIO' | 'VIDEO', chatId: string, invitedUserIds?: string[], initialProfiles?: Record<string, { name: string; avatar: string | null }>) => void;
   joinOngoingCall: (chatId: string, callType: 'AUDIO' | 'VIDEO') => void;
   setActiveCallInfo: (chatId: string, info: ActiveCallInfo | null) => void;
+  toggleScreenShare: () => Promise<void>;
 }
 
 export const useCallStore = create<CallState>((set, get) => ({
@@ -190,6 +192,8 @@ export const useCallStore = create<CallState>((set, get) => ({
     activeCallChatId: chatId
   }),
 
+  isScreenSharing: false,
+
   setActiveCallInfo: (chatId, info) => set((state) => {
     const newCalls = { ...state.activeCalls };
     if (info) {
@@ -198,5 +202,68 @@ export const useCallStore = create<CallState>((set, get) => ({
       delete newCalls[chatId];
     }
     return { activeCalls: newCalls };
-  })
+  }),
+
+  toggleScreenShare: async () => {
+    const { isScreenSharing, localStream, peers } = get();
+
+    if (isScreenSharing) {
+      if (localStream) {
+        const screenTrack = localStream.getVideoTracks()[0];
+        if (screenTrack) screenTrack.stop();
+      }
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const newVideoTrack = camStream.getVideoTracks()[0];
+
+        Object.values(peers).forEach((peer: any) => {
+          if (peer && !peer.destroyed) {
+            const oldTrack = localStream?.getVideoTracks()[0];
+            if (oldTrack && peer.replaceTrack) {
+              try {
+                peer.replaceTrack(oldTrack, newVideoTrack, localStream);
+              } catch (e) {
+                try { peer.addTrack(newVideoTrack, localStream); } catch(err) {}
+              }
+            } else if (peer.addTrack) {
+              try { peer.addTrack(newVideoTrack, localStream); } catch(err) {}
+            }
+          }
+        });
+
+        set({ localStream: camStream, isScreenSharing: false });
+      } catch (err) {
+        console.error('Error reverting to camera stream:', err);
+        set({ isScreenSharing: false });
+      }
+    } else {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        const screenVideoTrack = screenStream.getVideoTracks()[0];
+
+        screenVideoTrack.onended = () => {
+          get().toggleScreenShare();
+        };
+
+        Object.values(peers).forEach((peer: any) => {
+          if (peer && !peer.destroyed) {
+            const oldTrack = localStream?.getVideoTracks()[0];
+            if (oldTrack && peer.replaceTrack) {
+              try {
+                peer.replaceTrack(oldTrack, screenVideoTrack, localStream);
+              } catch (e) {
+                try { peer.addTrack(screenVideoTrack, localStream); } catch(err) {}
+              }
+            } else if (peer.addTrack) {
+              try { peer.addTrack(screenVideoTrack, localStream); } catch(err) {}
+            }
+          }
+        });
+
+        set({ localStream: screenStream, isScreenSharing: true });
+      } catch (err) {
+        console.error('Error starting screen share:', err);
+      }
+    }
+  }
 }));

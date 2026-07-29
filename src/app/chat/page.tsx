@@ -303,23 +303,24 @@ export default function ChatPage() {
 
             {pinnedMessage && (
               <div 
-                className="bg-surface-hover/95 backdrop-blur border-b border-surface-border px-4 py-2 flex items-center shadow-sm z-10 cursor-pointer hover:bg-surface-active transition-colors shrink-0"
+                className="bg-[#182229]/95 backdrop-blur border-b border-[#222d34] px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-[#202c33] transition-colors shrink-0"
                 onClick={() => {
-                  const el = document.getElementById(`message-${pinnedMessage.id}`);
+                  const el = document.getElementById(`msg-${pinnedMessage.id}`);
                   if (el) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.classList.add('bg-white/10');
-                    setTimeout(() => el.classList.remove('bg-white/10'), 2000);
+                    el.classList.add('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/20');
+                    setTimeout(() => el.classList.remove('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/20'), 2500);
                   }
                 }}
               >
-                <Pin size={16} className="text-text-secondary mr-3 shrink-0 rotate-45" />
+                <Pin size={16} className="text-[#25D366] mr-3 shrink-0 rotate-45" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-[#25D366] mb-0.5">Pinned Message</p>
                   <p className="text-sm text-text-primary truncate">
                     {pinnedMessage.content || (pinnedMessage.type === 'IMAGE' ? 'Photo' : 'Media')}
                   </p>
                 </div>
+                <span className="text-xs text-[#25D366] font-semibold shrink-0 ml-2">Tap to view</span>
               </div>
             )}
 
@@ -384,23 +385,24 @@ export default function ChatPage() {
 
           {pinnedMessage && (
             <div 
-              className="bg-surface-hover/95 backdrop-blur border-b border-surface-border px-4 py-2 flex items-center shadow-sm z-10 cursor-pointer hover:bg-surface-active transition-colors shrink-0"
+              className="bg-[#182229]/95 backdrop-blur border-b border-[#222d34] px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-[#202c33] transition-colors shrink-0"
               onClick={() => {
-                const el = document.getElementById(`message-${pinnedMessage.id}`);
+                const el = document.getElementById(`msg-${pinnedMessage.id}`);
                 if (el) {
                   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  el.classList.add('bg-white/10');
-                  setTimeout(() => el.classList.remove('bg-white/10'), 2000);
+                  el.classList.add('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/30');
+                  setTimeout(() => el.classList.remove('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/30'), 2500);
                 }
               }}
             >
-              <Pin size={16} className="text-text-secondary mr-3 shrink-0 rotate-45" />
+              <Pin size={16} className="text-[#25D366] mr-3 shrink-0 rotate-45" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-[#25D366] mb-0.5">Pinned Message</p>
                 <p className="text-sm text-text-primary truncate">
                   {pinnedMessage.content || (pinnedMessage.type === 'IMAGE' ? 'Photo' : 'Media')}
                 </p>
               </div>
+              <span className="text-xs text-[#25D366] font-semibold shrink-0 ml-2">Tap to view</span>
             </div>
           )}
 

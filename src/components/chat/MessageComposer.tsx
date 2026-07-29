@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2 } from 'lucide-react';
+import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2, Calendar, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useChatStore } from '@/store/useChatStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EmojiPicker } from './EmojiPicker';
 import CreatePollModal from './CreatePollModal';
+import ScheduleMessageModal from './ScheduleMessageModal';
+import PendingScheduledModal from './PendingScheduledModal';
 
 interface MessageComposerProps {
   onSendMessage: (text: string) => void;
@@ -40,6 +42,8 @@ export function MessageComposer({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showPollModal, setShowPollModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showPendingScheduledModal, setShowPendingScheduledModal] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
@@ -283,6 +287,20 @@ export function MessageComposer({
               <div className="bg-yellow-500/20 text-yellow-400 p-2.5 rounded-full"><BarChart2 size={20} /></div>
               <span className="text-sm font-medium">Poll</span>
             </button>
+            <button 
+              onClick={() => { setShowScheduleModal(true); setShowAttachMenu(false); }}
+              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+            >
+              <div className="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-full"><Calendar size={20} /></div>
+              <span className="text-sm font-medium">Schedule Message</span>
+            </button>
+            <button 
+              onClick={() => { setShowPendingScheduledModal(true); setShowAttachMenu(false); }}
+              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+            >
+              <div className="bg-purple-500/20 text-purple-400 p-2.5 rounded-full"><Clock size={20} /></div>
+              <span className="text-sm font-medium">Upcoming Messages</span>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -381,6 +399,20 @@ export function MessageComposer({
           <CreatePollModal 
             chatId={activeChatId} 
             onClose={() => setShowPollModal(false)} 
+          />
+        )}
+        {showScheduleModal && activeChatId && (
+          <ScheduleMessageModal
+            chatId={activeChatId}
+            initialContent={message}
+            onClose={() => setShowScheduleModal(false)}
+            onScheduledSuccess={() => setMessage('')}
+          />
+        )}
+        {showPendingScheduledModal && activeChatId && (
+          <PendingScheduledModal
+            chatId={activeChatId}
+            onClose={() => setShowPendingScheduledModal(false)}
           />
         )}
       </AnimatePresence>

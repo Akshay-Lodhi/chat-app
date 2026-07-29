@@ -5,12 +5,13 @@ import { createPortal } from 'react-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
-import { Video, Phone, ArrowLeft, Search, Trash2, X, MoreVertical, AlertTriangle, Copy, Forward, CornerUpLeft, Clock } from 'lucide-react';
+import { Video, Phone, ArrowLeft, Search, Trash2, X, MoreVertical, AlertTriangle, Copy, Forward, CornerUpLeft, Clock, Sparkles } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WallpaperModal } from './WallpaperModal';
 import DisappearingMessagesModal from './DisappearingMessagesModal';
+import AISummaryModal from './AISummaryModal';
 import { cn } from '@/lib/utils';
 
 interface ChatHeaderProps {
@@ -28,6 +29,8 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDisappearingModal, setShowDisappearingModal] = useState(false);
+  const [showAISummaryModal, setShowAISummaryModal] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   
@@ -100,7 +103,6 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   };
 
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
-  const [showDisappearingModal, setShowDisappearingModal] = useState(false);
   const activeCallInChat = activeChatId ? activeCalls[activeChatId] : null;
 
   return (
@@ -208,6 +210,21 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                     >
                       <Search size={16} className="text-text-secondary" />
                       <span>Search Messages</span>
+                    </button>
+
+                    {/* AI Summarize Chat */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowAISummaryModal(true);
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-purple-400 hover:bg-purple-500/10 transition-colors text-sm font-medium"
+                    >
+                      <Sparkles size={16} className="text-purple-400" />
+                      <span>AI Summarize Chat</span>
                     </button>
 
                     {/* Disappearing Messages */}
@@ -448,6 +465,13 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
           )}
         </AnimatePresence>,
         document.body
+      )}
+
+      {showAISummaryModal && activeChatId && (
+        <AISummaryModal
+          chatId={activeChatId}
+          onClose={() => setShowAISummaryModal(false)}
+        />
       )}
     </div>
   );
