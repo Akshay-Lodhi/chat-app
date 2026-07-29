@@ -207,11 +207,6 @@ export const useCallStore = create<CallState>((set, get) => ({
   toggleScreenShare: async () => {
     const { isScreenSharing, localStream, peers } = get();
 
-    if (!isScreenSharing && (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia)) {
-      alert("Screen sharing is not supported on this mobile browser. Please use Chrome/Edge on Desktop or enable screen capture in browser settings.");
-      return;
-    }
-
     if (isScreenSharing) {
       try {
         const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -242,12 +237,45 @@ export const useCallStore = create<CallState>((set, get) => ({
       }
     } else {
       try {
-        let screenStream: MediaStream;
-        try {
-          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        } catch (audioErr) {
-          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        let screenStream: MediaStream | null = null;
+        const mediaDevices = navigator.mediaDevices as any;
+
+        if (mediaDevices && typeof mediaDevices.getDisplayMedia === 'function') {
+          try {
+            screenStream = await mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true });
+          } catch (audioErr: any) {
+            if (audioErr?.name === 'NotAllowedError' || audioErr?.name === 'AbortError') {
+              throw audioErr;
+            }
+            try {
+              screenStream = await mediaDevices.getDisplayMedia({ video: true });
+            } catch (err: any) {
+              if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+                throw err;
+              }
+            }
+          }
         }
+
+        if (!screenStream && (navigator as any).getDisplayMedia) {
+          try {
+            screenStream = await (navigator as any).getDisplayMedia({ video: true });
+          } catch (e) {}
+        }
+
+        if (!screenStream && mediaDevices && typeof mediaDevices.getUserMedia === 'function') {
+          try {
+            screenStream = await mediaDevices.getUserMedia({
+              video: { mandatory: { chromeMediaSource: 'screen' } }
+            });
+          } catch (e) {}
+        }
+
+        if (!screenStream) {
+          alert("Screen sharing is not supported on this mobile browser version. Please update Chrome or enable screen recording permissions in device settings.");
+          return;
+        }
+
         const screenVideoTrack = screenStream.getVideoTracks()[0];
 
         screenVideoTrack.onended = () => {
@@ -262,12 +290,12 @@ export const useCallStore = create<CallState>((set, get) => ({
           if (peer && !peer.destroyed) {
             if (oldVideoTrack && peer.replaceTrack) {
               try {
-                peer.replaceTrack(oldVideoTrack, screenVideoTrack, screenStream);
+                peer.replaceTrack(oldVideoTrack, screenVideoTrack, screenStream!);
               } catch (e) {
-                try { peer.addTrack(screenVideoTrack, screenStream); } catch(err) {}
+                try { peer.addTrack(screenVideoTrack, screenStream!); } catch(err) {}
               }
             } else if (peer.addTrack) {
-              try { peer.addTrack(screenVideoTrack, screenStream); } catch(err) {}
+              try { peer.addTrack(screenVideoTrack, screenStream!); } catch(err) {}
             }
           }
         });

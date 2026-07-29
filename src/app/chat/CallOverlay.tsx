@@ -1113,15 +1113,15 @@ export default function CallOverlay() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="pointer-events-auto max-w-sm sm:max-w-md mx-auto px-2">
-                <div className="bg-black/60 backdrop-blur-xl border border-white/15 rounded-full px-4 py-3 flex items-center justify-evenly shadow-2xl">
+              <div className="pointer-events-auto w-full max-w-md mx-auto px-2">
+                <div className="bg-[#111b21]/95 backdrop-blur-2xl border border-white/20 rounded-full px-4 py-3 flex items-center justify-between shadow-[0_10px_40px_rgba(0,0,0,0.8)] gap-1 sm:gap-2">
                   {callType === 'VIDEO' && (
                     <button
                       onClick={switchCamera}
-                      className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                      className="w-12 h-12 sm:w-13 sm:h-13 rounded-full bg-[#1f2c34] hover:bg-[#2a3942] active:scale-90 text-white flex items-center justify-center transition-all border border-white/10 shadow-md cursor-pointer shrink-0"
                       title="Switch Camera"
                     >
-                      <SwitchCamera size={20} />
+                      <SwitchCamera size={22} />
                     </button>
                   )}
 
@@ -1129,12 +1129,12 @@ export default function CallOverlay() {
                     <button
                       onClick={toggleVideo}
                       className={cn(
-                        "w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer",
-                        isVideoOff ? "bg-white text-[#0b141a]" : "bg-white/10 text-white hover:bg-white/20"
+                        "w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer shrink-0 border border-white/10 shadow-md",
+                        isVideoOff ? "bg-rose-500 text-white shadow-rose-500/40 border-rose-400" : "bg-[#1f2c34] text-white hover:bg-[#2a3942]"
                       )}
                       title={isVideoOff ? "Turn Video On" : "Turn Video Off"}
                     >
-                      {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                      {isVideoOff ? <VideoOff size={22} /> : <Video size={22} />}
                     </button>
                   )}
 
@@ -1142,40 +1142,40 @@ export default function CallOverlay() {
                     <button
                       onClick={toggleScreenShare}
                       className={cn(
-                        "w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer",
-                        isScreenSharing ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-white/10 text-white hover:bg-white/20"
+                        "w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer shrink-0 border border-white/10 shadow-md",
+                        isScreenSharing ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/50 ring-2 ring-emerald-400 border-emerald-400" : "bg-[#1f2c34] text-white hover:bg-[#2a3942]"
                       )}
                       title={isScreenSharing ? "Stop Screen Share" : "Share Screen"}
                     >
-                      <Monitor size={20} />
+                      <Monitor size={22} />
                     </button>
                   )}
 
                   <button
                     onClick={toggleMute}
                     className={cn(
-                      "w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer",
-                      isMuted ? "bg-white text-[#0b141a]" : "bg-white/10 text-white hover:bg-white/20"
+                      "w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer shrink-0 border border-white/10 shadow-md",
+                      isMuted ? "bg-rose-500 text-white shadow-rose-500/40 border-rose-400" : "bg-[#1f2c34] text-white hover:bg-[#2a3942]"
                     )}
                     title={isMuted ? "Unmute" : "Mute"}
                   >
-                    {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+                    {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
                   </button>
 
                   <button
                     onClick={() => setShowAddParticipant(true)}
-                    className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                    className="w-12 h-12 sm:w-13 sm:h-13 rounded-full bg-[#1f2c34] hover:bg-[#2a3942] active:scale-90 text-white flex items-center justify-center transition-all border border-white/10 shadow-md cursor-pointer shrink-0"
                     title="Add Contact"
                   >
-                    <UserPlus size={20} />
+                    <UserPlus size={22} />
                   </button>
 
                   <button
                     onClick={handleEndCall}
-                    className="w-13 h-13 rounded-full bg-danger hover:bg-danger/90 text-white flex items-center justify-center shadow-[0_0_25px_rgba(234,0,56,0.5)] transition-all active:scale-90 cursor-pointer ml-1"
+                    className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#ea0038] hover:bg-[#d00032] text-white flex items-center justify-center shadow-[0_0_25px_rgba(234,0,56,0.65)] transition-all active:scale-90 cursor-pointer shrink-0 border border-rose-400"
                     title="End Call"
                   >
-                    <PhoneOff size={22} />
+                    <PhoneOff size={24} />
                   </button>
                 </div>
               </div>
