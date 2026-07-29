@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2, Calendar, Clock } from 'lucide-react';
+import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2, Calendar, Clock, Sparkles, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useChatStore } from '@/store/useChatStore';
+import { apiClient } from '@/lib/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EmojiPicker } from './EmojiPicker';
 import CreatePollModal from './CreatePollModal';
@@ -92,9 +93,48 @@ export function MessageComposer({
     }
   };
 
+  const [smartReplies, setSmartReplies] = useState<string[]>([]);
+  const [showAiSuggest, setShowAiSuggest] = useState(false);
+
+  useEffect(() => {
+    if (!activeChatId) {
+      setSmartReplies([]);
+      return;
+    }
+    const chatMsgs = messages[activeChatId] || [];
+    const lastMsg = chatMsgs[chatMsgs.length - 1];
+
+    if (lastMsg && lastMsg.senderId !== 'nexus-ai-system' && lastMsg.type === 'TEXT' && lastMsg.content) {
+      fetch('/api/chat/smart-replies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: lastMsg.content,
+          senderName: (lastMsg as any).sender?.name
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.replies && Array.isArray(data.replies)) {
+          setSmartReplies(data.replies);
+        }
+      })
+      .catch(() => setSmartReplies([]));
+    } else {
+      setSmartReplies([]);
+    }
+  }, [activeChatId, messages]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setMessage(val);
+
+    if (val.endsWith('@') || val.toLowerCase().endsWith('@a') || val.toLowerCase().endsWith('@ai')) {
+      setShowAiSuggest(true);
+    } else {
+      setShowAiSuggest(false);
+    }
+
     if (activeChatId) {
       if (val.trim()) {
         sendTypingStatus(activeChatId, true);
@@ -311,6 +351,62 @@ export function MessageComposer({
         onClose={() => setShowEmojiPicker(false)} 
         onSelectEmoji={(emoji) => setMessage(prev => prev + emoji)} 
       />
+
+      {/* AI Smart Reply Chips */}
+      {smartReplies.length > 0 && !message.trim() && (
+        <motion.div 
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 5 }}
+          className="flex items-center space-x-2 px-2 py-1 mb-1.5 overflow-x-auto no-scrollbar shrink-0 relative z-10"
+        >
+          <div className="flex items-center space-x-1 text-[11px] font-semibold text-purple-400 shrink-0 bg-purple-500/10 px-2 py-1 rounded-full border border-purple-500/20">
+            <Sparkles size={12} className="animate-pulse" />
+            <span>AI Suggest</span>
+          </div>
+          {smartReplies.map((reply, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                onSendMessage(reply);
+                setSmartReplies([]);
+              }}
+              className="text-xs bg-[#1f2c34] hover:bg-purple-500/20 hover:border-purple-400/50 text-[#e9edef] border border-white/10 px-3 py-1 rounded-full transition-all shrink-0 active:scale-95 shadow-sm font-medium cursor-pointer"
+            >
+              {reply}
+            </button>
+          ))}
+        </motion.div>
+      )}
+
+      {/* @AI Mention Autocomplete Suggestion Popup */}
+      <AnimatePresence>
+        {showAiSuggest && (
+          <motion.div
+            initial={{ opacity: 0, y: 5, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 5, scale: 0.98 }}
+            className="absolute bottom-16 left-4 z-30 bg-[#1f2c34] border border-purple-500/30 rounded-xl p-2.5 shadow-2xl backdrop-blur-lg flex items-center space-x-3 cursor-pointer hover:bg-purple-500/10 transition-colors"
+            onClick={() => {
+              const base = message.replace(/@\w*$/, '');
+              setMessage(base + '@AI ');
+              setShowAiSuggest(false);
+            }}
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-white shadow-md shrink-0">
+              <Bot size={18} />
+            </div>
+            <div>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-sm font-semibold text-white">@AI</span>
+                <span className="text-[10px] bg-purple-500/20 text-purple-300 font-bold px-1.5 py-0.5 rounded-full uppercase">Nexus Bot</span>
+              </div>
+              <p className="text-xs text-text-secondary">Mention @AI in any chat for instant answers, code, or help</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <form onSubmit={handleSubmit} className="flex items-center space-x-1.5 relative z-10 w-full min-w-0 flex-nowrap">
         
