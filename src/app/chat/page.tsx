@@ -74,6 +74,29 @@ export default function ChatPage() {
     useChatStore.getState().clearMessageSelection();
   };
 
+  const scrollToPinnedMessage = (messageId: string) => {
+    if (!messageId) return;
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      try {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (err) {}
+
+      const parentScrollable = el.closest('.overflow-y-auto') || el.parentElement;
+      if (parentScrollable) {
+        const parentRect = parentScrollable.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const targetScrollTop = parentScrollable.scrollTop + (elRect.top - parentRect.top) - (parentScrollable.clientHeight / 2) + (elRect.height / 2);
+        parentScrollable.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+      }
+
+      el.classList.add('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/40', 'transition-all', 'duration-300');
+      setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/40', 'transition-all', 'duration-300');
+      }, 2500);
+    }
+  };
+
   // Hydration and Connection
   const profileHydratedRef = useRef(false);
 
@@ -303,14 +326,11 @@ export default function ChatPage() {
 
             {pinnedMessage && (
               <div 
-                className="bg-[#182229]/95 backdrop-blur border-b border-[#222d34] px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-[#202c33] transition-colors shrink-0"
-                onClick={() => {
-                  const el = document.getElementById(`msg-${pinnedMessage.id}`);
-                  if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.classList.add('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/20');
-                    setTimeout(() => el.classList.remove('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/20'), 2500);
-                  }
+                className="bg-[#182229]/95 backdrop-blur border-b border-[#222d34] px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-[#202c33] transition-colors shrink-0 select-none active:scale-[0.99]"
+                onClick={() => scrollToPinnedMessage(pinnedMessage.id)}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  scrollToPinnedMessage(pinnedMessage.id);
                 }}
               >
                 <Pin size={16} className="text-[#25D366] mr-3 shrink-0 rotate-45" />
