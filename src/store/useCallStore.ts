@@ -207,29 +207,33 @@ export const useCallStore = create<CallState>((set, get) => ({
   toggleScreenShare: async () => {
     const { isScreenSharing, localStream, peers } = get();
 
+    if (!isScreenSharing && (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia)) {
+      alert("Screen sharing is not supported on this mobile browser. Please use Chrome/Edge on Desktop or enable screen capture in browser settings.");
+      return;
+    }
+
     if (isScreenSharing) {
-      if (localStream) {
-        const screenTrack = localStream.getVideoTracks()[0];
-        if (screenTrack) screenTrack.stop();
-      }
       try {
         const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         const newVideoTrack = camStream.getVideoTracks()[0];
 
+        const oldVideoTrack = localStream?.getVideoTracks()[0];
+
         Object.values(peers).forEach((peer: any) => {
           if (peer && !peer.destroyed) {
-            const oldTrack = localStream?.getVideoTracks()[0];
-            if (oldTrack && peer.replaceTrack) {
+            if (oldVideoTrack && peer.replaceTrack) {
               try {
-                peer.replaceTrack(oldTrack, newVideoTrack, localStream);
+                peer.replaceTrack(oldVideoTrack, newVideoTrack, camStream);
               } catch (e) {
-                try { peer.addTrack(newVideoTrack, localStream); } catch(err) {}
+                try { peer.addTrack(newVideoTrack, camStream); } catch(err) {}
               }
             } else if (peer.addTrack) {
-              try { peer.addTrack(newVideoTrack, localStream); } catch(err) {}
+              try { peer.addTrack(newVideoTrack, camStream); } catch(err) {}
             }
           }
         });
+
+        if (oldVideoTrack) oldVideoTrack.stop();
 
         set({ localStream: camStream, isScreenSharing: false });
       } catch (err) {
@@ -242,27 +246,32 @@ export const useCallStore = create<CallState>((set, get) => ({
         const screenVideoTrack = screenStream.getVideoTracks()[0];
 
         screenVideoTrack.onended = () => {
-          get().toggleScreenShare();
+          if (get().isScreenSharing) {
+            get().toggleScreenShare();
+          }
         };
+
+        const oldVideoTrack = localStream?.getVideoTracks()[0];
 
         Object.values(peers).forEach((peer: any) => {
           if (peer && !peer.destroyed) {
-            const oldTrack = localStream?.getVideoTracks()[0];
-            if (oldTrack && peer.replaceTrack) {
+            if (oldVideoTrack && peer.replaceTrack) {
               try {
-                peer.replaceTrack(oldTrack, screenVideoTrack, localStream);
+                peer.replaceTrack(oldVideoTrack, screenVideoTrack, screenStream);
               } catch (e) {
-                try { peer.addTrack(screenVideoTrack, localStream); } catch(err) {}
+                try { peer.addTrack(screenVideoTrack, screenStream); } catch(err) {}
               }
             } else if (peer.addTrack) {
-              try { peer.addTrack(screenVideoTrack, localStream); } catch(err) {}
+              try { peer.addTrack(screenVideoTrack, screenStream); } catch(err) {}
             }
           }
         });
 
         set({ localStream: screenStream, isScreenSharing: true });
-      } catch (err) {
-        console.error('Error starting screen share:', err);
+      } catch (err: any) {
+        if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') {
+          console.error('Error starting screen share:', err);
+        }
       }
     }
   }

@@ -43,6 +43,8 @@ interface VideoPlayerProps {
 
 const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false, avatar, name }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoTrackId = stream?.getVideoTracks()[0]?.id;
+
   useEffect(() => {
     let isMounted = true;
     if (videoRef.current && stream) {
@@ -57,7 +59,7 @@ const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false, avatar, name
       }
     }
     return () => { isMounted = false; };
-  }, [stream]);
+  }, [stream, videoTrackId]);
 
   return (
     <>
@@ -172,6 +174,19 @@ export default function CallOverlay() {
       });
     }
   }, [isCalling, storeInvitedUserIds]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isCalling && socket && activeCallChatIdRef.current) {
+        try {
+          socket.emit('end-call', { chatId: activeCallChatIdRef.current, duration: elapsedSeconds || 0 });
+          socket.emit('leave-call-room', { chatId: activeCallChatIdRef.current });
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isCalling, socket, elapsedSeconds]);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const activeCallChatIdRef = useRef<string | null>(null);
