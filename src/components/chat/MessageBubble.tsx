@@ -482,9 +482,9 @@ export function MessageBubble({
         
         return (
           <>
-            <div className="flex flex-col min-w-[260px] p-1">
-              <h4 className="font-semibold text-[16px] mb-3 text-text-primary">{poll.question}</h4>
-              <div className="space-y-3">
+            <div className="flex flex-col min-w-[240px] sm:min-w-[270px] p-2.5 sm:p-3">
+              <h4 className="font-semibold text-[16px] mb-3 text-text-primary pr-2 leading-snug">{poll.question}</h4>
+              <div className="space-y-3.5">
                 {poll.options.map((opt: any) => {
                   const voteCount = opt.votes?.length || 0;
                   const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
@@ -502,41 +502,45 @@ export function MessageBubble({
                       onClick={() => socket?.emit('vote-poll', { messageId: message.id, optionId: opt.id, chatId: message.chatId })}
                       className="cursor-pointer group"
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center space-x-3 flex-1">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                           <div className={cn(
-                            "w-[18px] h-[18px] rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
+                            "w-[18px] h-[18px] rounded-full border shrink-0 flex items-center justify-center transition-colors",
                             hasVoted ? "border-[#00a884] bg-[#00a884]" : "border-text-secondary"
                           )}>
                             {hasVoted && <Check size={12} className="text-white" strokeWidth={3} />}
                           </div>
-                          <span className="text-[15px] flex-1 text-text-primary leading-tight">
+                          <span className="text-[15px] text-text-primary leading-tight break-words min-w-0">
                             {opt.text}
                           </span>
                         </div>
                         
-                        <div className="flex items-center space-x-2 pl-2">
+                        <div className="flex items-center space-x-1.5 shrink-0 pl-1">
                           {voterAvatars.length > 0 && (
-                            <div className="flex -space-x-1.5">
+                            <div className="flex -space-x-1.5 shrink-0">
                               {voterAvatars.map((src: string, i: number) => (
-                                <div key={i} className="w-5 h-5 rounded-full overflow-hidden border border-surface bg-surface-hover">
+                                <div key={i} className="w-5 h-5 rounded-full overflow-hidden border border-surface bg-surface-hover shrink-0 shadow-xs">
                                   {src ? <img src={src} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-500" />}
                                 </div>
                               ))}
                             </div>
                           )}
-                          <span className="text-xs text-text-secondary w-3 text-right">
-                            {voteCount > 0 ? voteCount : ''}
-                          </span>
+                          {voteCount > 0 && (
+                            <span className="text-xs font-medium text-text-secondary shrink-0 min-w-[14px] text-right">
+                              {voteCount}
+                            </span>
+                          )}
                         </div>
                       </div>
                       
-                      {/* Progress Bar */}
-                      <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden ml-7 max-w-[calc(100%-28px)]">
-                        <div 
-                          className={cn("h-full transition-all duration-300 rounded-full", hasVoted ? "bg-[#00a884]" : "bg-[#00a884]/60")}
-                          style={{ width: `${percentage}%` }}
-                        />
+                      {/* Progress Bar Container with safe padding */}
+                      <div className="w-full pl-7 pr-1 mt-1">
+                        <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden">
+                          <div 
+                            className={cn("h-full transition-all duration-300 rounded-full", hasVoted ? "bg-[#00a884]" : "bg-[#00a884]/60")}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   );
