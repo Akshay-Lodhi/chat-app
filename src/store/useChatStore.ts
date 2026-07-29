@@ -426,15 +426,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     socket.on('receive-message', (message: Message) => {
       const currentUserId = useAuthStore.getState().user?.id;
-      if (message.senderId === currentUserId && message.type !== 'CALL_LOG') return;
-
-      // Check if message is already in state to avoid duplicate unread counts
       const chatMsgs = get().messages[message.chatId] || [];
-      const isDuplicate = chatMsgs.some(m => m.id === message.id);
+      const isDuplicate = chatMsgs.some(m => m.id === message.id || (m.tempId && m.tempId === message.tempId));
+
+      // Skip normal sent messages if they are already added optimistically by the sender
+      if (message.senderId === currentUserId && message.type !== 'CALL_LOG' && isDuplicate) {
+        return;
+      }
       
       get().addMessage(message.chatId, message);
 
-      if (!isDuplicate) {
+      if (!isDuplicate && message.senderId !== currentUserId) {
         const isCurrentChatActive = get().activeChatId === message.chatId && get().activeTab === 'chats';
         if (isCurrentChatActive) {
           socket.emit('message-read', { messageId: message.id, chatId: message.chatId });
