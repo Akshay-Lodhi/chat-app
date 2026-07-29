@@ -20,6 +20,7 @@ import { motion, useDragControls, AnimatePresence } from "framer-motion";
 import { useChatStore } from "@/store/useChatStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { CallDetailsModal } from "./CallDetailsModal";
+import { PollDetailsModal } from './PollDetailsModal';
 import { getCallDetailsPayload } from "@/lib/callUtils";
 import { ContextMenu } from "./ContextMenu";
 import { DeleteMessageModal } from "./DeleteMessageModal";
@@ -176,6 +177,7 @@ export function MessageBubble({
     y: number;
   } | null>(null);
   const [showCallDetails, setShowCallDetails] = useState(false);
+  const [showPollDetails, setShowPollDetails] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [showReactionDetails, setShowReactionDetails] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
@@ -462,47 +464,84 @@ export function MessageBubble({
         const totalVotes = poll.options.reduce((sum: number, opt: any) => sum + (opt.votes?.length || 0), 0);
         
         return (
-          <div className="flex flex-col min-w-[240px] space-y-3 p-1">
-            <h4 className="font-semibold text-[15px]">{poll.question}</h4>
-            <div className="space-y-2">
-              {poll.options.map((opt: any) => {
-                const voteCount = opt.votes?.length || 0;
-                const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
-                const hasVoted = opt.votes?.includes(currentUser?.id);
+          <>
+            <div className="flex flex-col min-w-[260px] p-1">
+              <h4 className="font-semibold text-[16px] mb-3 text-text-primary">{poll.question}</h4>
+              <div className="space-y-3">
+                {poll.options.map((opt: any) => {
+                  const voteCount = opt.votes?.length || 0;
+                  const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+                  const hasVoted = opt.votes?.includes(currentUser?.id);
 
-                return (
-                  <div 
-                    key={opt.id}
-                    onClick={() => socket?.emit('vote-poll', { messageId: message.id, optionId: opt.id, chatId: message.chatId })}
-                    className="relative overflow-hidden rounded-lg bg-black/10 hover:bg-black/20 cursor-pointer transition-colors p-2 flex items-center justify-between"
-                  >
+                  // Get avatars for up to 3 voters
+                  const voterAvatars = opt.votes?.slice(0, 3).map((vId: string) => {
+                    const participant = activeChat?.participants?.find(p => p.userId === vId)?.user;
+                    return participant?.profilePicture || null;
+                  }) || [];
+
+                  return (
                     <div 
-                      className="absolute left-0 top-0 bottom-0 bg-[#00a884]/20 transition-all duration-300" 
-                      style={{ width: `${percentage}%` }}
-                    />
-                    <div className="flex items-center space-x-2 relative z-10 w-full">
-                      <div className={cn(
-                        "w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
-                        poll.multipleAnswers ? "rounded" : "rounded-full",
-                        hasVoted ? "border-[#00a884] bg-[#00a884]" : "border-text-secondary"
-                      )}>
-                        {hasVoted && <Check size={12} className="text-white" />}
+                      key={opt.id}
+                      onClick={() => socket?.emit('vote-poll', { messageId: message.id, optionId: opt.id, chatId: message.chatId })}
+                      className="cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center space-x-3 flex-1">
+                          <div className={cn(
+                            "w-[18px] h-[18px] rounded-full border flex-shrink-0 flex items-center justify-center transition-colors",
+                            hasVoted ? "border-[#00a884] bg-[#00a884]" : "border-text-secondary"
+                          )}>
+                            {hasVoted && <Check size={12} className="text-white" strokeWidth={3} />}
+                          </div>
+                          <span className="text-[15px] flex-1 text-text-primary leading-tight">
+                            {opt.text}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2 pl-2">
+                          {voterAvatars.length > 0 && (
+                            <div className="flex -space-x-1.5">
+                              {voterAvatars.map((src: string, i: number) => (
+                                <div key={i} className="w-5 h-5 rounded-full overflow-hidden border border-surface bg-surface-hover">
+                                  {src ? <img src={src} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-500" />}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <span className="text-xs text-text-secondary w-3 text-right">
+                            {voteCount > 0 ? voteCount : ''}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-sm flex-1">{opt.text}</span>
+                      
+                      {/* Progress Bar */}
+                      <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden ml-7 max-w-[calc(100%-28px)]">
+                        <div 
+                          className={cn("h-full transition-all duration-300 rounded-full", hasVoted ? "bg-[#00a884]" : "bg-[#00a884]/60")}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
                     </div>
-                    {voteCount > 0 && (
-                      <span className="text-xs text-text-secondary relative z-10 ml-2 font-medium">
-                        {voteCount}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              
+              <div className="mt-4 pt-3 border-t border-black/10 flex justify-center">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setShowPollDetails(true); }}
+                  className="text-[#00a884] text-[15px] font-medium hover:underline px-4 py-1"
+                >
+                  View votes
+                </button>
+              </div>
             </div>
-            <div className="text-xs text-text-secondary pt-1 border-t border-black/10">
-              {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
-            </div>
-          </div>
+            
+            <PollDetailsModal 
+              isOpen={showPollDetails} 
+              onClose={() => setShowPollDetails(false)} 
+              message={message} 
+            />
+          </>
         );
       default:
         return (

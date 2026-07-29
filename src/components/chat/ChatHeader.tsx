@@ -137,13 +137,17 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
         </div>
 
         <div className="flex items-center space-x-2 text-text-secondary">
-          <Button variant="ghost" size="icon" onClick={() => startCall('VIDEO')} title="Video Call">
-            <Video size={20} />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => startCall('AUDIO')} title="Voice Call">
-            <Phone size={20} />
-          </Button>
-          <div className="w-px h-6 bg-surface-border mx-1"></div>
+          {chatName !== 'Nexus AI' && (
+            <>
+              <Button variant="ghost" size="icon" onClick={() => startCall('VIDEO')} title="Video Call">
+                <Video size={20} />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => startCall('AUDIO')} title="Voice Call">
+                <Phone size={20} />
+              </Button>
+              <div className="w-px h-6 bg-surface-border mx-1"></div>
+            </>
+          )}
 
           {/* ⋮ Three Dot Menu */}
           <div className="relative" ref={menuRef}>

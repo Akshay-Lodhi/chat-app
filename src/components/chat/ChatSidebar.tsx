@@ -59,6 +59,16 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
       if (!u) return false;
       return (u.name && u.name.toLowerCase().includes(q)) || (u.phoneNumber && u.phoneNumber.includes(q));
     });
+  }).sort((a, b) => {
+    const aMessages = messages[a.id] || [];
+    const bMessages = messages[b.id] || [];
+    const aLastMsg = aMessages[aMessages.length - 1] || a.lastMessage;
+    const bLastMsg = bMessages[bMessages.length - 1] || b.lastMessage;
+    
+    const aTime = aLastMsg ? new Date(aLastMsg.createdAt).getTime() : 0;
+    const bTime = bLastMsg ? new Date(bLastMsg.createdAt).getTime() : 0;
+    
+    return bTime - aTime;
   });
 
   return (
