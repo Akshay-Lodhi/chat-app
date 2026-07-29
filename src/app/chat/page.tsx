@@ -76,7 +76,9 @@ export default function ChatPage() {
 
   const scrollToPinnedMessage = (messageId: string) => {
     if (!messageId) return;
-    const el = document.getElementById(`msg-${messageId}`);
+    const elements = Array.from(document.querySelectorAll(`[id="msg-${messageId}"]`)) as HTMLElement[];
+    const el = elements.find(item => item.offsetParent !== null || item.getBoundingClientRect().height > 0) || elements[0];
+
     if (el) {
       try {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -405,14 +407,11 @@ export default function ChatPage() {
 
           {pinnedMessage && (
             <div 
-              className="bg-[#182229]/95 backdrop-blur border-b border-[#222d34] px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-[#202c33] transition-colors shrink-0"
-              onClick={() => {
-                const el = document.getElementById(`msg-${pinnedMessage.id}`);
-                if (el) {
-                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  el.classList.add('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/30');
-                  setTimeout(() => el.classList.remove('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/30'), 2500);
-                }
+              className="bg-[#182229]/95 backdrop-blur border-b border-[#222d34] px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-[#202c33] transition-colors shrink-0 select-none active:scale-[0.99]"
+              onClick={() => scrollToPinnedMessage(pinnedMessage.id)}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                scrollToPinnedMessage(pinnedMessage.id);
               }}
             >
               <Pin size={16} className="text-[#25D366] mr-3 shrink-0 rotate-45" />
