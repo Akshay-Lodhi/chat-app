@@ -108,7 +108,7 @@ export function CallsView() {
                 "Contact User",
             profilePicture: isGroup && chat?.isGroup
               ? chat?.groupPicture
-              : null,
+              : (otherParticipant?.profilePicture || (otherParticipant as any)?.user?.profilePicture || null),
           },
           type: isVideo ? "VIDEO" : "AUDIO",
           isOutgoing: isMine,
@@ -173,7 +173,7 @@ export function CallsView() {
           : otherUser?.name || otherUser?.phoneNumber || "Contact User",
         profilePicture: isGroup && c.chat?.isGroup
           ? c.chat?.groupPicture
-          : null,
+          : (otherUser?.profilePicture || (otherUser as any)?.user?.profilePicture || null),
       },
       type: c.type || "AUDIO",
       isOutgoing: isMine,

@@ -71,7 +71,7 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
           <div className="flex-1 overflow-y-auto bg-background pb-10">
             {/* Profile Picture */}
             <div className="bg-surface py-8 flex flex-col items-center justify-center shadow-sm">
-              <Avatar src={otherParticipant.profilePicture} alt={contactName} size="xl" className="mb-4" />
+              <Avatar src={contactUser?.profilePicture || otherParticipant?.profilePicture} alt={contactName} size="xl" className="mb-4" />
               <h1 className="text-xl font-medium text-text-primary text-center">{contactName}</h1>
               <p className="text-sm text-text-secondary mt-1">{contactPhone}</p>
             </div>
