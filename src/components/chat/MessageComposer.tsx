@@ -8,6 +8,7 @@ import { EmojiPicker } from './EmojiPicker';
 import CreatePollModal from './CreatePollModal';
 import ScheduleMessageModal from './ScheduleMessageModal';
 import PendingScheduledModal from './PendingScheduledModal';
+import AIAssistantModal from './AIAssistantModal';
 
 interface MessageComposerProps {
   onSendMessage: (text: string) => void;
@@ -45,6 +46,7 @@ export function MessageComposer({
   const [showPollModal, setShowPollModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showPendingScheduledModal, setShowPendingScheduledModal] = useState(false);
+  const [showAiAssistantModal, setShowAiAssistantModal] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
@@ -105,7 +107,8 @@ export function MessageComposer({
     const lastMsg = chatMsgs[chatMsgs.length - 1];
 
     if (lastMsg && lastMsg.senderId !== 'nexus-ai-system' && lastMsg.type === 'TEXT' && lastMsg.content) {
-      fetch('/api/chat/smart-replies', {
+      const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+      apiClient(`${SERVER_URL}/api/chats/smart-replies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -436,6 +439,19 @@ export function MessageComposer({
               <Smile size={22} />
             </button>
 
+            {/* Private AI Writing Assistant */}
+            <button 
+              type="button" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAiAssistantModal(true);
+              }}
+              className="p-1 text-purple-400 hover:text-purple-300 transition-colors shrink-0 hover:bg-purple-500/10 rounded-full" 
+              title="Private AI Writing Assistant"
+            >
+              <Sparkles size={19} className="animate-pulse" />
+            </button>
+
             {/* Input field */}
             <input
               type="text"
@@ -509,6 +525,19 @@ export function MessageComposer({
           <PendingScheduledModal
             chatId={activeChatId}
             onClose={() => setShowPendingScheduledModal(false)}
+          />
+        )}
+        {showAiAssistantModal && activeChatId && (
+          <AIAssistantModal
+            chatId={activeChatId}
+            lastMessageContent={
+              (messages[activeChatId] && messages[activeChatId].length > 0)
+                ? messages[activeChatId][messages[activeChatId].length - 1]?.content || ''
+                : ''
+            }
+            onUseDraft={(draftText) => setMessage(draftText)}
+            onSendMessage={(sendText) => onSendMessage(sendText)}
+            onClose={() => setShowAiAssistantModal(false)}
           />
         )}
       </AnimatePresence>
