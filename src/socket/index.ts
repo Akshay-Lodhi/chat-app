@@ -1024,6 +1024,38 @@ export function setupSocket(server: HttpServer) {
     socket.on('disconnect', async () => {
       clearInterval(interval);
 
+      // Clean up active call rooms when socket disconnects (e.g. page refresh)
+      for (const [chatId, room] of activeCallRooms.entries()) {
+        if (room.participants.has(userId)) {
+          room.participants.delete(userId);
+
+          const activeParticipants = Array.from(room.participants.values()).filter(
+            (p: any) => p.status === 'CONNECTED' || p.status === 'JOINED'
+          );
+
+          const isGroupCall = room.everJoinedUserIds.size > 2 || room.participants.size > 2 || Boolean((room as any).isGroup);
+
+          if (isGroupCall) {
+            // Group call: if other members remain, group call stays alive!
+            if (activeParticipants.length > 0) {
+              chatNamespace.to(`call-room-${chatId}`).emit('call-room-user-left', { chatId, userId });
+              chatNamespace.to(`call-room-${chatId}`).emit('call-end', { callerId: userId });
+              chatNamespace.emit('active-call-update', { chatId, activeCount: activeParticipants.length, callType: 'VIDEO' });
+              broadcastRoomState(chatId);
+            } else {
+              activeCallRooms.delete(chatId);
+              chatNamespace.emit('active-call-update', { chatId, activeCount: 0, callType: 'VIDEO' });
+            }
+          } else {
+            // 1:1 Personal Call: when a user leaves/refreshes, 1:1 call ends for both
+            activeCallRooms.delete(chatId);
+            chatNamespace.to(chatId).emit('call-end', { callerId: userId });
+            chatNamespace.to(`call-room-${chatId}`).emit('call-end', { callerId: userId });
+            chatNamespace.emit('active-call-update', { chatId, activeCount: 0, callType: 'VIDEO' });
+          }
+        }
+      }
+
       const userSockets = activeUserSockets.get(userId);
       if (userSockets) {
         userSockets.delete(socket.id);
