@@ -89,6 +89,56 @@ Write your best, most helpful, and natural reply to ${senderName} below:
   }
 };
 
+export const generateSmartReplies = async (messageContent: string, senderName?: string): Promise<string[]> => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return ["Sounds good! 👍", "Let me check and get back to you", "Thanks! 😊"];
+    }
+
+    const prompt = `
+Given the following chat message from ${senderName || 'a contact'}:
+"${messageContent}"
+
+Generate exactly 3 short, natural, conversational quick reply suggestions (between 1 to 5 words each). 
+Respond ONLY with a valid JSON array of 3 strings. Example: ["Sounds great! 👍", "I'll check now", "Thanks!"]
+Do not add markdown backticks or extra text.
+`.trim();
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }]
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      return ["Sounds good! 👍", "Let me check and get back to you", "Thanks! 😊"];
+    }
+
+    const data = await response.json();
+    let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.slice(0, 3).map(s => String(s).trim());
+    }
+    return ["Sounds good! 👍", "Let me check and get back to you", "Thanks! 😊"];
+  } catch (error) {
+    console.error('Error generating smart replies:', error);
+    return ["Sounds good! 👍", "Let me check and get back to you", "Thanks! 😊"];
+  }
+};
+
 export const transcribeVoiceNote = async (messageId: string): Promise<string> => {
   const message = await prisma.message.findUnique({
     where: { id: messageId }

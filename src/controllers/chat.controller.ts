@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { getIO } from '../socket';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { ChatService } from '../services/chat.service';
-import { transcribeVoiceNote, summarizeChatMessages } from '../services/ai.service';
+import { transcribeVoiceNote, summarizeChatMessages, generateSmartReplies } from '../services/ai.service';
 
 export const getChats = async (req: AuthRequest, res: Response) => {
   try {
@@ -348,5 +348,17 @@ export const summarizeChatController = async (req: AuthRequest, res: Response) =
   } catch (error: any) {
     console.error('Error summarizing chat:', error);
     res.status(500).json({ error: error.message || 'Failed to summarize chat' });
+  }
+};
+
+export const getSmartRepliesController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { content, senderName } = req.body;
+    if (!content) return res.status(400).json({ error: 'Message content is required' });
+    const replies = await generateSmartReplies(content, senderName);
+    res.json({ replies });
+  } catch (error: any) {
+    console.error('Error generating smart replies:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate smart replies' });
   }
 };

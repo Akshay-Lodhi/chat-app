@@ -275,7 +275,7 @@ export function setupSocket(server: HttpServer) {
 
         if (chat) {
           const isAiInChat = chat.participants.some((p: any) => p.userId === 'nexus-ai-system');
-          const isAiMentioned = content?.includes('@NexusAI');
+          const isAiMentioned = Boolean(content && /@(ai|nexusai)\b/i.test(content));
           
           if (isAiInChat || isAiMentioned) {
             // Show typing indicator

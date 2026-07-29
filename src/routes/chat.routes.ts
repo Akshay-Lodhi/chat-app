@@ -22,7 +22,8 @@ import {
   getPendingScheduledMessagesController,
   cancelScheduledMessageController,
   transcribeAudioController,
-  summarizeChatController
+  summarizeChatController,
+  getSmartRepliesController
 } from '../controllers/chat.controller';
 
 const router = Router();
@@ -92,5 +93,8 @@ router.post('/messages/:messageId/transcribe', requireAuth, transcribeAudioContr
 
 // Summarize chat history with AI
 router.post('/:chatId/summarize', requireAuth, summarizeChatController as any);
+
+// Generate AI smart reply suggestions
+router.post('/smart-replies', requireAuth, getSmartRepliesController as any);
 
 export default router;
