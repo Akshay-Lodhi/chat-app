@@ -242,7 +242,12 @@ export const useCallStore = create<CallState>((set, get) => ({
       }
     } else {
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        let screenStream: MediaStream;
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        } catch (audioErr) {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        }
         const screenVideoTrack = screenStream.getVideoTracks()[0];
 
         screenVideoTrack.onended = () => {
