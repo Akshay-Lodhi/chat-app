@@ -8,6 +8,7 @@ export interface Chat {
   name?: string | null;
   isGroup: boolean;
   groupPicture?: string | null;
+  disappearingTimer?: number | null;
   participants: any[]; // refine type later
   lastMessage?: any;
   unreadCount?: number;
@@ -19,7 +20,7 @@ export interface Message {
   chatId: string;
   senderId: string;
   content: string | null;
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'CALL_LOG' | 'LOCATION' | 'STORY_REPLY' | 'POLL';
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'CALL_LOG' | 'LOCATION' | 'STORY_REPLY' | 'POLL' | 'SYSTEM';
   mediaUrl: string | null;
   metadata?: any;
   createdAt: string;
@@ -82,6 +83,7 @@ interface ChatState {
   toggleReaction: (chatId: string, messageId: string, reaction: string) => void;
   togglePinChat: (chatId: string) => Promise<void>;
   togglePinMessage: (chatId: string, messageId: string) => Promise<void>;
+  setDisappearingTimer: (chatId: string, timer: number) => Promise<void>;
 
   fetchBlockedUsers: () => Promise<void>;
   blockUser: (userId: string) => Promise<boolean>;
@@ -228,11 +230,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
         method: 'POST',
         credentials: 'include'
       });
-      
-      // Wait for socket to handle the update
-      // But we can optimistically update here if needed
     } catch (err) {
       console.error('Error pinning message', err);
+    }
+  },
+
+  setDisappearingTimer: async (chatId: string, timer: number) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/disappearing`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timer }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        set(state => {
+          const chats = state.chats.map(c => c.id === chatId ? { ...c, disappearingTimer: timer } : c);
+          return { chats };
+        });
+      }
+    } catch (err) {
+      console.error('Error setting disappearing timer', err);
     }
   },
   
@@ -390,6 +408,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
           };
         }
         return state;
+      });
+    });
+
+    socket.on('disappearing-timer-updated', ({ chatId, disappearingTimer, systemMessage }) => {
+      set((state) => {
+        const chats = state.chats.map(chat => {
+          if (chat.id === chatId) {
+            return { ...chat, disappearingTimer };
+          }
+          return chat;
+        });
+
+        const currentMsgs = state.messages[chatId] || [];
+        const newMsgs = systemMessage ? [...currentMsgs, systemMessage] : currentMsgs;
+
+        return {
+          chats,
+          messages: {
+            ...state.messages,
+            [chatId]: newMsgs
+          }
+        };
       });
     });
 

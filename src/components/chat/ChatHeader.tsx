@@ -5,11 +5,12 @@ import { createPortal } from 'react-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
-import { Video, Phone, ArrowLeft, Search, Trash2, X, MoreVertical, AlertTriangle, Copy, Forward, CornerUpLeft } from 'lucide-react';
+import { Video, Phone, ArrowLeft, Search, Trash2, X, MoreVertical, AlertTriangle, Copy, Forward, CornerUpLeft, Clock } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WallpaperModal } from './WallpaperModal';
+import DisappearingMessagesModal from './DisappearingMessagesModal';
 import { cn } from '@/lib/utils';
 
 interface ChatHeaderProps {
@@ -99,6 +100,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   };
 
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
+  const [showDisappearingModal, setShowDisappearingModal] = useState(false);
   const activeCallInChat = activeChatId ? activeCalls[activeChatId] : null;
 
   return (
@@ -111,6 +113,13 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
         }}
       >
         <WallpaperModal isOpen={showWallpaperModal} onClose={() => setShowWallpaperModal(false)} />
+        {showDisappearingModal && activeChat && (
+          <DisappearingMessagesModal
+            chatId={activeChat.id}
+            currentTimer={activeChat.disappearingTimer}
+            onClose={() => setShowDisappearingModal(false)}
+          />
+        )}
         <div className="flex items-center flex-1 min-w-0">
           <button onClick={onBack} className="md:hidden mr-2 p-2 -ml-2 text-text-secondary hover:text-text-primary transition-colors">
             <ArrowLeft size={24} />
@@ -122,7 +131,14 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
           >
             <Avatar src={chatImage} fallback={chatName?.charAt(0) || undefined} size="md" className="mr-3 shadow-sm group-hover:opacity-80 transition-opacity" />
             <div className="flex flex-col overflow-hidden mr-4">
-              <h2 className="text-base font-medium text-text-primary truncate">{chatName}</h2>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h2 className="text-base font-medium text-text-primary truncate">{chatName}</h2>
+                {activeChat?.disappearingTimer && activeChat.disappearingTimer > 0 ? (
+                  <span title="Disappearing messages active" className="text-emerald-500 flex items-center shrink-0">
+                    <Clock size={14} />
+                  </span>
+                ) : null}
+              </div>
               {typingStatus?.isTyping ? (
                 <span className="text-sm text-primary animate-pulse font-medium">typing...</span>
               ) : isOnline ? (
@@ -192,6 +208,21 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                     >
                       <Search size={16} className="text-text-secondary" />
                       <span>Search Messages</span>
+                    </button>
+
+                    {/* Disappearing Messages */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowDisappearingModal(true);
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-text-primary hover:bg-white/5 transition-colors text-sm"
+                    >
+                      <Clock size={16} className="text-emerald-500" />
+                      <span>Disappearing Messages</span>
                     </button>
 
                     <div className="h-px bg-surface-border mx-3" />

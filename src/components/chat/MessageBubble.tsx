@@ -14,7 +14,8 @@ import {
   Trash2,
   X,
   User,
-  Star
+  Star,
+  Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useDragControls, AnimatePresence } from "framer-motion";
@@ -239,6 +240,18 @@ export function MessageBubble({
   // Early return if deleted for this user
   if (message.deletedForUsers?.includes(currentUser?.id || "")) {
     return null;
+  }
+
+  // System Message (Disappearing timer updates, etc.)
+  if (message.type === 'SYSTEM') {
+    return (
+      <div className="flex justify-center my-3 px-4">
+        <div className="bg-surface-hover/80 text-text-secondary border border-border/40 text-xs px-3.5 py-1.5 rounded-xl shadow-xs text-center max-w-md flex items-center justify-center gap-1.5 font-medium">
+          <Clock size={13} className="text-emerald-500 shrink-0" />
+          <span>{message.content}</span>
+        </div>
+      </div>
+    );
   }
 
   const handleReaction = (emoji: string) => {
@@ -713,6 +726,7 @@ export function MessageBubble({
             isMine ? "text-white/80" : "text-text-tertiary",
           )}
         >
+          {message.expiresAt && <span title="Disappearing message"><Clock size={11} className="mr-0.5 text-emerald-400" /></span>}
           {message.isStarred && <Star size={11} className="mr-0.5 fill-current" />}
           {message.isEdited && <span className="italic mr-0.5">(Edited)</span>}
           <span>{msgTime}</span>
