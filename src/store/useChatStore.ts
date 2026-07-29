@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from './useAuthStore';
 
-interface Chat {
+export interface Chat {
   id: string;
   name?: string | null;
   isGroup: boolean;
@@ -14,7 +14,7 @@ interface Chat {
   adminId?: string | null;
 }
 
-interface Message {
+export interface Message {
   id: string;
   chatId: string;
   senderId: string;
@@ -23,6 +23,10 @@ interface Message {
   mediaUrl: string | null;
   metadata?: any;
   createdAt: string;
+  updatedAt?: string;
+  isEdited?: boolean;
+  isPinned?: boolean;
+  expiresAt?: string;
   status?: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ';
   deliveredAt?: string;
   readAt?: string;
@@ -34,6 +38,7 @@ interface Message {
   replyTo?: any | null;
   reactions?: Record<string, string>;
   tempId?: string;
+  isStarred?: boolean;
 }
 
 interface ChatState {
@@ -81,6 +86,10 @@ interface ChatState {
   unblockUser: (userId: string) => Promise<boolean>;
   reportUser: (userId: string, reason?: string) => Promise<boolean>;
   
+  replyingTo: Message | null;
+  setReplyingTo: (msg: Message | null) => void;
+  editingMessageId: string | null;
+  setEditingMessageId: (id: string | null) => void;
   selectedMessageIds: string[];
   toggleMessageSelection: (messageId: string) => void;
   clearMessageSelection: () => void;
@@ -98,6 +107,10 @@ interface ChatState {
   setIsMessageSearchOpen: (isOpen: boolean) => void;
   messageForInfo: any | null;
   setMessageForInfo: (message: any | null) => void;
+  
+  starredMessages: Message[];
+  fetchStarredMessages: () => Promise<void>;
+  toggleStar: (messageId: string, chatId?: string) => Promise<void>;
 }
 
 const pendingMessageFetches = new Map<string, Promise<any>>();
@@ -109,6 +122,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeChatId: null,
   activeTab: 'chats',
   setActiveTab: (tab) => set({ activeTab: tab }),
+  replyingTo: null,
+  setReplyingTo: (msg) => set({ replyingTo: msg }),
+  editingMessageId: null,
+  setEditingMessageId: (id) => set({ editingMessageId: id }),
   calls: [],
   messages: {},
   isConnecting: false,
@@ -119,6 +136,60 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setIsMessageSearchOpen: (isOpen) => set({ isMessageSearchOpen: isOpen }),
   messageForInfo: null,
   setMessageForInfo: (message) => set({ messageForInfo: message }),
+  
+  starredMessages: [],
+  fetchStarredMessages: async () => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/starred`, {
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        set({ starredMessages: data });
+      } else {
+        console.error('Expected array of starred messages, got:', data);
+      }
+    } catch (err) {
+      console.error('Error fetching starred messages', err);
+    }
+  },
+  
+  toggleStar: async (messageId, chatId) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/star`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      const { isStarred } = data;
+      
+      // Update in active chat messages if we have the chatId
+      if (chatId) {
+        set(state => {
+          const chatMsgs = state.messages[chatId] || [];
+          const idx = chatMsgs.findIndex(m => m.id === messageId);
+          if (idx !== -1) {
+            const newMsgs = [...chatMsgs];
+            newMsgs[idx] = { ...newMsgs[idx], isStarred };
+            return {
+              messages: {
+                ...state.messages,
+                [chatId]: newMsgs
+              }
+            };
+          }
+          return state;
+        });
+      }
+      
+      // Also refresh the starred messages list
+      get().fetchStarredMessages();
+    } catch (err) {
+      console.error('Error toggling star', err);
+    }
+  },
   
   notificationToast: null,
   setNotificationToast: (toast) => set({ notificationToast: toast }),

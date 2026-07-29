@@ -23,8 +23,18 @@ export function MessageComposer({
   replyingTo,
   onCancelReply
 }: MessageComposerProps) {
-  const { activeChatId, socket, chats, blockedUsers, sendTypingStatus } = useChatStore();
+  const { activeChatId, socket, chats, blockedUsers, sendTypingStatus, editingMessageId, setEditingMessageId, messages } = useChatStore();
   const [message, setMessage] = useState('');
+
+  const editingMessage = editingMessageId && activeChatId ? messages[activeChatId]?.find(m => m.id === editingMessageId) : null;
+
+  useEffect(() => {
+    if (editingMessage && editingMessage.type === 'TEXT') {
+      setMessage(editingMessage.content || '');
+    } else if (!editingMessageId) {
+      setMessage('');
+    }
+  }, [editingMessageId, editingMessage]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -62,8 +72,19 @@ export function MessageComposer({
     if (message.trim()) {
       if (activeChatId) sendTypingStatus(activeChatId, false);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      onSendMessage(message);
-      setMessage('');
+      
+      if (editingMessageId && activeChatId) {
+        socket?.emit('edit-message', {
+          messageId: editingMessageId,
+          content: message.trim(),
+          chatId: activeChatId
+        });
+        setEditingMessageId(null);
+        setMessage('');
+      } else {
+        onSendMessage(message);
+        setMessage('');
+      }
     }
   };
 
@@ -168,9 +189,30 @@ export function MessageComposer({
     >
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
 
-      {/* Reply Context */}
+      {/* Edit/Reply Context */}
       <AnimatePresence>
-        {replyingTo && (
+        {editingMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: 10, height: 0 }}
+            className="flex items-center justify-between bg-[#1f2c34] p-3 rounded-2xl border-l-4 border-warning mb-2 shadow-lg relative z-0"
+          >
+            <div className="flex flex-col min-w-0">
+              <span className="text-warning text-xs font-semibold flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                Editing message
+              </span>
+              <span className="text-text-secondary text-sm truncate max-w-sm mt-1">
+                {editingMessage.content}
+              </span>
+            </div>
+            <button onClick={() => setEditingMessageId(null)} className="p-2 hover:bg-white/10 rounded-full text-text-secondary transition-colors shrink-0">
+              <X size={18} />
+            </button>
+          </motion.div>
+        )}
+        {!editingMessage && replyingTo && (
           <motion.div 
             initial={{ opacity: 0, y: 10, height: 0 }}
             animate={{ opacity: 1, y: 0, height: 'auto' }}

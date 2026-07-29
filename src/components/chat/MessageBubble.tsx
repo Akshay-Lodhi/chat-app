@@ -14,6 +14,7 @@ import {
   Trash2,
   X,
   User,
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useDragControls, AnimatePresence } from "framer-motion";
@@ -156,7 +157,9 @@ export function MessageBubble({
     deleteMessage,
     selectedMessageIds,
     toggleMessageSelection,
-    socket
+    socket,
+    setEditingMessageId,
+    toggleStar
   } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
@@ -709,6 +712,8 @@ export function MessageBubble({
             isMine ? "text-white/80" : "text-text-tertiary",
           )}
         >
+          {message.isStarred && <Star size={11} className="mr-0.5 fill-current" />}
+          {message.isEdited && <span className="italic mr-0.5">(Edited)</span>}
           <span>{msgTime}</span>
           {isMine && message.type !== "CALL_LOG" && (
             <span>
@@ -796,8 +801,16 @@ export function MessageBubble({
           onCopy={() => {
             if (message.content) navigator.clipboard.writeText(message.content);
           }}
+          onEdit={
+            isMine && message.type === 'TEXT' && 
+            (new Date().getTime() - new Date(message.createdAt).getTime()) < 15 * 60 * 1000
+              ? () => { setEditingMessageId(message.id); }
+              : undefined
+          }
+          onStar={() => { toggleStar(message.id, message.chatId); }}
+          isStarred={message.isStarred}
           onDelete={() => setIsDeleteModalOpen(true)}
-          canDelete={!message.deletedForEveryone} // if it's already deleted, maybe prevent delete again
+          canDelete={!message.deletedForEveryone}
         />
 
         <DeleteMessageModal
