@@ -162,6 +162,7 @@ enum MessageType {
   LOCATION
   STORY_REPLY
   POLL
+  SYSTEM
 }
 
 model MessageStatus {

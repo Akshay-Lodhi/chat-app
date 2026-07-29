@@ -256,3 +256,29 @@ export const togglePinMessage = async (req: AuthRequest, res: Response) => {
     res.status(400).json({ error: error.message || 'Server error' });
   }
 };
+
+export const updateDisappearingTimer = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const { timer } = req.body;
+    
+    if (typeof timer !== 'number') {
+      return res.status(400).json({ error: 'Timer (in seconds) is required' });
+    }
+
+    const result = await ChatService.updateDisappearingTimer(req.user!.userId, chatId, timer);
+
+    // Broadcast socket event for disappearing timer update and system message
+    const io = getIO().of('/chat');
+    io.to(chatId).emit('disappearing-timer-updated', {
+      chatId,
+      disappearingTimer: result.disappearingTimer,
+      systemMessage: result.systemMessage
+    });
+
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error('Error updating disappearing timer:', error);
+    res.status(400).json({ error: error.message || 'Server error' });
+  }
+};

@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { prisma } from '../lib/prisma';
 import { generateAIResponse } from '../services/ai.service';
+import { ChatService } from '../services/chat.service';
 import Redis from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import * as cheerio from 'cheerio';
@@ -48,6 +49,11 @@ export function setupSocket(server: HttpServer) {
   }
 
   ioInstance = io;
+
+  // Run cleanup of expired disappearing messages every 60 seconds
+  setInterval(() => {
+    ChatService.cleanupExpiredMessages();
+  }, 60 * 1000);
 
   const chatNamespace = io.of('/chat');
 
@@ -166,10 +172,18 @@ export function setupSocket(server: HttpServer) {
 
     socket.on('send-message', async (data, callback) => {
       const { chatId, content, type, mediaUrl, tempId, replyToId, metadata } = data;
-      // In a real app, you'd save the message to the DB here and then broadcast
-      // For performance, we broadcast immediately and save async
+
+      const chat = await prisma.chat.findUnique({
+        where: { id: chatId },
+        select: { disappearingTimer: true }
+      });
+
+      const expiresAt = chat?.disappearingTimer && chat.disappearingTimer > 0
+        ? new Date(Date.now() + chat.disappearingTimer * 1000)
+        : null;
+
       const message = await prisma.message.create({
-        data: { chatId, senderId: userId, content, type, mediaUrl, replyToId, metadata } as any,
+        data: { chatId, senderId: userId, content, type, mediaUrl, replyToId, metadata, expiresAt } as any,
         include: { replyTo: true, sender: true }
       });
       

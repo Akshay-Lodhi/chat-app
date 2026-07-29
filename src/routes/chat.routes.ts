@@ -16,7 +16,8 @@ import {
   toggleStarMessage, 
   getStarredMessages, 
   togglePinChat, 
-  togglePinMessage 
+  togglePinMessage,
+  updateDisappearingTimer 
 } from '../controllers/chat.controller';
 
 const router = Router();
@@ -68,5 +69,8 @@ router.post('/:chatId/pin', requireAuth, togglePinChat as any);
 
 // Toggle pin on a message
 router.post('/messages/:messageId/pin', requireAuth, togglePinMessage as any);
+
+// Update disappearing message timer for a chat
+router.put('/:chatId/disappearing', requireAuth, updateDisappearingTimer as any);
 
 export default router;

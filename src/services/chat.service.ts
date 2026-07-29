@@ -16,6 +16,12 @@ export class ChatService {
           }
         },
         messages: {
+          where: {
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gt: new Date() } }
+            ]
+          },
           orderBy: { createdAt: 'desc' },
           take: 1
         },
@@ -318,7 +324,13 @@ export class ChatService {
   static async getMessagesForChat(userId: string, chatId: string, limit = 50, cursor?: string) {
     // We will expand cursor logic in Phase 2
     const messages = await prisma.message.findMany({
-      where: { chatId },
+      where: {
+        chatId,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } }
+        ]
+      },
       orderBy: [
         { createdAt: 'desc' },
         { id: 'desc' }
@@ -624,5 +636,76 @@ export class ChatService {
     });
 
     return { success: true, isPinned: updated.isPinned, messageId, chatId: message.chatId };
+  }
+
+  static async updateDisappearingTimer(userId: string, chatId: string, timer: number) {
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true } } }
+        }
+      }
+    });
+
+    if (!chat) {
+      throw new Error('Chat not found');
+    }
+
+    const participant = chat.participants.find((p: any) => p.userId === userId);
+    if (!participant) {
+      throw new Error('Not a participant in this chat');
+    }
+
+    if (chat.isGroup && chat.adminId !== userId) {
+      throw new Error('Only the group admin can update disappearing message settings');
+    }
+
+    const updatedChat = await prisma.chat.update({
+      where: { id: chatId },
+      data: { disappearingTimer: timer }
+    });
+
+    const senderName = participant.user?.name || 'A user';
+    let timerText = 'off';
+    if (timer === 86400) timerText = '24 hours';
+    else if (timer === 604800) timerText = '7 days';
+    else if (timer === 7776000) timerText = '90 days';
+
+    const systemText = timer > 0
+      ? `${senderName} set disappearing messages to ${timerText}. New messages will disappear after this time.`
+      : `${senderName} turned off disappearing messages.`;
+
+    const systemMessage = await prisma.message.create({
+      data: {
+        chatId,
+        senderId: userId,
+        content: systemText,
+        type: 'SYSTEM' as any
+      },
+      include: {
+        sender: {
+          select: { id: true, name: true, phoneNumber: true, profilePicture: true }
+        }
+      }
+    });
+
+    return { chat: updatedChat, systemMessage, disappearingTimer: timer };
+  }
+
+  static async cleanupExpiredMessages() {
+    try {
+      const now = new Date();
+      const deleted = await prisma.message.deleteMany({
+        where: {
+          expiresAt: { lte: now }
+        }
+      });
+      if (deleted.count > 0) {
+        console.log(`Cleaned up ${deleted.count} expired disappearing messages.`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up expired messages:', error);
+    }
   }
 }
