@@ -340,7 +340,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
       </div>
 
       {/* Ongoing Call Join Banner */}
-      {activeCallInChat && !isCalling && (
+      {activeCallInChat && !isCalling && (activeChat?.isGroup ? activeCallInChat.activeCount > 0 : activeCallInChat.activeCount > 1) && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

@@ -124,7 +124,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   acceptCall: () => set({ isReceivingCall: false, isCalling: true }),
 
   endCall: () => {
-    const { peers, localStream } = get();
+    const { peers, localStream, activeCallChatId } = get();
     Object.values(peers).forEach(peer => {
       try { peer.destroy(); } catch(e) {}
     });
@@ -132,6 +132,12 @@ export const useCallStore = create<CallState>((set, get) => ({
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
     }
+
+    const newActiveCalls = { ...get().activeCalls };
+    if (activeCallChatId) {
+      delete newActiveCalls[activeCallChatId];
+    }
+
     set({ 
       isCalling: false, 
       isReceivingCall: false,
@@ -145,7 +151,9 @@ export const useCallStore = create<CallState>((set, get) => ({
       pendingOffer: null,
       callStartTime: null,
       invitedUserIds: [],
-      roomParticipants: {}
+      roomParticipants: {},
+      activeCalls: newActiveCalls,
+      isScreenSharing: false
     });
   },
 
@@ -215,19 +223,26 @@ export const useCallStore = create<CallState>((set, get) => ({
 
         Object.values(peers).forEach((peer: any) => {
           if (peer && !peer.destroyed) {
+            let replaced = false;
             try {
-              if (oldScreenTrack && peer.replaceTrack) {
-                peer.replaceTrack(oldScreenTrack, newVideoTrack, camStream);
-              }
               if (peer._pc) {
                 const senders = peer._pc.getSenders();
                 const videoSender = senders.find((s: any) => s.track && s.track.kind === 'video');
                 if (videoSender) {
                   videoSender.replaceTrack(newVideoTrack);
+                  replaced = true;
                 }
               }
-            } catch (e) {
-              console.error('Error replacing track back to camera:', e);
+            } catch (err) {
+              console.warn('Native replaceTrack error:', err);
+            }
+
+            if (!replaced && oldScreenTrack && typeof peer.replaceTrack === 'function') {
+              try {
+                peer.replaceTrack(oldScreenTrack, newVideoTrack, camStream);
+              } catch (e) {
+                // Ignore simple-peer internal tracking error
+              }
             }
           }
         });
@@ -277,19 +292,26 @@ export const useCallStore = create<CallState>((set, get) => ({
 
         Object.values(peers).forEach((peer: any) => {
           if (peer && !peer.destroyed) {
+            let replaced = false;
             try {
-              if (oldVideoTrack && peer.replaceTrack) {
-                peer.replaceTrack(oldVideoTrack, screenVideoTrack, screenStream!);
-              }
               if (peer._pc) {
                 const senders = peer._pc.getSenders();
                 const videoSender = senders.find((s: any) => s.track && s.track.kind === 'video');
                 if (videoSender) {
                   videoSender.replaceTrack(screenVideoTrack);
+                  replaced = true;
                 }
               }
-            } catch (e) {
-              console.error('Error replacing track to screen:', e);
+            } catch (err) {
+              console.warn('Native replaceTrack error:', err);
+            }
+
+            if (!replaced && oldVideoTrack && typeof peer.replaceTrack === 'function') {
+              try {
+                peer.replaceTrack(oldVideoTrack, screenVideoTrack, screenStream!);
+              } catch (e) {
+                // Ignore simple-peer internal tracking error
+              }
             }
           }
         });
