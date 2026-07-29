@@ -144,6 +144,19 @@ export function setupSocket(server: HttpServer) {
       const chatIds = userChats.map((c: any) => c.chatId);
       chatIds.forEach((id: string) => socket.join(id));
 
+      // Broadcast ongoing active calls in user's chats to newly connected socket
+      chatIds.forEach((cId: string) => {
+        const room = activeCallRooms.get(cId);
+        if (room) {
+          const activeCount = Array.from(room.participants.values()).filter(
+            (p: any) => p.status === 'CONNECTED' || p.status === 'JOINED'
+          ).length;
+          if (activeCount > 0) {
+            socket.emit('active-call-update', { chatId: cId, activeCount, callType: room.callType });
+          }
+        }
+      });
+
       if (chatIds.length > 0) {
         const pendingMessages = await prisma.message.findMany({
           where: {
