@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { getIO } from '../socket';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { ChatService } from '../services/chat.service';
-import { transcribeVoiceNote, summarizeChatMessages, generateSmartReplies } from '../services/ai.service';
+import { transcribeVoiceNote, summarizeChatMessages, generateSmartReplies, generateAIResponse } from '../services/ai.service';
 
 export const getChats = async (req: AuthRequest, res: Response) => {
   try {
@@ -360,5 +360,17 @@ export const getSmartRepliesController = async (req: AuthRequest, res: Response)
   } catch (error: any) {
     console.error('Error generating smart replies:', error);
     res.status(500).json({ error: error.message || 'Failed to generate smart replies' });
+  }
+};
+
+export const handleAiPromptController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { chatId, prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+    const response = await generateAIResponse(chatId || '', prompt, req.user?.userId || 'User');
+    res.json({ response });
+  } catch (error: any) {
+    console.error('Error handling AI prompt:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate AI response' });
   }
 };

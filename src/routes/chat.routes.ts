@@ -23,7 +23,8 @@ import {
   cancelScheduledMessageController,
   transcribeAudioController,
   summarizeChatController,
-  getSmartRepliesController
+  getSmartRepliesController,
+  handleAiPromptController
 } from '../controllers/chat.controller';
 
 const router = Router();
@@ -96,5 +97,8 @@ router.post('/:chatId/summarize', requireAuth, summarizeChatController as any);
 
 // Generate AI smart reply suggestions
 router.post('/smart-replies', requireAuth, getSmartRepliesController as any);
+
+// Private AI Writing Assistant Prompt
+router.post('/ai-prompt', requireAuth, handleAiPromptController as any);
 
 export default router;
