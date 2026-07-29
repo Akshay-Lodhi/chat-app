@@ -159,7 +159,8 @@ export function MessageBubble({
     toggleMessageSelection,
     socket,
     setEditingMessageId,
-    toggleStar
+    toggleStar,
+    togglePinMessage
   } = useChatStore();
   const { user: currentUser } = useAuthStore();
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
@@ -809,6 +810,8 @@ export function MessageBubble({
           }
           onStar={() => { toggleStar(message.id, message.chatId); }}
           isStarred={message.isStarred}
+          onPin={() => { togglePinMessage(message.chatId, message.id); }}
+          isPinned={message.isPinned}
           onDelete={() => setIsDeleteModalOpen(true)}
           canDelete={!message.deletedForEveryone}
         />

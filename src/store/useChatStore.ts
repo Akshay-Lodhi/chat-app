@@ -80,6 +80,8 @@ interface ChatState {
   clearChat: (chatId: string) => Promise<boolean>;
   sendTypingStatus: (chatId: string, isTyping: boolean) => void;
   toggleReaction: (chatId: string, messageId: string, reaction: string) => void;
+  togglePinChat: (chatId: string) => Promise<void>;
+  togglePinMessage: (chatId: string, messageId: string) => Promise<void>;
 
   fetchBlockedUsers: () => Promise<void>;
   blockUser: (userId: string) => Promise<boolean>;
@@ -188,6 +190,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
       get().fetchStarredMessages();
     } catch (err) {
       console.error('Error toggling star', err);
+    }
+  },
+
+  togglePinChat: async (chatId) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/pin`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const { isPinned } = await res.json();
+        
+        // Update local chat list
+        set(state => {
+          const chats = state.chats.map(chat => {
+            if (chat.id === chatId) {
+              const myParticipant = chat.participants.find((p: any) => p.userId === useAuthStore.getState().user?.id);
+              if (myParticipant) {
+                myParticipant.isPinned = isPinned;
+              }
+              return { ...chat }; // Create new reference to trigger re-render
+            }
+            return chat;
+          });
+          return { chats };
+        });
+      }
+    } catch (err) {
+      console.error('Error pinning chat', err);
+    }
+  },
+
+  togglePinMessage: async (chatId, messageId) => {
+    try {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/${messageId}/pin`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      // Wait for socket to handle the update
+      // But we can optimistically update here if needed
+    } catch (err) {
+      console.error('Error pinning message', err);
     }
   },
   
@@ -318,6 +363,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const idx = newMessages.findIndex(m => m.id === updatedMessage.id);
         if (idx !== -1) {
           newMessages[idx] = updatedMessage;
+          return {
+            messages: {
+              ...state.messages,
+              [chatId]: newMessages
+            }
+          };
+        }
+        return state;
+      });
+    });
+
+    socket.on('message-pinned', ({ messageId, chatId, isPinned }) => {
+      set((state) => {
+        if (!state.messages[chatId]) return state;
+
+        const newMessages = [...state.messages[chatId]];
+        const idx = newMessages.findIndex(m => m.id === messageId);
+        if (idx !== -1) {
+          newMessages[idx] = { ...newMessages[idx], isPinned };
           return {
             messages: {
               ...state.messages,

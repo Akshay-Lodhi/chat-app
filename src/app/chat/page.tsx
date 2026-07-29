@@ -8,6 +8,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { authClient } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'framer-motion';
+import { Pin } from 'lucide-react';
 
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ContactList } from '@/components/chat/ContactList';
@@ -40,12 +41,13 @@ export default function ChatPage() {
   const { 
     connectSocket, disconnectSocket, activeChatId, 
     setActiveChat, sendMessage, fetchChats, fetchMessages, chats, fetchBlockedUsers,
-    activeTab, setActiveTab
+    activeTab, setActiveTab, messages
   } = useChatStore();
 
   const { activeStream, leaveLiveStream } = useLiveStore();
 
   const activeChat = activeChatId ? chats.find(c => c.id === activeChatId) : null;
+  const pinnedMessage = activeChatId ? (messages[activeChatId] || []).find(m => m.isPinned) : null;
 
   const [showContacts, setShowContacts] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -299,6 +301,28 @@ export default function ChatPage() {
               }}
             />
 
+            {pinnedMessage && (
+              <div 
+                className="bg-surface-hover/95 backdrop-blur border-b border-surface-border px-4 py-2 flex items-center shadow-sm z-10 cursor-pointer hover:bg-surface-active transition-colors shrink-0"
+                onClick={() => {
+                  const el = document.getElementById(`message-${pinnedMessage.id}`);
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('bg-white/10');
+                    setTimeout(() => el.classList.remove('bg-white/10'), 2000);
+                  }
+                }}
+              >
+                <Pin size={16} className="text-text-secondary mr-3 shrink-0 rotate-45" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-[#25D366] mb-0.5">Pinned Message</p>
+                  <p className="text-sm text-text-primary truncate">
+                    {pinnedMessage.content || (pinnedMessage.type === 'IMAGE' ? 'Photo' : 'Media')}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <MessageList 
               onReply={setReplyingTo}
               onMediaClick={(url, type) => setActiveMedia({ url, type })}
@@ -357,6 +381,28 @@ export default function ChatPage() {
               setShowForwardModal(true);
             }}
           />
+
+          {pinnedMessage && (
+            <div 
+              className="bg-surface-hover/95 backdrop-blur border-b border-surface-border px-4 py-2 flex items-center shadow-sm z-10 cursor-pointer hover:bg-surface-active transition-colors shrink-0"
+              onClick={() => {
+                const el = document.getElementById(`message-${pinnedMessage.id}`);
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  el.classList.add('bg-white/10');
+                  setTimeout(() => el.classList.remove('bg-white/10'), 2000);
+                }
+              }}
+            >
+              <Pin size={16} className="text-text-secondary mr-3 shrink-0 rotate-45" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-[#25D366] mb-0.5">Pinned Message</p>
+                <p className="text-sm text-text-primary truncate">
+                  {pinnedMessage.content || (pinnedMessage.type === 'IMAGE' ? 'Photo' : 'Media')}
+                </p>
+              </div>
+            </div>
+          )}
 
           <MessageList 
             onReply={setReplyingTo}

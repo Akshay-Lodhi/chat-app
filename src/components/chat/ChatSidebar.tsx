@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
-import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed, BarChart2, Star } from 'lucide-react';
+import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed, BarChart2, Star, Pin, PinOff } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,14 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
   const { chats, activeChatId, setActiveChat, disconnectSocket, onlineUsers, typingStatuses, messages } = useChatStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showStarredMessages, setShowStarredMessages] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chatId: string; isPinned: boolean } | null>(null);
+
+  // Close context menu on click outside
+  React.useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -62,6 +70,16 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
       return (u.name && u.name.toLowerCase().includes(q)) || (u.phoneNumber && u.phoneNumber.includes(q));
     });
   }).sort((a, b) => {
+    const aParticipant = a.participants.find((p: any) => p.userId === user?.id);
+    const bParticipant = b.participants.find((p: any) => p.userId === user?.id);
+    
+    const aPinned = aParticipant?.isPinned ? 1 : 0;
+    const bPinned = bParticipant?.isPinned ? 1 : 0;
+    
+    if (aPinned !== bPinned) {
+      return bPinned - aPinned; // Pinned comes first
+    }
+
     const aMessages = messages[a.id] || [];
     const bMessages = messages[b.id] || [];
     const aLastMsg = aMessages[aMessages.length - 1] || a.lastMessage;
@@ -130,6 +148,9 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
 
           let chatName = chat.name;
           let chatImage = chat.groupPicture;
+          const myParticipant = chat.participants.find((p: any) => p.userId === user?.id);
+          const isPinned = !!myParticipant?.isPinned;
+          
           if (!chat.isGroup && otherParticipant) {
             chatName = otherParticipant.user?.name || otherParticipant.user?.phoneNumber || 'Unknown';
             chatImage = otherParticipant.user?.profilePicture;
@@ -139,6 +160,16 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
             <div
               key={chat.id}
               onClick={() => setActiveChat(chat.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                const myParticipant = chat.participants.find((p: any) => p.userId === user?.id);
+                setContextMenu({
+                  x: e.pageX,
+                  y: e.pageY,
+                  chatId: chat.id,
+                  isPinned: !!myParticipant?.isPinned
+                });
+              }}
               className={cn(
                 "flex items-center px-4 py-3 cursor-pointer transition-colors border-b border-surface-border/50",
                 activeChatId === chat.id ? "bg-surface-active" : "hover:bg-surface-hover"
@@ -154,14 +185,17 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-1">
                   <h2 className="text-base font-medium text-text-primary truncate">{chatName}</h2>
-                  {lastMessage && (
-                    <span className={cn(
-                      "text-xs whitespace-nowrap ml-2 font-mono",
-                      unreadCount > 0 ? "text-[#25D366] font-semibold" : "text-text-secondary"
-                    )}>
-                      {new Date(lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
+                  <div className="flex items-center space-x-1">
+                    {isPinned && <Pin size={14} className="text-text-secondary fill-current rotate-45" />}
+                    {lastMessage && (
+                      <span className={cn(
+                        "text-xs whitespace-nowrap ml-1 font-mono",
+                        unreadCount > 0 ? "text-[#25D366] font-semibold" : "text-text-secondary"
+                      )}>
+                        {new Date(lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex items-center justify-between text-sm text-text-secondary">
@@ -278,6 +312,36 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
         isOpen={showStarredMessages} 
         onClose={() => setShowStarredMessages(false)} 
       />
+
+      {contextMenu && (
+        <div 
+          className="fixed z-[100] bg-surface border border-surface-border rounded-lg shadow-xl py-1 min-w-[160px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors flex items-center space-x-2 text-text-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              const { togglePinChat } = useChatStore.getState();
+              togglePinChat(contextMenu.chatId);
+              setContextMenu(null);
+            }}
+          >
+            {contextMenu.isPinned ? (
+              <>
+                <PinOff size={16} className="text-text-secondary" />
+                <span>Unpin Chat</span>
+              </>
+            ) : (
+              <>
+                <Pin size={16} className="text-text-secondary" />
+                <span>Pin Chat</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
