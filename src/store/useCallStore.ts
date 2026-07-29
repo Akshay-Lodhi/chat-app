@@ -211,24 +211,28 @@ export const useCallStore = create<CallState>((set, get) => ({
       try {
         const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         const newVideoTrack = camStream.getVideoTracks()[0];
-
-        const oldVideoTrack = localStream?.getVideoTracks()[0];
+        const oldScreenTrack = localStream?.getVideoTracks()[0];
 
         Object.values(peers).forEach((peer: any) => {
           if (peer && !peer.destroyed) {
-            if (oldVideoTrack && peer.replaceTrack) {
-              try {
-                peer.replaceTrack(oldVideoTrack, newVideoTrack, camStream);
-              } catch (e) {
-                try { peer.addTrack(newVideoTrack, camStream); } catch(err) {}
+            try {
+              if (oldScreenTrack && peer.replaceTrack) {
+                peer.replaceTrack(oldScreenTrack, newVideoTrack, camStream);
               }
-            } else if (peer.addTrack) {
-              try { peer.addTrack(newVideoTrack, camStream); } catch(err) {}
+              if (peer._pc) {
+                const senders = peer._pc.getSenders();
+                const videoSender = senders.find((s: any) => s.track && s.track.kind === 'video');
+                if (videoSender) {
+                  videoSender.replaceTrack(newVideoTrack);
+                }
+              }
+            } catch (e) {
+              console.error('Error replacing track back to camera:', e);
             }
           }
         });
 
-        if (oldVideoTrack) oldVideoTrack.stop();
+        if (oldScreenTrack) oldScreenTrack.stop();
 
         set({ localStream: camStream, isScreenSharing: false });
       } catch (err) {
@@ -242,17 +246,10 @@ export const useCallStore = create<CallState>((set, get) => ({
 
         if (mediaDevices && typeof mediaDevices.getDisplayMedia === 'function') {
           try {
-            screenStream = await mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true });
-          } catch (audioErr: any) {
-            if (audioErr?.name === 'NotAllowedError' || audioErr?.name === 'AbortError') {
-              throw audioErr;
-            }
-            try {
-              screenStream = await mediaDevices.getDisplayMedia({ video: true });
-            } catch (err: any) {
-              if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
-                throw err;
-              }
+            screenStream = await mediaDevices.getDisplayMedia({ video: true });
+          } catch (err: any) {
+            if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+              return; // User cancelled browser screen picker
             }
           }
         }
@@ -263,16 +260,8 @@ export const useCallStore = create<CallState>((set, get) => ({
           } catch (e) {}
         }
 
-        if (!screenStream && mediaDevices && typeof mediaDevices.getUserMedia === 'function') {
-          try {
-            screenStream = await mediaDevices.getUserMedia({
-              video: { mandatory: { chromeMediaSource: 'screen' } }
-            });
-          } catch (e) {}
-        }
-
         if (!screenStream) {
-          alert("Screen sharing is not supported on this mobile browser version. Please update Chrome or enable screen recording permissions in device settings.");
+          alert("Screen sharing is not supported by your browser. Please use Chrome/Edge/Firefox on Desktop or enable screen capture in browser settings.");
           return;
         }
 
@@ -288,14 +277,19 @@ export const useCallStore = create<CallState>((set, get) => ({
 
         Object.values(peers).forEach((peer: any) => {
           if (peer && !peer.destroyed) {
-            if (oldVideoTrack && peer.replaceTrack) {
-              try {
+            try {
+              if (oldVideoTrack && peer.replaceTrack) {
                 peer.replaceTrack(oldVideoTrack, screenVideoTrack, screenStream!);
-              } catch (e) {
-                try { peer.addTrack(screenVideoTrack, screenStream!); } catch(err) {}
               }
-            } else if (peer.addTrack) {
-              try { peer.addTrack(screenVideoTrack, screenStream!); } catch(err) {}
+              if (peer._pc) {
+                const senders = peer._pc.getSenders();
+                const videoSender = senders.find((s: any) => s.track && s.track.kind === 'video');
+                if (videoSender) {
+                  videoSender.replaceTrack(screenVideoTrack);
+                }
+              }
+            } catch (e) {
+              console.error('Error replacing track to screen:', e);
             }
           }
         });
