@@ -691,6 +691,36 @@ export function setupSocket(server: HttpServer) {
       }
     });
 
+    socket.on('edit-message', async (data: { messageId: string, content: string, chatId: string }) => {
+      try {
+        const { messageId, content, chatId } = data;
+        const msg = await prisma.message.findUnique({ where: { id: messageId } });
+        if (!msg) return;
+
+        // Verify sender and time limit (15 mins)
+        if (msg.senderId !== userId) return;
+        
+        const now = new Date();
+        const diffMs = now.getTime() - new Date(msg.createdAt).getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        
+        if (diffMins > 15) {
+          socket.emit('error', 'Message can only be edited within 15 minutes of sending');
+          return;
+        }
+
+        const updatedMessage = await prisma.message.update({
+          where: { id: messageId },
+          data: { content, isEdited: true } as any,
+          include: { replyTo: true, sender: true }
+        });
+
+        chatNamespace.to(chatId).emit('message-updated', updatedMessage);
+      } catch (err) {
+        console.error('Error editing message:', err);
+      }
+    });
+
     socket.on('vote-poll', async ({ messageId, optionId, chatId }) => {
       try {
         const message = await prisma.message.findUnique({

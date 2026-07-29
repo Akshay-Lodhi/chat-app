@@ -40,6 +40,7 @@ model User {
   stories            Story[]
   storyViews         StoryView[]
   storyLikes         StoryLike[]
+  starredMessages    StarredMessage[]
 }
 
 model Session {
@@ -99,6 +100,7 @@ model Chat {
   name         String?
   groupPicture String?
   adminId      String?
+  disappearingTimer Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -111,6 +113,7 @@ model ChatParticipant {
   userId   String
   chatId   String
   joinedAt DateTime @default(now())
+  isPinned Boolean  @default(false)
 
   user User @relation(fields: [userId], references: [id])
   chat Chat @relation(fields: [chatId], references: [id])
@@ -131,6 +134,11 @@ model Message {
   deletedForUsers    String[]    @default([])
   deletedAt          DateTime?
 
+  isEdited           Boolean     @default(false)
+  updatedAt          DateTime    @default(now()) @updatedAt
+  isPinned           Boolean     @default(false)
+  expiresAt          DateTime?
+
   chat     Chat            @relation(fields: [chatId], references: [id])
   sender   User            @relation(fields: [senderId], references: [id])
   statuses MessageStatus[]
@@ -138,6 +146,8 @@ model Message {
   replyToId String?
   replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   Message[] @relation("MessageReplies")
+
+  starredBy StarredMessage[]
 
   reactions Json?
   metadata  Json?
@@ -271,12 +281,23 @@ model Story {
 model StoryView {
   storyId  String
   userId   String
-  viewedAt DateTime @default(now())
+  viewedAt  DateTime @default(now())
 
   story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([storyId, userId])
+}
+
+model StarredMessage {
+  userId    String
+  messageId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([userId, messageId])
 }
 
 model StoryLike {

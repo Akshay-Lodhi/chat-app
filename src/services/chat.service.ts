@@ -288,7 +288,7 @@ export class ChatService {
     });
   }
 
-  static async getMessagesForChat(chatId: string, limit = 50, cursor?: string) {
+  static async getMessagesForChat(userId: string, chatId: string, limit = 50, cursor?: string) {
     // We will expand cursor logic in Phase 2
     const messages = await prisma.message.findMany({
       where: { chatId },
@@ -298,7 +298,7 @@ export class ChatService {
       ],
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
-      include: { statuses: true, replyTo: true }
+      include: { statuses: true, replyTo: true, starredBy: { select: { userId: true } } }
     });
 
     const formatted = messages.map((msg: any) => {
@@ -318,12 +318,16 @@ export class ChatService {
         deliveredAt = deliveredStatus.updatedAt;
       }
       
+      const isStarred = msg.starredBy?.some((s: any) => s.userId === userId) || false;
+
       return {
         ...msg,
         status,
         deliveredAt,
         readAt,
-        statuses: undefined 
+        isStarred,
+        statuses: undefined,
+        starredBy: undefined
       };
     });
 
@@ -518,5 +522,57 @@ export class ChatService {
         }
       }
     });
+  }
+
+  static async toggleStarMessage(userId: string, messageId: string) {
+    const existing = await prisma.starredMessage.findUnique({
+      where: {
+        userId_messageId: {
+          userId,
+          messageId
+        }
+      }
+    });
+
+    if (existing) {
+      await prisma.starredMessage.delete({
+        where: { 
+          userId_messageId: {
+            userId,
+            messageId
+          }
+        }
+      });
+      return { success: true, isStarred: false, messageId };
+    } else {
+      await prisma.starredMessage.create({
+        data: {
+          userId,
+          messageId
+        }
+      });
+      return { success: true, isStarred: true, messageId };
+    }
+  }
+
+  static async getStarredMessages(userId: string) {
+    const starred = await prisma.starredMessage.findMany({
+      where: { userId },
+      include: {
+        message: {
+          include: {
+            sender: {
+              select: { id: true, name: true, phoneNumber: true, profilePicture: true }
+            },
+            chat: {
+              select: { id: true, isGroup: true, name: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return starred.map(s => s.message);
   }
 }

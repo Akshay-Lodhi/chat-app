@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getChats, createChat, getMessages, createGroup, addParticipants, removeParticipant, deleteGroup, updateGroupPicture, deleteMessage, clearChatMessages, getCalls, clearCallLogs } from '../controllers/chat.controller';
+import { getChats, createChat, getMessages, createGroup, addParticipants, removeParticipant, deleteGroup, updateGroupPicture, deleteMessage, clearChatMessages, getCalls, clearCallLogs, toggleStarMessage, getStarredMessages } from '../controllers/chat.controller';
 
 const router = Router();
 
@@ -39,5 +39,11 @@ router.delete('/messages/:messageId', requireAuth, deleteMessage as any);
 
 // Clear all messages in a chat
 router.delete('/:chatId/messages', requireAuth, clearChatMessages as any);
+
+// Get starred messages
+router.get('/messages/starred', requireAuth, getStarredMessages as any);
+
+// Toggle star on a message
+router.post('/messages/star', requireAuth, toggleStarMessage as any);
 
 export default router;

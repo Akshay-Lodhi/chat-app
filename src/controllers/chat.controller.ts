@@ -13,6 +13,20 @@ export const getChats = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getMessages = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const cursor = req.query.cursor ? (req.query.cursor as string) : undefined;
+
+    const messages = await ChatService.getMessagesForChat(req.user!.userId, chatId, limit, cursor);
+    res.json(messages);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 export const createChat = async (req: AuthRequest, res: Response) => {
   try {
     const { contactId } = req.body;
@@ -28,20 +42,6 @@ export const createChat = async (req: AuthRequest, res: Response) => {
     io.to(chat.id).emit('chat-created', chat);
 
     res.json(chat);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-
-export const getMessages = async (req: AuthRequest, res: Response) => {
-  try {
-    const chatId = req.params.chatId as string;
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-    const cursor = req.query.cursor ? (req.query.cursor as string) : undefined;
-
-    const messages = await ChatService.getMessagesForChat(chatId, limit, cursor);
-    res.json(messages);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
@@ -83,20 +83,12 @@ export const addParticipants = async (req: AuthRequest, res: Response) => {
     const chat = await ChatService.addParticipantsToGroup(req.user!.userId, chatId, participantIds);
     
     const io = getIO().of('/chat');
-    // Join new participants' sockets to the chat room
     participantIds.forEach(id => {
       io.in(id).socketsJoin(chatId);
     });
-    // Tell everyone (including new participants) about the updated chat
-    // For new participants, this acts like creating a new chat since they will just add it if it doesn't exist
-    // Actually, `chat-created` is better for new participants, but `chat-updated` works if the client handles it safely.
-    // Wait, let's use `chat-updated` for existing members, and `chat-created` for the newly added ones.
-    // Or just let `chat-updated` update if exists, else ignore, and `chat-created` creates it.
-    // We can just emit `chat-updated` to everyone, and if they don't have it, they can add it.
-    // Better yet, just emit `chat-updated` and `chat-created` to everyone, the client will deduplicate!
     
-    io.to(chatId).emit('chat-created', chat); // For the new members
-    io.to(chatId).emit('chat-updated', chat); // For existing members
+    io.to(chatId).emit('chat-created', chat); 
+    io.to(chatId).emit('chat-updated', chat); 
     
     res.json(chat);
   } catch (error: any) {
@@ -114,13 +106,8 @@ export const removeParticipant = async (req: AuthRequest, res: Response) => {
     
     const io = getIO().of('/chat');
     
-    // Notify the removed user first so their client can handle being removed
     io.in(participantId).emit('chat-deleted', { chatId });
-    
-    // Remove the user's sockets from the room
     io.in(participantId).socketsLeave(chatId);
-    
-    // Notify remaining participants about the updated chat
     io.to(chatId).emit('chat-updated', chat);
     
     res.json(chat);
@@ -169,7 +156,7 @@ export const updateGroupPicture = async (req: AuthRequest, res: Response) => {
 export const deleteMessage = async (req: AuthRequest, res: Response) => {
   try {
     const messageId = req.params.messageId as string;
-    const { deleteFor } = req.body; // 'me' | 'everyone'
+    const { deleteFor } = req.body; 
     const result = await ChatService.deleteMessage(req.user!.userId, messageId, deleteFor || 'everyone');
     
     if (result.deletedForEveryone) {
@@ -192,8 +179,8 @@ export const clearChatMessages = async (req: AuthRequest, res: Response) => {
   try {
     const chatId = req.params.chatId as string;
     await ChatService.clearChatMessages(req.user!.userId, chatId);
-    const io = getIO();
-    io.to(`chat_${chatId}`).emit('chat-cleared', { chatId });
+    const io = getIO().of('/chat');
+    io.to(chatId).emit('chat-cleared', { chatId });
     res.json({ success: true });
   } catch (error: any) {
     console.error(error);
@@ -216,9 +203,30 @@ export const getCalls = async (req: AuthRequest, res: Response) => {
 export const clearCallLogs = async (req: AuthRequest, res: Response) => {
   try {
     await ChatService.clearCallLogsForUser(req.user!.userId);
-    res.json({ success: true, message: 'Call logs cleared successfully' });
+    res.json({ success: true });
   } catch (error) {
-    console.error('Error clearing call logs:', error);
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const toggleStarMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const { messageId } = req.body;
+    const result = await ChatService.toggleStarMessage(req.user!.userId, messageId);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error toggling star:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const getStarredMessages = async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await ChatService.getStarredMessages(req.user!.userId);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error getting starred messages:', error);
     res.status(500).json({ error: 'Server error' });
   }
 };
