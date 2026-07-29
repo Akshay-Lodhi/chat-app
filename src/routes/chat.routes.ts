@@ -1,6 +1,23 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getChats, createChat, getMessages, createGroup, addParticipants, removeParticipant, deleteGroup, updateGroupPicture, deleteMessage, clearChatMessages, getCalls, clearCallLogs, toggleStarMessage, getStarredMessages } from '../controllers/chat.controller';
+import { 
+  getChats, 
+  createChat, 
+  getMessages, 
+  createGroup, 
+  addParticipants, 
+  removeParticipant, 
+  deleteGroup, 
+  updateGroupPicture, 
+  deleteMessage, 
+  clearChatMessages, 
+  getCalls, 
+  clearCallLogs, 
+  toggleStarMessage, 
+  getStarredMessages, 
+  togglePinChat, 
+  togglePinMessage 
+} from '../controllers/chat.controller';
 
 const router = Router();
 
@@ -45,5 +62,11 @@ router.get('/messages/starred', requireAuth, getStarredMessages as any);
 
 // Toggle star on a message
 router.post('/messages/star', requireAuth, toggleStarMessage as any);
+
+// Toggle pin on a chat
+router.post('/:chatId/pin', requireAuth, togglePinChat as any);
+
+// Toggle pin on a message
+router.post('/messages/:messageId/pin', requireAuth, togglePinMessage as any);
 
 export default router;

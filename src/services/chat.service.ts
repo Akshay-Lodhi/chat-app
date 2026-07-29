@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
-
-const prisma = new PrismaClient();
 
 export class ChatService {
   static async getChatsForUser(userId: string) {
@@ -37,7 +35,7 @@ export class ChatService {
 
     // Extract all unique user IDs to fetch their online status from Redis
     const participantIds = new Set<string>();
-    chats.forEach(chat => {
+    chats.forEach((chat: any) => {
       chat.participants.forEach((p: any) => participantIds.add(p.userId));
     });
 
@@ -129,6 +127,35 @@ export class ChatService {
     });
   }
 
+  static async togglePinChat(userId: string, chatId: string) {
+    const participant = await prisma.chatParticipant.findUnique({
+      where: {
+        userId_chatId: {
+          userId,
+          chatId
+        }
+      }
+    });
+
+    if (!participant) {
+      throw new Error('Not a participant in this chat');
+    }
+
+    const updated = await prisma.chatParticipant.update({
+      where: {
+        userId_chatId: {
+          userId,
+          chatId
+        }
+      },
+      data: {
+        isPinned: !participant.isPinned
+      }
+    });
+
+    return { success: true, isPinned: updated.isPinned, chatId };
+  }
+
   static async createGroupChat(userId: string, name: string, participantIds: string[], groupPicture?: string) {
     const allParticipantIds = Array.from(new Set([userId, ...participantIds]));
     
@@ -166,7 +193,7 @@ export class ChatService {
     }
 
     // Filter out participants that are already in the group
-    const existingIds = chat.participants.map(p => p.userId);
+    const existingIds = chat.participants.map((p: any) => p.userId);
     const newParticipantIds = participantIds.filter(id => !existingIds.includes(id));
 
     if (newParticipantIds.length === 0) {
@@ -442,12 +469,12 @@ export class ChatService {
     ]);
 
     // Format CALL_LOG messages into Call-compatible objects
-    const formattedMessageCalls = callMessages.map(msg => {
+    const formattedMessageCalls = callMessages.map((msg: any) => {
       let callData: any = {};
       try { callData = JSON.parse(msg.content || '{}'); } catch (e) {}
 
       const isMine = msg.senderId === userId;
-      const otherParticipant = msg.chat?.participants?.find(p => p.userId !== userId)?.user;
+      const otherParticipant = msg.chat?.participants?.find((p: any) => p.userId !== userId)?.user;
 
       const duration = typeof callData.duration === 'number' ? callData.duration : 0;
       const isUnanswered = duration === 0 || callData.action === 'MISSED' || callData.action === 'NO_ANSWER' || callData.status === 'MISSED' || callData.status === 'REJECTED';
@@ -573,6 +600,29 @@ export class ChatService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return starred.map(s => s.message);
+    return starred.map((s: any) => s.message);
+  }
+
+  static async togglePinMessage(userId: string, messageId: string) {
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { chat: true }
+    });
+
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    // If it's a group, only the admin can pin/unpin messages
+    if (message.chat.isGroup && message.chat.adminId !== userId) {
+      throw new Error('Only the group admin can pin messages');
+    }
+
+    const updated = await prisma.message.update({
+      where: { id: messageId },
+      data: { isPinned: !message.isPinned }
+    });
+
+    return { success: true, isPinned: updated.isPinned, messageId, chatId: message.chatId };
   }
 }

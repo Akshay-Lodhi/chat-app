@@ -1,6 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { generateAIResponse } from '../services/ai.service';
 import Redis from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
@@ -10,8 +10,6 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { auth } from '../lib/auth';
 import { redis } from '../lib/redis';
 import { activeLiveStreams } from '../controllers/live.controller';
-
-const prisma = new PrismaClient();
 
 let ioInstance: Server | null = null;
 
@@ -124,7 +122,7 @@ export function setupSocket(server: HttpServer) {
         select: { chatId: true }
       });
       const chatIds = userChats.map((c: any) => c.chatId);
-      chatIds.forEach(id => socket.join(id));
+      chatIds.forEach((id: string) => socket.join(id));
 
       if (chatIds.length > 0) {
         const pendingMessages = await prisma.message.findMany({
@@ -235,7 +233,7 @@ export function setupSocket(server: HttpServer) {
         });
 
         if (chat) {
-          const isAiInChat = chat.participants.some(p => p.userId === 'nexus-ai-system');
+          const isAiInChat = chat.participants.some((p: any) => p.userId === 'nexus-ai-system');
           const isAiMentioned = content?.includes('@NexusAI');
           
           if (isAiInChat || isAiMentioned) {

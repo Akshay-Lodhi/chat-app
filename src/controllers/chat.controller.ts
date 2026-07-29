@@ -230,3 +230,29 @@ export const getStarredMessages = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+export const togglePinChat = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const result = await ChatService.togglePinChat(req.user!.userId, chatId);
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error('Error toggling pin chat:', error);
+    res.status(400).json({ error: error.message || 'Server error' });
+  }
+};
+
+export const togglePinMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const messageId = req.params.messageId as string;
+    const result = await ChatService.togglePinMessage(req.user!.userId, messageId);
+    
+    // Broadcast the pinned message state
+    getIO().of('/chat').to(result.chatId).emit('message-pinned', result);
+    
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error('Error toggling pin message:', error);
+    res.status(400).json({ error: error.message || 'Server error' });
+  }
+};

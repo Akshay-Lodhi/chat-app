@@ -3,7 +3,7 @@ import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { setupSocket } from './socket';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './lib/prisma';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth';
 import authRoutes from './routes/auth.routes';
@@ -58,7 +58,6 @@ setupSocket(server);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, async () => {
-  const prisma = new PrismaClient();
   try {
     await prisma.user.updateMany({
       data: { isOnline: false }
@@ -66,8 +65,6 @@ server.listen(PORT, async () => {
     console.log('Reset online status for all users');
   } catch (error) {
     console.error('Failed to reset online status:', error);
-  } finally {
-    await prisma.$disconnect();
   }
   
   console.log(`Server running on port ${PORT}`);

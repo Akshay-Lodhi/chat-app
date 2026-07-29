@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient() as any;
+import { prisma } from '../lib/prisma';
 
 export class StoryService {
   static async createStory(userId: string, data: { content?: string; mediaUrl?: string; type: any; bgColor?: string }) {

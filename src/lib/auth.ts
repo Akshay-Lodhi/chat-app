@@ -1,9 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "./prisma";
 import { phoneNumber } from "better-auth/plugins";
-
-const prisma = new PrismaClient();
 
 export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:5000",
