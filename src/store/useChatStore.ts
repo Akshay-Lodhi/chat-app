@@ -2,6 +2,7 @@ import { apiClient } from '@/lib/apiClient';
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from './useAuthStore';
+import { useCallStore } from './useCallStore';
 
 export interface Chat {
   id: string;
@@ -503,6 +504,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
         return state;
       });
+    });
+
+    socket.on('active-call-update', (data: { chatId: string; activeCount: number; callType?: 'AUDIO' | 'VIDEO' }) => {
+      if (data?.chatId) {
+        useCallStore.getState().setActiveCallInfo(
+          data.chatId,
+          data.activeCount > 0 ? { chatId: data.chatId, activeCount: data.activeCount, callType: data.callType || 'VIDEO' } : null
+        );
+      }
     });
 
     socket.on('disappearing-timer-updated', ({ chatId, disappearingTimer, systemMessage }) => {
