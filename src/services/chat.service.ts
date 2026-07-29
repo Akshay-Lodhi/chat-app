@@ -17,11 +17,15 @@ export class ChatService {
         },
         messages: {
           where: {
+            NOT: {
+              isScheduled: true,
+              scheduledStatus: 'PENDING'
+            },
             OR: [
               { expiresAt: null },
               { expiresAt: { gt: new Date() } }
             ]
-          },
+          } as any,
           orderBy: { createdAt: 'desc' },
           take: 1
         },
@@ -30,8 +34,11 @@ export class ChatService {
             messages: {
               where: {
                 senderId: { not: userId },
-                NOT: { statuses: { some: { userId, status: 'READ' } } }
-              }
+                NOT: [
+                  { statuses: { some: { userId, status: 'READ' } } },
+                  { isScheduled: true, scheduledStatus: 'PENDING' }
+                ]
+              } as any
             }
           }
         }
@@ -326,11 +333,15 @@ export class ChatService {
     const messages = await prisma.message.findMany({
       where: {
         chatId,
+        NOT: {
+          isScheduled: true,
+          scheduledStatus: 'PENDING'
+        },
         OR: [
           { expiresAt: null },
           { expiresAt: { gt: new Date() } }
         ]
-      },
+      } as any,
       orderBy: [
         { createdAt: 'desc' },
         { id: 'desc' }
