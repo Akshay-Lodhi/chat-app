@@ -55,6 +55,20 @@ export function setupSocket(server: HttpServer) {
     ChatService.cleanupExpiredMessages();
   }, 60 * 1000);
 
+  // Run scheduled messages worker every 10 seconds
+  setInterval(async () => {
+    try {
+      const dueMessages = await ChatService.processDueScheduledMessages();
+      if (dueMessages && dueMessages.length > 0) {
+        dueMessages.forEach((msg: any) => {
+          chatNamespace.to(msg.chatId).emit('receive-message', msg);
+        });
+      }
+    } catch (err) {
+      console.error('Error processing due scheduled messages:', err);
+    }
+  }, 10 * 1000);
+
   const chatNamespace = io.of('/chat');
 
   chatNamespace.use(async (socket, next) => {

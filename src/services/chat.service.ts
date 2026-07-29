@@ -708,4 +708,88 @@ export class ChatService {
       console.error('Error cleaning up expired messages:', error);
     }
   }
+
+  static async scheduleMessage(userId: string, chatId: string, content: string, scheduledAt: Date, type: any = 'TEXT', mediaUrl?: string, replyToId?: string) {
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      select: { disappearingTimer: true }
+    });
+
+    if (!chat) throw new Error('Chat not found');
+
+    const expiresAt = chat.disappearingTimer && chat.disappearingTimer > 0
+      ? new Date(scheduledAt.getTime() + chat.disappearingTimer * 1000)
+      : null;
+
+    const message = await prisma.message.create({
+      data: {
+        chatId,
+        senderId: userId,
+        content,
+        type,
+        mediaUrl,
+        replyToId,
+        isScheduled: true,
+        scheduledAt,
+        scheduledStatus: 'PENDING',
+        expiresAt
+      } as any,
+      include: { sender: true, replyTo: true }
+    });
+
+    return message;
+  }
+
+  static async getPendingScheduledMessages(userId: string, chatId: string) {
+    return prisma.message.findMany({
+      where: {
+        chatId,
+        senderId: userId,
+        isScheduled: true,
+        scheduledStatus: 'PENDING'
+      } as any,
+      orderBy: { scheduledAt: 'asc' } as any
+    });
+  }
+
+  static async cancelScheduledMessage(userId: string, messageId: string) {
+    const msg = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!msg || msg.senderId !== userId) {
+      throw new Error('Scheduled message not found or unauthorized');
+    }
+
+    return prisma.message.update({
+      where: { id: messageId },
+      data: { scheduledStatus: 'CANCELLED' } as any
+    });
+  }
+
+  static async processDueScheduledMessages() {
+    try {
+      const now = new Date();
+      const dueMessages = await prisma.message.findMany({
+        where: {
+          isScheduled: true,
+          scheduledStatus: 'PENDING',
+          scheduledAt: { lte: now }
+        } as any,
+        include: { sender: true, replyTo: true }
+      });
+
+      for (const msg of dueMessages) {
+        await prisma.message.update({
+          where: { id: msg.id },
+          data: {
+            scheduledStatus: 'SENT',
+            createdAt: now
+          } as any
+        });
+      }
+
+      return dueMessages;
+    } catch (error) {
+      console.error('Error processing scheduled messages:', error);
+      return [];
+    }
+  }
 }

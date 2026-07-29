@@ -17,7 +17,12 @@ import {
   getStarredMessages, 
   togglePinChat, 
   togglePinMessage,
-  updateDisappearingTimer 
+  updateDisappearingTimer,
+  scheduleMessageController,
+  getPendingScheduledMessagesController,
+  cancelScheduledMessageController,
+  transcribeAudioController,
+  summarizeChatController
 } from '../controllers/chat.controller';
 
 const router = Router();
@@ -72,5 +77,20 @@ router.post('/messages/:messageId/pin', requireAuth, togglePinMessage as any);
 
 // Update disappearing message timer for a chat
 router.put('/:chatId/disappearing', requireAuth, updateDisappearingTimer as any);
+
+// Schedule a message
+router.post('/:chatId/schedule', requireAuth, scheduleMessageController as any);
+
+// Get pending scheduled messages for a chat
+router.get('/:chatId/scheduled', requireAuth, getPendingScheduledMessagesController as any);
+
+// Cancel a scheduled message
+router.delete('/scheduled/:messageId', requireAuth, cancelScheduledMessageController as any);
+
+// Transcribe voice note message
+router.post('/messages/:messageId/transcribe', requireAuth, transcribeAudioController as any);
+
+// Summarize chat history with AI
+router.post('/:chatId/summarize', requireAuth, summarizeChatController as any);
 
 export default router;

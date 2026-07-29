@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { getIO } from '../socket';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { ChatService } from '../services/chat.service';
+import { transcribeVoiceNote, summarizeChatMessages } from '../services/ai.service';
 
 export const getChats = async (req: AuthRequest, res: Response) => {
   try {
@@ -280,5 +281,72 @@ export const updateDisappearingTimer = async (req: AuthRequest, res: Response) =
   } catch (error: any) {
     console.error('Error updating disappearing timer:', error);
     res.status(400).json({ error: error.message || 'Server error' });
+  }
+};
+
+export const scheduleMessageController = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const { content, scheduledAt, type, mediaUrl, replyToId } = req.body;
+
+    if (!content || !scheduledAt) {
+      return res.status(400).json({ error: 'Content and scheduledAt date are required' });
+    }
+
+    const date = new Date(scheduledAt);
+    if (isNaN(date.getTime()) || date.getTime() <= Date.now()) {
+      return res.status(400).json({ error: 'Scheduled time must be in the future' });
+    }
+
+    const message = await ChatService.scheduleMessage(req.user!.userId, chatId, content, date, type, mediaUrl, replyToId);
+    res.status(201).json(message);
+  } catch (error: any) {
+    console.error('Error scheduling message:', error);
+    res.status(400).json({ error: error.message || 'Server error' });
+  }
+};
+
+export const getPendingScheduledMessagesController = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const messages = await ChatService.getPendingScheduledMessages(req.user!.userId, chatId);
+    res.json(messages);
+  } catch (error: any) {
+    console.error('Error fetching scheduled messages:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const cancelScheduledMessageController = async (req: AuthRequest, res: Response) => {
+  try {
+    const messageId = req.params.messageId as string;
+    const message = await ChatService.cancelScheduledMessage(req.user!.userId, messageId);
+    res.json(message);
+  } catch (error: any) {
+    console.error('Error canceling scheduled message:', error);
+    res.status(400).json({ error: error.message || 'Server error' });
+  }
+};
+
+export const transcribeAudioController = async (req: AuthRequest, res: Response) => {
+  try {
+    const messageId = req.params.messageId as string;
+    const transcription = await transcribeVoiceNote(messageId);
+    res.json({ success: true, transcription, messageId });
+  } catch (error: any) {
+    console.error('Error transcribing audio:', error);
+    res.status(500).json({ error: error.message || 'Failed to transcribe audio' });
+  }
+};
+
+export const summarizeChatController = async (req: AuthRequest, res: Response) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const summary = await summarizeChatMessages(chatId, limit);
+    res.json(summary);
+  } catch (error: any) {
+    console.error('Error summarizing chat:', error);
+    res.status(500).json({ error: error.message || 'Failed to summarize chat' });
   }
 };

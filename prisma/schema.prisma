@@ -133,10 +133,14 @@ model Message {
   deletedForUsers    String[]    @default([])
   deletedAt          DateTime?
 
-  isEdited           Boolean     @default(false)
-  updatedAt          DateTime    @default(now()) @updatedAt
-  isPinned           Boolean     @default(false)
+  isEdited           Boolean         @default(false)
+  updatedAt          DateTime        @default(now()) @updatedAt
+  isPinned           Boolean         @default(false)
   expiresAt          DateTime?
+
+  isScheduled        Boolean         @default(false)
+  scheduledAt        DateTime?
+  scheduledStatus    ScheduledStatus @default(NONE)
 
   chat     Chat            @relation(fields: [chatId], references: [id])
   sender   User            @relation(fields: [senderId], references: [id])
@@ -150,6 +154,13 @@ model Message {
 
   reactions Json?
   metadata  Json?
+}
+
+enum ScheduledStatus {
+  NONE
+  PENDING
+  SENT
+  CANCELLED
 }
 
 enum MessageType {
