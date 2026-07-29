@@ -890,6 +890,8 @@ export function setupSocket(server: HttpServer) {
     socket.on('end-call', async ({ chatId, duration, type, isInitiator, targetUserId, isGroup, participantsInfo }) => {
       if (targetUserId) {
         chatNamespace.to(targetUserId).emit('call-end', { callerId: userId });
+        activeCallRooms.delete(chatId);
+        chatNamespace.emit('active-call-update', { chatId, activeCount: 0, callType: type || 'VIDEO' });
         return;
       }
 
