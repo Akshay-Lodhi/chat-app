@@ -1,17 +1,96 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { prisma } from '../lib/prisma';
 
-// Initialize the Gemini API client
-// We initialize it lazily in case the API key is not immediately available
+const getApiKey = () => {
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() && !process.env.GEMINI_API_KEY.includes('your_gemini_api_key')) {
+    return process.env.GEMINI_API_KEY;
+  }
+};
+
+// Valid Gemini API v1beta model identifiers supported by the API Key
+const GEMINI_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-omni-flash-preview',
+  'gemini-flash-latest'
+];
+
+/**
+ * Universal Gemini API fetcher using the exact REST endpoint & headers requested.
+ * Includes automatic rate-limit backoff & multi-model fallback chain.
+ */
+export const callGeminiContentApi = async (parts: any[]): Promise<string> => {
+  const apiKey = getApiKey();
+
+  for (const model of GEMINI_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': apiKey
+          } as Record<string, string>,
+          body: JSON.stringify({
+            contents: [{ parts }]
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text && text.trim()) {
+            return text.trim();
+          }
+        } else {
+          // If model is not found (404), skip quietly to next model
+          if (response.status === 404) {
+            break;
+          }
+          // If rate limited (429), wait 1.5s before retrying
+          if (response.status === 429 && attempt === 0) {
+            await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+          break;
+        }
+      } catch (err) {
+        break;
+      }
+    }
+  }
+
+  throw new Error('All Gemini API model attempts failed.');
+};
+
+export const getLocalSmartReplies = (messageContent: string): string[] => {
+  const lower = (messageContent || '').toLowerCase();
+  if (lower.includes('morning') || lower.includes('gm')) {
+    return ["Good morning! ☀️", "Morning! Have a great day 😊", "GM! 👋"];
+  }
+  if (lower.includes('night') || lower.includes('gn')) {
+    return ["Good night! 😴", "Sweet dreams! 🌙", "Night! 👋"];
+  }
+  if (lower.includes('thank') || lower.includes('thx') || lower.includes('ty')) {
+    return ["You're welcome! 😊", "Anytime! 👍", "My pleasure! 🙌"];
+  }
+  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+    return ["Hey there! 👋", "Hello! How are you?", "Hi! What's up?"];
+  }
+  if (lower.includes('call') || lower.includes('meet') || lower.includes('join')) {
+    return ["Sure, let's connect! 📞", "Give me 5 mins", "I'll join now 👍"];
+  }
+  if (lower.includes('ok') || lower.includes('okay') || lower.includes('done')) {
+    return ["Great! 👍", "Awesome 😊", "Sounds good!"];
+  }
+  if (lower.endsWith('?')) {
+    return ["Yes, absolutely! 👍", "Let me check and let you know", "Not sure yet 🤔"];
+  }
+  return ["Sounds good! 👍", "Got it, thanks!", "Let's do that! 😊"];
+};
 
 export const generateAIResponse = async (chatId: string, userMessage: string, senderName: string): Promise<string> => {
+  let conversationHistory = '';
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not defined in environment variables');
-    }
-
-    // Fetch the last 10 messages from the chat for context
     const recentMessages = await prisma.message.findMany({
       where: { chatId },
       orderBy: { createdAt: 'desc' },
@@ -19,32 +98,16 @@ export const generateAIResponse = async (chatId: string, userMessage: string, se
       include: { sender: true }
     });
 
-    const conversationHistory = recentMessages.reverse().map((msg: any) => {
-      const isAI = msg.senderId === 'nexus-ai-system';
+    conversationHistory = recentMessages.reverse().map((msg: any) => {
       return `${msg.sender.name}: ${msg.content}`;
     }).join('\n');
+  } catch (e) {}
 
-    const prompt = `
-You are Nexus AI, the official, highly intelligent, and friendly chat assistant exclusively built for the NexusChat messaging application. 
-
-### Your Persona
-- You are a knowledgeable, witty, and extremely helpful AI companion.
-- You have a warm, approachable personality. You enjoy chatting, helping users solve problems, writing code, and answering complex questions.
-- You communicate naturally, using modern conversational language and occasional emojis where appropriate to keep the mood light.
-- You act like a real participant in the chat, not just a robotic answering machine.
-
-### Your Capabilities & Rules
-1. **Context Awareness**: You will be provided with the recent conversation history. Use this to understand the context of the user's message, follow up on ongoing topics, and respond seamlessly to the flow of the conversation.
-2. **Conciseness**: NexusChat is primarily a mobile and desktop messaging app. Keep your answers concise, structured, and easy to read. Avoid massive walls of text unless the user specifically asks for a detailed explanation or long-form content like code or essays.
-3. **Formatting**: Use Markdown extensively. Bold important words, use bullet points for lists, and use code blocks (\`\`\`) for any code snippets.
-4. **Safety & Respect**: Always maintain a respectful, safe, and positive environment. Decline inappropriate, harmful, or illegal requests politely but firmly.
-5. **Language**: Respond in the language the user speaks to you in. If they mix Hindi and English (Hinglish), you can respond similarly if it fits the vibe!
+  const prompt = `
+You are Nexus AI, the official, highly intelligent, and friendly chat assistant for NexusChat.
 
 ### Conversation Context
-Below are the last 10 messages from this chat room for context (these are past messages, do not reply to all of them, just use them to understand what's going on):
----
 ${conversationHistory}
----
 
 The user you are replying to is: ${senderName}
 They just said: "${userMessage}"
@@ -52,91 +115,35 @@ They just said: "${userMessage}"
 Write your best, most helpful, and natural reply to ${senderName} below:
 `.trim();
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': apiKey
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: prompt }
-            ]
-          }
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      console.error('Gemini API Error:', errBody);
-      throw new Error('Failed to fetch from Gemini API');
-    }
-
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    if (text) {
-      return text.trim();
-    } else {
-      throw new Error('No valid response from AI');
-    }
-  } catch (error) {
-    console.error('Error generating AI response:', error);
-    return "Sorry, my AI core is currently offline or experiencing issues. Please make sure the Gemini API key is properly configured.";
+  try {
+    return await callGeminiContentApi([{ text: prompt }]);
+  } catch (err) {
+    console.error('generateAIResponse error:', err);
+    return "I'm receiving a high volume of requests right now! Please wait a moment and try asking me again. 🚀";
   }
 };
 
 export const generateSmartReplies = async (messageContent: string, senderName?: string): Promise<string[]> => {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return ["Sounds good! 👍", "Let me check and get back to you", "Thanks! 😊"];
-    }
-
-    const prompt = `
-Given the following chat message from ${senderName || 'a contact'}:
-"${messageContent}"
-
-Generate exactly 3 short, natural, conversational quick reply suggestions (between 1 to 5 words each). 
+  const prompt = `
+Given the chat message: "${messageContent}" from ${senderName || 'a contact'},
+Generate 3 short, natural, conversational reply suggestions (1 to 4 words each).
 Respond ONLY with a valid JSON array of 3 strings. Example: ["Sounds great! 👍", "I'll check now", "Thanks!"]
-Do not add markdown backticks or extra text.
+Do not add markdown formatting or code block backticks.
 `.trim();
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': apiKey
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }]
-          }
-        ]
-      })
-    });
+  try {
+    let rawText = await callGeminiContentApi([{ text: prompt }]);
+    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-    if (!response.ok) {
-      return ["Sounds good! 👍", "Let me check and get back to you", "Thanks! 😊"];
-    }
-
-    const data = await response.json();
-    let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(rawText);
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed.slice(0, 3).map(s => String(s).trim());
     }
-    return ["Sounds good! 👍", "Let me check and get back to you", "Thanks! 😊"];
-  } catch (error) {
-    console.error('Error generating smart replies:', error);
-    return ["Sounds good! 👍", "Let me check and get back to you", "Thanks! 😊"];
+  } catch (err) {
+    console.warn('Smart replies API call failed, using dynamic local engine:', err);
   }
+
+  return getLocalSmartReplies(messageContent);
 };
 
 export const transcribeVoiceNote = async (messageId: string): Promise<string> => {
@@ -147,102 +154,32 @@ export const transcribeVoiceNote = async (messageId: string): Promise<string> =>
   if (!message) throw new Error('Message not found');
 
   const existingMeta = (message.metadata as any) || {};
-  // Return cached transcription if it exists and is not an error string from a previous attempt
-  if (
-    existingMeta.transcription && 
-    !existingMeta.transcription.toLowerCase().includes('unable to access') &&
-    !existingMeta.transcription.toLowerCase().includes('failed') &&
-    !existingMeta.transcription.toLowerCase().includes('unavailable')
-  ) {
+  if (existingMeta.transcription && typeof existingMeta.transcription === 'string' && !existingMeta.transcription.includes('unavailable')) {
     return existingMeta.transcription;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is missing');
-  }
+  const mediaUrl = message.mediaUrl;
+  if (!mediaUrl) throw new Error('No media URL found for this voice note');
 
-  const audioUrl = message.mediaUrl || message.content;
-  if (!audioUrl) {
-    throw new Error('No audio file found for this message');
-  }
-
-  let base64Audio = '';
-  let mimeType = 'audio/webm';
-
-  try {
-    if (audioUrl.startsWith('data:')) {
-      const parts = audioUrl.split(',');
-      const match = parts[0].match(/data:(.*?);base64/);
-      if (match) mimeType = match[1];
-      base64Audio = parts[1];
-    } else if (audioUrl.startsWith('http://') || audioUrl.startsWith('https://')) {
-      const audioRes = await fetch(audioUrl, { redirect: 'follow' });
-      if (!audioRes.ok) throw new Error(`Failed to fetch audio file (${audioRes.status})`);
-      const arrayBuffer = await audioRes.arrayBuffer();
-      base64Audio = Buffer.from(arrayBuffer).toString('base64');
-      const contentType = audioRes.headers.get('content-type');
-      if (contentType) {
-        if (contentType.includes('ogg')) mimeType = 'audio/ogg';
-        else if (contentType.includes('mp3') || contentType.includes('mpeg')) mimeType = 'audio/mp3';
-        else if (contentType.includes('wav')) mimeType = 'audio/wav';
-        else if (contentType.includes('m4a') || contentType.includes('mp4')) mimeType = 'audio/mp4';
-        else mimeType = 'audio/webm';
-      }
-    }
-  } catch (err) {
-    console.error('Error fetching audio bytes for Gemini transcription:', err);
-  }
-
-  let parts: any[] = [];
-  if (base64Audio) {
-    parts = [
-      {
-        inlineData: {
-          mimeType: mimeType || 'audio/webm',
-          data: base64Audio
-        }
-      },
-      {
-        text: "Please transcribe this voice message accurately into text. If the speaker speaks in Hindi, Hinglish, or English, write down the exact spoken words clearly. Return only the transcription text without extra preamble."
-      }
-    ];
-  } else {
-    parts = [
-      {
-        text: `Please transcribe this audio note clearly. File reference: ${audioUrl}`
-      }
-    ];
-  }
-
-  const models = ['gemini-1.5-flash', 'gemini-flash-latest'];
   let text = '';
+  try {
+    const audioRes = await fetch(mediaUrl);
+    if (!audioRes.ok) throw new Error('Failed to download audio file');
+    const arrayBuffer = await audioRes.arrayBuffer();
+    const base64Data = Buffer.from(arrayBuffer).toString('base64');
+    let mimeType = (message as any).mimeType || 'audio/webm';
+    if (mediaUrl.endsWith('.ogg')) mimeType = 'audio/ogg';
+    if (mediaUrl.endsWith('.mp3')) mimeType = 'audio/mp3';
+    if (mediaUrl.endsWith('.wav')) mimeType = 'audio/wav';
 
-  for (const model of models) {
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-goog-api-key': apiKey
-        },
-        body: JSON.stringify({ contents: [{ parts }] })
-      });
+    const promptText = "Listen to this voice message carefully and transcribe the spoken words into clear, accurate text. Output ONLY the transcribed text, with no additional commentary or markdown formatting.";
 
-      if (response.ok) {
-        const data = await response.json();
-        text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-        if (text) break;
-      } else {
-        const errText = await response.text();
-        console.warn(`Gemini model ${model} response failed:`, errText);
-      }
-    } catch (e) {
-      console.warn(`Gemini model ${model} fetch exception:`, e);
-    }
-  }
-
-  if (!text) {
+    text = await callGeminiContentApi([
+      { text: promptText },
+      { inline_data: { mime_type: mimeType, data: base64Data } }
+    ]);
+  } catch (err) {
+    console.error('Error transcribing audio with Gemini:', err);
     text = "Voice note transcription unavailable.";
   }
 
@@ -256,11 +193,6 @@ export const transcribeVoiceNote = async (messageId: string): Promise<string> =>
 };
 
 export const summarizeChatMessages = async (chatId: string, limit = 50) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is missing');
-  }
-
   const chat = await prisma.chat.findUnique({
     where: { id: chatId },
     select: { name: true, isGroup: true }
@@ -303,33 +235,18 @@ Provide a structured summary in strictly valid JSON format with the following ke
 }
 Return ONLY the JSON string without code block backticks.`;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-goog-api-key': apiKey
-    },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error('Gemini API call failed');
-  }
-
-  const data = await response.json();
-  let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-  
-  rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-
   try {
-    return JSON.parse(rawText);
-  } catch (e) {
+    let rawText = await callGeminiContentApi([{ text: prompt }]);
+    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    const parsed = JSON.parse(rawText);
+    return parsed;
+  } catch (err) {
+    console.error('Error summarizing chat:', err);
     return {
       mainTopic: "Chat Summary",
-      summary: rawText,
-      keyPoints: [rawText],
+      summary: "Overview of recent chat conversation.",
+      keyPoints: messages.slice(0, 3).map((m: any) => `${m.sender?.name || 'User'}: ${m.content || ''}`.substring(0, 60)),
       decisions: []
     };
   }

@@ -13,6 +13,14 @@ import { redis } from '../lib/redis';
 import { activeLiveStreams } from '../controllers/live.controller';
 
 let ioInstance: Server | null = null;
+export const activeUserSockets = new Map<string, Set<string>>();
+export const activeCallRooms = new Map<string, {
+  chatId: string;
+  callType: 'AUDIO' | 'VIDEO';
+  initiatorId?: string;
+  everJoinedUserIds: Set<string>;
+  participants: Map<string, { userId: string; name?: string; avatar?: string | null; status: string; isMuted?: boolean; isVideoOff?: boolean }>;
+}>();
 
 export function getIO(): Server {
   if (!ioInstance) {
@@ -105,8 +113,6 @@ export function setupSocket(server: HttpServer) {
       next(new Error('Authentication error'));
     }
   });
-
-  const activeUserSockets = new Map<string, Set<string>>();
 
   chatNamespace.on('connection', async (socket: Socket) => {
     const userId = socket.data.userId;
@@ -642,8 +648,6 @@ export function setupSocket(server: HttpServer) {
       participants: Map<string, CallParticipantState>;
       everJoinedUserIds: Set<string>;
     }
-
-    const activeCallRooms = new Map<string, ServerCallRoom>();
 
     const broadcastRoomState = (chatId: string) => {
       const room = activeCallRooms.get(chatId);
