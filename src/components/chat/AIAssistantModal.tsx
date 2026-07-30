@@ -166,14 +166,14 @@ export default function AIAssistantModal({
 
           {/* Mode Inputs */}
           {mode === 'TRANSLATE' && (
-            <div className="flex items-center space-x-2 bg-[#111b21] p-2.5 rounded-xl border border-surface-border">
-              <span className="text-xs text-text-secondary">Translate to:</span>
+            <div className="flex flex-wrap items-center gap-2 bg-[#111b21] p-2.5 rounded-xl border border-surface-border">
+              <span className="text-xs text-text-secondary shrink-0">Translate to:</span>
               {['Hindi', 'English', 'Hinglish', 'Spanish'].map(lang => (
                 <button
                   key={lang}
                   type="button"
                   onClick={() => setTargetLang(lang)}
-                  className={`px-2.5 py-1 rounded-full text-xs transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap ${
                     targetLang === lang ? 'bg-emerald-500 text-white font-semibold' : 'bg-white/5 text-text-secondary hover:bg-white/10'
                   }`}
                 >
