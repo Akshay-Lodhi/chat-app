@@ -916,6 +916,29 @@ export function setupSocket(server: HttpServer) {
         const resolvedName = userName && userName !== 'Guest Participant' ? userName : (dbUser?.name || dbUser?.phoneNumber || (isHost ? meeting.host.name || 'Host' : 'Participant'));
         const resolvedAvatar = userAvatar || dbUser?.profilePicture || dbUser?.image || null;
 
+        socket.data.userName = resolvedName;
+        socket.data.userAvatar = resolvedAvatar;
+        socket.data.isHost = isHost;
+
+        // Fetch existing participants in the room before joining
+        const roomAdapter = chatNamespace.adapter.rooms.get(`meeting-room-${code}`);
+        const existingParticipants: any[] = [];
+        if (roomAdapter) {
+          for (const sId of roomAdapter) {
+            if (sId !== socket.id) {
+              const s = chatNamespace.sockets.get(sId);
+              if (s) {
+                existingParticipants.push({
+                  socketId: s.id,
+                  userName: s.data.userName || 'Participant',
+                  userAvatar: s.data.userAvatar || null,
+                  isHost: s.data.isHost || false
+                });
+              }
+            }
+          }
+        }
+
         // Admit to meeting room
         socket.join(`meeting-room-${code}`);
 
@@ -932,7 +955,8 @@ export function setupSocket(server: HttpServer) {
           code,
           isHost,
           meetingTitle: meeting.title,
-          callType: meeting.callType
+          callType: meeting.callType,
+          existingParticipants
         });
       } catch (err) {
         console.error('Error joining instant meeting:', err);
@@ -943,16 +967,37 @@ export function setupSocket(server: HttpServer) {
     socket.on('approve-meeting-guest', ({ code, guestSocketId }) => {
       const guestSocket = chatNamespace.sockets.get(guestSocketId);
       if (guestSocket) {
+        const roomAdapter = chatNamespace.adapter.rooms.get(`meeting-room-${code}`);
+        const existingParticipants: any[] = [];
+        if (roomAdapter) {
+          for (const sId of roomAdapter) {
+            if (sId !== guestSocket.id) {
+              const s = chatNamespace.sockets.get(sId);
+              if (s) {
+                existingParticipants.push({
+                  socketId: s.id,
+                  userName: s.data.userName || 'Participant',
+                  userAvatar: s.data.userAvatar || null,
+                  isHost: s.data.isHost || false
+                });
+              }
+            }
+          }
+        }
+
         guestSocket.join(`meeting-room-${code}`);
         guestSocket.emit('instant-meeting-admitted', {
           code,
           isHost: false,
-          meetingTitle: 'Instant Nexus Meeting'
+          meetingTitle: 'Instant Nexus Meeting',
+          existingParticipants
         });
 
         chatNamespace.to(`meeting-room-${code}`).emit('meeting-participant-joined', {
           socketId: guestSocket.id,
           userId: guestSocket.data.userId || 'guest',
+          userName: guestSocket.data.userName || 'Guest Participant',
+          userAvatar: guestSocket.data.userAvatar || null,
           isHost: false
         });
       }
@@ -964,6 +1009,19 @@ export function setupSocket(server: HttpServer) {
 
     socket.on('meeting-host-mute-all', ({ code }) => {
       socket.to(`meeting-room-${code}`).emit('meeting-muted-by-host');
+    });
+
+    socket.on('leave-instant-meeting', ({ code }) => {
+      socket.leave(`meeting-room-${code}`);
+      chatNamespace.to(`meeting-room-${code}`).emit('meeting-participant-left', { socketId: socket.id });
+    });
+
+    socket.on('disconnecting', () => {
+      for (const room of socket.rooms) {
+        if (room.startsWith('meeting-room-')) {
+          chatNamespace.to(room).emit('meeting-participant-left', { socketId: socket.id });
+        }
+      }
     });
 
     socket.on('meeting-host-remove-participant', ({ code, targetSocketId }) => {
@@ -978,12 +1036,13 @@ export function setupSocket(server: HttpServer) {
     });
 
     // Multi-Peer WebRTC Audio/Video Signaling
-    socket.on('meeting-signal-offer', ({ targetSocketId, offer, callerName, callerAvatar }) => {
+    socket.on('meeting-signal-offer', ({ targetSocketId, offer, callerName, callerAvatar, isHost }) => {
       chatNamespace.to(targetSocketId).emit('meeting-signal-offer', {
         callerSocketId: socket.id,
         offer,
         callerName,
-        callerAvatar
+        callerAvatar,
+        isHost
       });
     });
 
