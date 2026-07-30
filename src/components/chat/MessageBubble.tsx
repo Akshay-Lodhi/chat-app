@@ -20,7 +20,8 @@ import {
   Loader2,
   Pin,
   ChevronDown,
-  MoreVertical
+  MoreVertical,
+  Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useDragControls, AnimatePresence } from "framer-motion";
@@ -31,6 +32,7 @@ import { PollDetailsModal } from './PollDetailsModal';
 import { getCallDetailsPayload } from "@/lib/callUtils";
 import { ContextMenu } from "./ContextMenu";
 import { DeleteMessageModal } from "./DeleteMessageModal";
+import { EmojiPicker } from "./EmojiPicker";
 
 const AudioPlayer = ({ src }: { src: string }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -193,6 +195,8 @@ export function MessageBubble({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [showReactionDetails, setShowReactionDetails] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
+  const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
+  const [emojiPickerDirection, setEmojiPickerDirection] = useState<'down' | 'up'>('down');
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent | React.TouchEvent) => {
@@ -200,16 +204,38 @@ export function MessageBubble({
     let x = window.innerWidth / 2;
     let y = window.innerHeight / 2;
 
-    if ("clientX" in e) {
-      x = e.clientX;
-      y = e.clientY;
-    } else if (e.touches && e.touches[0]) {
+    if (e && "clientX" in e) {
+      x = (e as React.MouseEvent).clientX;
+      y = (e as React.MouseEvent).clientY;
+    } else if (e && "touches" in e && e.touches[0]) {
       x = e.touches[0].clientX;
       y = e.touches[0].clientY;
     }
 
     setMenuPosition({ x, y });
     setShowContextMenu(true);
+    setShowReactions(false);
+  };
+
+  const handleRightClick = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+
+    if (e && "clientX" in e) {
+      x = (e as React.MouseEvent).clientX;
+      y = (e as React.MouseEvent).clientY;
+    } else if (e && "touches" in e && e.touches[0]) {
+      x = e.touches[0].clientX;
+      y = e.touches[0].clientY;
+    }
+
+    setMenuPosition({ x, y });
+    setShowReactions(true);
+    setShowContextMenu(false);
+    if (!selectedMessageIds.includes(message.id)) {
+      handleInteraction(e);
+    }
   };
 
   const handleInteraction = (e: any) => {
@@ -234,8 +260,8 @@ export function MessageBubble({
           y = e.touches[0].clientY;
         }
         setMenuPosition({ x, y });
-        setShowContextMenu(true);
         setShowReactions(true);
+        setShowContextMenu(false);
         if (!selectedMessageIds.includes(message.id)) {
           handleInteraction(e);
         }
@@ -704,7 +730,7 @@ export function MessageBubble({
             Object.keys(message.reactions).length > 0 &&
             "mb-3",
         )}
-        onContextMenu={handleContextMenu}
+        onContextMenu={handleRightClick}
         onTouchStart={startLongPress}
         onTouchEnd={clearLongPress}
         onTouchMove={clearLongPress}
@@ -834,7 +860,10 @@ export function MessageBubble({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-40"
-                onClick={() => setShowReactions(false)}
+                onClick={() => {
+                  setShowReactions(false);
+                  setShowFullEmojiPicker(false);
+                }}
               />
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: 10 }}
@@ -848,51 +877,58 @@ export function MessageBubble({
                 {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
                   <button
                     key={emoji}
-                    onClick={() => handleReaction(emoji)}
+                    onClick={() => {
+                      handleReaction(emoji);
+                      setShowReactions(false);
+                      setShowFullEmojiPicker(false);
+                    }}
                     className="hover:scale-125 transition-transform text-xl"
                   >
                     {emoji}
                   </button>
                 ))}
-                {message.type === "CALL_LOG" ? (
-                  <>
-                    <div className="w-[1px] h-6 bg-surface-border mx-1" />
-                    <button
-                      onClick={() => {
-                        setShowCallDetails(true);
-                        setShowReactions(false);
-                      }}
-                      className="flex items-center text-text-secondary hover:text-text-primary px-1"
-                      title="Call Details Info"
-                    >
-                      <Info size={18} />
-                    </button>
-                  </>
-                ) : !hideInfoOption ? (
-                  <>
-                    <div className="w-[1px] h-6 bg-surface-border mx-1" />
-                    <button
-                      onClick={() => {
-                        setMessageForInfo(message);
-                        setShowReactions(false);
-                      }}
-                      className="flex items-center text-text-secondary hover:text-text-primary px-1"
-                      title="Message Info"
-                    >
-                      <Info size={18} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleContextMenu(e);
-                      }}
-                      className="flex items-center text-text-secondary hover:text-text-primary px-1"
-                      title="More Options (Pin, Edit, Star, Delete...)"
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-                  </>
-                ) : null}
+                
+                <div className="w-[1px] h-6 bg-surface-border mx-1" />
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const spaceBelow = window.innerHeight - rect.bottom;
+                      setEmojiPickerDirection(spaceBelow > 350 ? 'down' : 'up');
+                      setShowFullEmojiPicker(prev => !prev);
+                    }}
+                    className="flex items-center text-text-secondary hover:text-text-primary px-1 hover:scale-110 transition-transform"
+                    title="Add Emoji Reaction"
+                  >
+                    <Plus size={18} />
+                  </button>
+
+                  {showFullEmojiPicker && (
+                    <div className={cn("absolute z-50", isMine ? "right-0" : "left-0", emojiPickerDirection === 'down' ? "top-10" : "bottom-10")}>
+                      <EmojiPicker
+                        isOpen={showFullEmojiPicker}
+                        onClose={() => setShowFullEmojiPicker(false)}
+                        onSelectEmoji={(emoji) => {
+                          handleReaction(emoji);
+                          setShowFullEmojiPicker(false);
+                          setShowReactions(false);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleContextMenu(e);
+                  }}
+                  className="flex items-center text-text-secondary hover:text-text-primary px-1 hover:scale-110 transition-transform"
+                  title="More Options (Reply, Edit, Star, Pin, Forward, Info, Delete...)"
+                >
+                  <MoreVertical size={18} />
+                </button>
               </motion.div>
             </>
           )}
@@ -919,6 +955,13 @@ export function MessageBubble({
           isStarred={message.isStarred}
           onPin={() => { togglePinMessage(message.chatId, message.id); }}
           isPinned={message.isPinned}
+          onInfo={
+            message.type === 'CALL_LOG'
+              ? () => { setShowCallDetails(true); setShowReactions(false); }
+              : !hideInfoOption
+                ? () => { setMessageForInfo(message); setShowReactions(false); }
+                : undefined
+          }
           onDelete={() => setIsDeleteModalOpen(true)}
           canDelete={!message.deletedForEveryone}
         />

@@ -2,10 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 interface EmojiPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectEmoji: (emoji: string) => void;
+  className?: string;
 }
 
 const EMOJI_CATEGORIES = [
@@ -36,10 +39,12 @@ const EMOJI_CATEGORIES = [
   }
 ];
 
-export function EmojiPicker({ isOpen, onClose, onSelectEmoji }: EmojiPickerProps) {
+export function EmojiPicker({ isOpen, onClose, onSelectEmoji, className }: EmojiPickerProps) {
   const [activeCategory, setActiveCategory] = useState(0);
   const [search, setSearch] = useState('');
   const pickerRef = useRef<HTMLDivElement>(null);
+
+  const categoryRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -56,9 +61,34 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji }: EmojiPickerProps
 
   if (!isOpen) return null;
 
-  const filteredEmojis = search.trim() 
-    ? EMOJI_CATEGORIES.flatMap(c => c.emojis).filter(e => e.includes(search.trim()))
-    : EMOJI_CATEGORIES[activeCategory].emojis;
+  const scrollToCategory = (index: number) => {
+    setActiveCategory(index);
+    if (categoryRefs.current[index]) {
+      categoryRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (search.trim()) return;
+    const container = e.currentTarget;
+    
+    // Find the category that is currently closest to the top of the scroll container
+    let closestIndex = 0;
+    let minDistance = Infinity;
+
+    categoryRefs.current.forEach((ref, index) => {
+      if (!ref) return;
+      const distance = Math.abs(ref.offsetTop - container.scrollTop);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    if (closestIndex !== activeCategory) {
+      setActiveCategory(closestIndex);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -67,7 +97,7 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji }: EmojiPickerProps
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="absolute bottom-[calc(100%+12px)] left-2 z-40 w-80 md:w-96 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col h-80"
+        className={cn("z-40 w-80 md:w-96 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col h-80", className)}
       >
         {/* Search Header */}
         <div className="p-2.5 border-b border-surface-border flex items-center bg-[#111b21]">
@@ -94,7 +124,7 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji }: EmojiPickerProps
             {EMOJI_CATEGORIES.map((cat, idx) => (
               <button
                 key={cat.name}
-                onClick={() => setActiveCategory(idx)}
+                onClick={() => scrollToCategory(idx)}
                 className={`flex-1 py-1 text-base rounded-lg transition-colors flex items-center justify-center ${activeCategory === idx ? 'bg-[#2a3942] text-white shadow-sm' : 'hover:bg-[#202c33] text-[#8696a0]'}`}
                 title={cat.name}
               >
@@ -105,16 +135,50 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji }: EmojiPickerProps
         )}
 
         {/* Emoji Grid */}
-        <div className="flex-1 overflow-y-auto p-3 grid grid-cols-7 gap-1.5 scrollbar-thin scrollbar-thumb-surface-border">
-          {filteredEmojis.map((emoji, i) => (
-            <button
-              key={`${emoji}-${i}`}
-              onClick={() => onSelectEmoji(emoji)}
-              className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-[#2a3942] rounded-xl transition-transform hover:scale-125 active:scale-95"
-            >
-              {emoji}
-            </button>
-          ))}
+        <div 
+          className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-surface-border relative"
+          onScroll={handleScroll}
+        >
+          {search.trim() ? (
+            <div className="grid grid-cols-7 gap-1.5">
+              {EMOJI_CATEGORIES.flatMap(c => c.emojis)
+                .filter(e => e.includes(search.trim()))
+                .map((emoji, i) => (
+                <button
+                  key={`${emoji}-${i}`}
+                  onClick={() => onSelectEmoji(emoji)}
+                  className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-[#2a3942] rounded-xl transition-transform hover:scale-125 active:scale-95"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col space-y-4">
+              {EMOJI_CATEGORIES.map((category, catIdx) => (
+                <div 
+                  key={category.name} 
+                  ref={(el) => { categoryRefs.current[catIdx] = el; }}
+                  className="scroll-mt-2"
+                >
+                  <h4 className="text-xs font-semibold text-[#8696a0] uppercase mb-2 pl-1 sticky top-0 bg-[#1f2c34]/95 backdrop-blur-sm py-1 z-10">
+                    {category.name}
+                  </h4>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {category.emojis.map((emoji, i) => (
+                      <button
+                        key={`${category.name}-${emoji}-${i}`}
+                        onClick={() => onSelectEmoji(emoji)}
+                        className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-[#2a3942] rounded-xl transition-transform hover:scale-125 active:scale-95"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>

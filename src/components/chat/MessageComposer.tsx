@@ -365,11 +365,11 @@ export function MessageComposer({
         )}
       </AnimatePresence>
 
-      {/* Emoji Picker */}
       <EmojiPicker 
         isOpen={showEmojiPicker} 
         onClose={() => setShowEmojiPicker(false)} 
         onSelectEmoji={(emoji) => setMessage(prev => prev + emoji)} 
+        className="absolute bottom-[calc(100%+12px)] left-2"
       />
 
       {/* AI Smart Reply Chips */}

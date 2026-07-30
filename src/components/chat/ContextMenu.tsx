@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Reply, CornerUpRight, Copy, Trash2, X, Star, StarOff, Pin, PinOff } from 'lucide-react';
+import { Reply, CornerUpRight, Copy, Trash2, X, Star, StarOff, Pin, PinOff, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ContextMenuProps {
@@ -15,11 +15,12 @@ interface ContextMenuProps {
   isStarred?: boolean;
   onPin?: () => void;
   isPinned?: boolean;
+  onInfo?: () => void;
   onDelete: () => void;
   canDelete: boolean;
 }
 
-export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onCopy, onEdit, onStar, isStarred, onPin, isPinned, onDelete, canDelete }: ContextMenuProps) {
+export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onCopy, onEdit, onStar, isStarred, onPin, isPinned, onInfo, onDelete, canDelete }: ContextMenuProps) {
   // Use a fallback position if it's somehow not available but isOpen is true
   const menuPos = position || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   
@@ -116,6 +117,15 @@ export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onC
               <Copy size={16} className="mr-3 text-text-secondary" />
               Copy
             </button>
+            {onInfo && (
+              <button
+                onClick={() => { onInfo(); onClose(); }}
+                className="w-full flex items-center px-4 py-3 hover:bg-white/5 transition-colors text-text-primary text-sm text-left"
+              >
+                <Info size={16} className="mr-3 text-text-secondary" />
+                Info
+              </button>
+            )}
             {canDelete && (
               <button
                 onClick={() => { onDelete(); onClose(); }}

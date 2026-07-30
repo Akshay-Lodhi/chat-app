@@ -897,7 +897,7 @@ export default function InstantMeetingPage() {
 
         <button
           onClick={toggleScreenShare}
-          className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all shadow-lg ${
+          className={`hidden md:block p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all shadow-lg ${
             isScreenSharing ? 'bg-emerald-500 text-black font-bold' : 'bg-[#1f2c34] hover:bg-white/15 text-white'
           }`}
           title="Share Screen"
