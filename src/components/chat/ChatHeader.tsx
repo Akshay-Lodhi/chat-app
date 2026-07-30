@@ -13,6 +13,7 @@ import { WallpaperModal } from './WallpaperModal';
 import DisappearingMessagesModal from './DisappearingMessagesModal';
 import AISummaryModal from './AISummaryModal';
 import { cn } from '@/lib/utils';
+import { apiClient } from '@/lib/apiClient';
 
 interface ChatHeaderProps {
   onBack: () => void;
@@ -37,6 +38,30 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   const { user } = useAuthStore();
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleCreateInstantMeeting = async () => {
+    try {
+      const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+      const res = await apiClient(`${SERVER_URL}/api/meetings/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Instant Meeting by ${user?.name || 'Nexus User'}`
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(data.meetingUrl);
+        }
+        alert(`Meeting Link Created & Copied!\n\nLink: ${data.meetingUrl}`);
+        window.open(`/join/${data.code}`, '_blank');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate instant meeting link.');
+    }
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -196,6 +221,21 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {/* Instant Meeting Link (Zoom/Meet Style) */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setMenuOpen(false);
+                        handleCreateInstantMeeting();
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-emerald-400 hover:bg-emerald-500/10 transition-colors text-sm font-semibold border-b border-white/5"
+                    >
+                      <Sparkles size={16} className="text-emerald-400" />
+                      <span>Instant Meeting Link (🔗)</span>
+                    </button>
+
                     {/* Search */}
                     <button
                       type="button"
