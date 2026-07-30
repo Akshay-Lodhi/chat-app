@@ -97,16 +97,29 @@ export function MessageComposer({
 
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [showAiSuggest, setShowAiSuggest] = useState(false);
+  const lastFetchedMsgIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!activeChatId) {
       setSmartReplies([]);
+      lastFetchedMsgIdRef.current = null;
       return;
     }
     const chatMsgs = messages[activeChatId] || [];
     const lastMsg = chatMsgs[chatMsgs.length - 1];
 
-    if (lastMsg && lastMsg.senderId !== 'nexus-ai-system' && lastMsg.type === 'TEXT' && lastMsg.content) {
+    if (!lastMsg) {
+      setSmartReplies([]);
+      return;
+    }
+
+    // Only fetch smart replies if the last message ID actually changed!
+    if (lastMsg.id === lastFetchedMsgIdRef.current) {
+      return;
+    }
+
+    if (lastMsg.senderId !== 'nexus-ai-system' && lastMsg.type === 'TEXT' && lastMsg.content) {
+      lastFetchedMsgIdRef.current = lastMsg.id;
       const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
       apiClient(`${SERVER_URL}/api/chats/smart-replies`, {
         method: 'POST',
