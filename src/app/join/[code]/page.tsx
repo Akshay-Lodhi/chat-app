@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Hand, MessageSquare,
-  Users, Copy, PhoneOff, Shield, Check, X, Sparkles, AlertCircle, Loader2, Volume2
+  Users, Copy, PhoneOff, Shield, Check, X, Sparkles, AlertCircle, Loader2, Volume2, Upload, Camera
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { apiClient } from '@/lib/apiClient';
@@ -24,6 +24,14 @@ interface MeetingInfo {
   };
 }
 
+const PRESET_AVATARS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=250&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=250&q=80',
+  'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=250&q=80'
+];
+
 export default function InstantMeetingPage() {
   const params = useParams();
   const router = useRouter();
@@ -37,7 +45,8 @@ export default function InstantMeetingPage() {
   // Pre-join Lobby States
   const [inLobby, setInLobby] = useState(true);
   const [isWaitingRoom, setIsWaitingRoom] = useState(false);
-  const [guestName, setGuestName] = useState(user?.name || '');
+  const [guestName, setGuestName] = useState('');
+  const [customAvatar, setCustomAvatar] = useState<string | null>(null);
 
   // Media States
   const [isMicOn, setIsMicOn] = useState(true);
@@ -59,6 +68,19 @@ export default function InstantMeetingPage() {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const remoteVideoRefs = useRef<Map<string, HTMLVideoElement | null>>(new Map());
+
+  // Auto-sync name/avatar on mount
+  useEffect(() => {
+    if (user) {
+      setGuestName(user.name || user.phoneNumber || 'User');
+      setCustomAvatar(user.profilePicture || (user as any)?.image || null);
+    } else {
+      setGuestName(`Guest ${Math.floor(100 + Math.random() * 900)}`);
+    }
+  }, [user]);
 
   // 1. Fetch Meeting Details on Mount
   useEffect(() => {
@@ -84,39 +106,103 @@ export default function InstantMeetingPage() {
     fetchInfo();
   }, [code, user]);
 
-  // 2. Setup Local Camera/Mic Stream for Lobby & Meeting
+  // 2. Setup Local Camera/Mic Stream
   useEffect(() => {
     const startLocalMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: isVideoOn,
-          audio: isMicOn
+          video: true,
+          audio: true
         });
         localStreamRef.current = stream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
+
+        // Apply initial mic/video enable toggles
+        stream.getVideoTracks().forEach(t => (t.enabled = isVideoOn));
+        stream.getAudioTracks().forEach(t => (t.enabled = isMicOn));
       } catch (err) {
         console.warn('Could not access camera/mic:', err);
       }
     };
 
-    if (inLobby || !isLobbyState()) {
-      startLocalMedia();
-    }
+    startLocalMedia();
 
     return () => {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
       }
     };
-  }, [isVideoOn, isMicOn, inLobby]);
+  }, []);
 
-  function isLobbyState() {
-    return inLobby;
-  }
+  // Update track enabled states when mic/video toggling
+  useEffect(() => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getVideoTracks().forEach(t => (t.enabled = isVideoOn));
+    }
+  }, [isVideoOn]);
 
-  // 3. Socket Listeners for Instant Meeting Events
+  useEffect(() => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach(t => (t.enabled = isMicOn));
+    }
+  }, [isMicOn]);
+
+  // WebRTC Peer Connection Helper
+  const getOrCreatePeerConnection = (targetSocketId: string) => {
+    if (peerConnectionsRef.current.has(targetSocketId)) {
+      return peerConnectionsRef.current.get(targetSocketId)!;
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    });
+
+    // Add local tracks to peer connection
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => {
+        pc.addTrack(track, localStreamRef.current!);
+      });
+    }
+
+    // Handle incoming remote tracks
+    pc.ontrack = (event) => {
+      let remoteStream = remoteStreamsRef.current.get(targetSocketId);
+      if (!remoteStream) {
+        remoteStream = new MediaStream();
+        remoteStreamsRef.current.set(targetSocketId, remoteStream);
+      }
+      event.streams[0].getTracks().forEach(t => remoteStream!.addTrack(t));
+
+      const vidElem = remoteVideoRefs.current.get(targetSocketId);
+      if (vidElem) {
+        vidElem.srcObject = remoteStream;
+      }
+    };
+
+    // Handle ICE candidates
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        const socket = getSocket();
+        if (socket) {
+          socket.emit('meeting-signal-candidate', {
+            code,
+            targetSocketId,
+            candidate: event.candidate
+          });
+        }
+      }
+    };
+
+    peerConnectionsRef.current.set(targetSocketId, pc);
+    return pc;
+  };
+
+  // 3. Socket Listeners for Instant Meeting Events & WebRTC
   useEffect(() => {
     const socket = getSocket();
     if (!socket || inLobby) return;
@@ -136,12 +222,81 @@ export default function InstantMeetingPage() {
       setWaitingGuests(prev => [...prev.filter(g => g.socketId !== guestData.socketId), guestData]);
     });
 
-    socket.on('meeting-participant-joined', (participant: any) => {
+    socket.on('meeting-participant-joined', async (participant: any) => {
       setParticipants(prev => [...prev.filter(p => p.socketId !== participant.socketId), participant]);
+
+      // Create WebRTC Offer for newly joined participant
+      try {
+        const pc = getOrCreatePeerConnection(participant.socketId);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        socket.emit('meeting-signal-offer', {
+          code,
+          targetSocketId: participant.socketId,
+          offer,
+          callerName: guestName,
+          callerAvatar: customAvatar
+        });
+      } catch (err) {
+        console.error('Error creating WebRTC offer:', err);
+      }
+    });
+
+    // Handle incoming WebRTC Offer
+    socket.on('meeting-signal-offer', async ({ callerSocketId, offer, callerName, callerAvatar }: any) => {
+      setParticipants(prev => [
+        ...prev.filter(p => p.socketId !== callerSocketId),
+        { socketId: callerSocketId, userName: callerName, userAvatar: callerAvatar }
+      ]);
+
+      try {
+        const pc = getOrCreatePeerConnection(callerSocketId);
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit('meeting-signal-answer', {
+          code,
+          targetSocketId: callerSocketId,
+          answer
+        });
+      } catch (err) {
+        console.error('Error handling WebRTC offer:', err);
+      }
+    });
+
+    // Handle incoming WebRTC Answer
+    socket.on('meeting-signal-answer', async ({ responderSocketId, answer }: any) => {
+      try {
+        const pc = peerConnectionsRef.current.get(responderSocketId);
+        if (pc) {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        }
+      } catch (err) {
+        console.error('Error handling WebRTC answer:', err);
+      }
+    });
+
+    // Handle incoming ICE Candidate
+    socket.on('meeting-signal-candidate', async ({ senderSocketId, candidate }: any) => {
+      try {
+        const pc = peerConnectionsRef.current.get(senderSocketId);
+        if (pc && candidate) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+      } catch (err) {
+        console.error('Error handling ICE candidate:', err);
+      }
     });
 
     socket.on('meeting-participant-left', ({ socketId }: any) => {
       setParticipants(prev => prev.filter(p => p.socketId !== socketId));
+      if (peerConnectionsRef.current.has(socketId)) {
+        peerConnectionsRef.current.get(socketId)?.close();
+        peerConnectionsRef.current.delete(socketId);
+      }
+      remoteStreamsRef.current.delete(socketId);
     });
 
     socket.on('meeting-entry-denied', () => {
@@ -152,9 +307,6 @@ export default function InstantMeetingPage() {
 
     socket.on('meeting-muted-by-host', () => {
       setIsMicOn(false);
-      if (localStreamRef.current) {
-        localStreamRef.current.getAudioTracks().forEach(t => (t.enabled = false));
-      }
     });
 
     socket.on('meeting-kicked-by-host', () => {
@@ -177,6 +329,9 @@ export default function InstantMeetingPage() {
       socket.off('meeting-waiting-approval');
       socket.off('meeting-guest-waiting');
       socket.off('meeting-participant-joined');
+      socket.off('meeting-signal-offer');
+      socket.off('meeting-signal-answer');
+      socket.off('meeting-signal-candidate');
       socket.off('meeting-participant-left');
       socket.off('meeting-entry-denied');
       socket.off('meeting-muted-by-host');
@@ -184,7 +339,89 @@ export default function InstantMeetingPage() {
       socket.off('meeting-hand-updated');
       socket.off('meeting-chat-received');
     };
-  }, [inLobby, router]);
+  }, [inLobby, router, guestName, customAvatar]);
+
+  // Screen Share Handler
+  const screenStreamRef = useRef<MediaStream | null>(null);
+
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(t => t.stop());
+        screenStreamRef.current = null;
+      }
+      setIsScreenSharing(false);
+
+      if (localStreamRef.current) {
+        const videoTrack = localStreamRef.current.getVideoTracks()[0];
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = localStreamRef.current;
+        }
+
+        peerConnectionsRef.current.forEach(pc => {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender && videoTrack) {
+            sender.replaceTrack(videoTrack);
+          }
+        });
+      }
+    } else {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
+        });
+        screenStreamRef.current = screenStream;
+        setIsScreenSharing(true);
+
+        const screenTrack = screenStream.getVideoTracks()[0];
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = screenStream;
+        }
+
+        peerConnectionsRef.current.forEach(pc => {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            sender.replaceTrack(screenTrack);
+          }
+        });
+
+        screenTrack.onended = () => {
+          if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach(t => t.stop());
+            screenStreamRef.current = null;
+          }
+          setIsScreenSharing(false);
+          if (localStreamRef.current) {
+            const vTrack = localStreamRef.current.getVideoTracks()[0];
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = localStreamRef.current;
+            }
+            peerConnectionsRef.current.forEach(pc => {
+              const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+              if (sender && vTrack) {
+                sender.replaceTrack(vTrack);
+              }
+            });
+          }
+        };
+      } catch (err) {
+        console.warn('Screen share cancelled:', err);
+      }
+    }
+  };
+
+  // Image Upload Handler in Lobby
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomAvatar(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Join Action
   const handleJoinClick = () => {
@@ -193,8 +430,8 @@ export default function InstantMeetingPage() {
 
     socket.emit('join-instant-meeting', {
       code,
-      userName: guestName || 'Guest Participant',
-      userAvatar: user?.profilePicture || null
+      userName: guestName || 'Participant',
+      userAvatar: customAvatar
     });
 
     setInLobby(false);
@@ -283,10 +520,10 @@ export default function InstantMeetingPage() {
     );
   }
 
-  // SCREEN 1: PRE-JOIN LOBBY PREVIEW
+  // SCREEN 1: PRE-JOIN LOBBY PREVIEW (With Name & Avatar Selection)
   if (inLobby) {
     return (
-      <div className="min-h-screen bg-[#0b141a] text-white flex flex-col justify-between p-6">
+      <div className="min-h-screen bg-[#0b141a] text-white flex flex-col justify-between p-6 overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
@@ -297,7 +534,7 @@ export default function InstantMeetingPage() {
               <h1 className="text-base font-bold text-white flex items-center gap-2">
                 {meeting.title}
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 uppercase">
-                  Instant Link
+                  Instant Call
                 </span>
               </h1>
               <p className="text-xs text-text-secondary">Host: {meeting.host.name || 'Nexus User'}</p>
@@ -326,9 +563,13 @@ export default function InstantMeetingPage() {
               />
             ) : (
               <div className="flex flex-col items-center space-y-3">
-                <div className="w-20 h-20 rounded-full bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-2xl uppercase">
-                  {guestName.substring(0, 2) || 'ME'}
-                </div>
+                {customAvatar ? (
+                  <img src={customAvatar} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-emerald-500 shadow-xl" />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-2xl uppercase">
+                    {(guestName || 'ME').substring(0, 2)}
+                  </div>
+                )}
                 <p className="text-xs text-text-secondary">Camera is turned off</p>
               </div>
             )}
@@ -357,32 +598,55 @@ export default function InstantMeetingPage() {
             </div>
           </div>
 
-          {/* Display Name Input (For Guests/Unauthenticated) */}
-          <div className="w-full mt-6 space-y-3">
-            {!user && (
-              <div>
-                <label className="text-xs text-text-secondary mb-1.5 block">Your Name in Call:</label>
-                <input
-                  type="text"
-                  value={guestName}
-                  onChange={e => setGuestName(e.target.value)}
-                  placeholder="Enter your name..."
-                  className="w-full bg-[#111b21] border border-surface-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
+          {/* Name & Avatar Customization Box */}
+          <div className="w-full mt-6 bg-[#111b21] border border-white/10 rounded-2xl p-4 space-y-4 shadow-xl">
+            <div>
+              <label className="text-xs font-semibold text-text-secondary mb-1.5 block">Your Call Display Name:</label>
+              <input
+                type="text"
+                value={guestName}
+                onChange={e => setGuestName(e.target.value)}
+                placeholder="Enter your name for the call..."
+                className="w-full bg-[#1f2c34] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-text-secondary mb-2 block">Choose Profile Photo / Avatar:</label>
+              <div className="flex items-center space-x-3 overflow-x-auto pb-1">
+                {/* Upload File Button */}
+                <label className="w-12 h-12 rounded-full bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 flex items-center justify-center text-emerald-400 cursor-pointer transition-all flex-shrink-0">
+                  <Camera size={20} />
+                  <input type="file" accept="image/*" onChange={handleAvatarFileUpload} className="hidden" />
+                </label>
+
+                {/* Preset Avatars */}
+                {PRESET_AVATARS.map((avatar, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCustomAvatar(avatar)}
+                    className={`relative w-12 h-12 rounded-full overflow-hidden border-2 transition-all flex-shrink-0 ${
+                      customAvatar === avatar ? 'border-emerald-400 scale-105 shadow-lg' : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={avatar} alt="Preset Avatar" className="w-full h-full object-cover" />
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
 
             <button
               onClick={handleJoinClick}
-              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl text-base shadow-xl transition-all cursor-pointer flex items-center justify-center space-x-2"
+              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-base shadow-xl transition-all cursor-pointer flex items-center justify-center space-x-2 mt-2"
             >
-              <span>{isHost ? 'Start Meeting' : 'Ask to Join Meeting'}</span>
+              <span>{isHost ? 'Start Instant Call' : 'Join Call Now'}</span>
             </button>
           </div>
         </div>
 
         <div className="text-center text-xs text-text-secondary">
-          Protected by End-to-End Encryption & Nexus Security
+          Protected by End-to-End Encryption & WebRTC Real-Time Protocol
         </div>
       </div>
     );
@@ -401,7 +665,7 @@ export default function InstantMeetingPage() {
 
         <h2 className="text-2xl font-bold text-white mb-2">Waiting for Host Approval...</h2>
         <p className="text-sm text-text-secondary max-w-md mb-6">
-          You are in the waiting room for <span className="font-semibold text-white">{meeting.title}</span>. The host ({meeting.host.name}) will let you in shortly.
+          You are in the waiting room for <span className="font-semibold text-white">{meeting.title}</span> as <span className="text-emerald-400 font-bold">{guestName}</span>.
         </p>
 
         <div className="flex items-center space-x-3 bg-[#111b21] border border-white/10 px-4 py-2.5 rounded-full text-xs text-emerald-400">
@@ -467,9 +731,17 @@ export default function InstantMeetingPage() {
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">
-              <div className="w-16 h-16 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xl uppercase shadow-lg">
-                {guestName.substring(0, 2) || 'ME'}
-              </div>
+              {customAvatar ? (
+                <img
+                  src={customAvatar}
+                  alt={guestName}
+                  className="w-20 h-20 rounded-full object-cover shadow-lg border-2 border-emerald-500"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-2xl uppercase shadow-lg">
+                  {guestName.substring(0, 2) || 'ME'}
+                </div>
+              )}
             </div>
           )}
 
@@ -485,14 +757,32 @@ export default function InstantMeetingPage() {
           )}
         </div>
 
-        {/* Remote Participants */}
+        {/* Remote Participants Video Tiles */}
         {participants.map((p, idx) => (
           <div key={p.socketId || idx} className="relative aspect-video bg-[#111b21] rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-            <div className="w-full h-full flex flex-col items-center justify-center">
-              <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xl uppercase shadow-lg">
-                {(p.userName || 'P').substring(0, 2)}
+            <video
+              ref={el => {
+                remoteVideoRefs.current.set(p.socketId, el);
+                if (el && remoteStreamsRef.current.has(p.socketId)) {
+                  el.srcObject = remoteStreamsRef.current.get(p.socketId)!;
+                }
+              }}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+
+            {!remoteStreamsRef.current.has(p.socketId) && (
+              <div className="absolute inset-0 bg-[#111b21] flex flex-col items-center justify-center">
+                {p.userAvatar ? (
+                  <img src={p.userAvatar} alt={p.userName} className="w-20 h-20 rounded-full object-cover border-2 border-indigo-500 shadow-lg" />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-2xl uppercase shadow-lg">
+                    {(p.userName || 'P').substring(0, 2)}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-xs font-medium">
               {p.userName || 'Participant'}
@@ -527,6 +817,16 @@ export default function InstantMeetingPage() {
           title="Toggle Camera"
         >
           {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
+        </button>
+
+        <button
+          onClick={toggleScreenShare}
+          className={`p-3.5 rounded-2xl transition-all shadow-lg ${
+            isScreenSharing ? 'bg-emerald-500 text-black font-bold' : 'bg-[#1f2c34] hover:bg-white/15 text-white'
+          }`}
+          title="Share Screen"
+        >
+          {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
         </button>
 
         <button
@@ -622,13 +922,19 @@ export default function InstantMeetingPage() {
           {/* Active Participants List */}
           <div className="flex-1 overflow-y-auto space-y-2">
             <div className="flex items-center justify-between p-2 bg-black/20 rounded-xl text-xs">
-              <span className="text-white font-medium">{guestName} (You)</span>
+              <div className="flex items-center space-x-2">
+                {customAvatar && <img src={customAvatar} className="w-5 h-5 rounded-full object-cover" />}
+                <span className="text-white font-medium">{guestName} (You)</span>
+              </div>
               <span className="text-[10px] bg-purple-500/30 text-purple-300 font-bold px-1.5 py-0.5 rounded">HOST</span>
             </div>
 
             {participants.map(p => (
               <div key={p.socketId} className="flex items-center justify-between p-2 bg-[#111b21] rounded-xl text-xs border border-white/5">
-                <span className="text-white font-medium">{p.userName}</span>
+                <div className="flex items-center space-x-2">
+                  {p.userAvatar && <img src={p.userAvatar} className="w-5 h-5 rounded-full object-cover" />}
+                  <span className="text-white font-medium">{p.userName}</span>
+                </div>
                 {isHost && (
                   <button
                     onClick={() => handleRemoveParticipant(p.socketId)}
