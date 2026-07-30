@@ -161,6 +161,16 @@ export default function InstantMeetingPage() {
     }
   }, [isMicOn]);
 
+  // Sync local video stream when the video element is remounted (e.g. after toggling camera, or screen transition)
+  useEffect(() => {
+    if (localVideoRef.current) {
+      const activeStream = (isScreenSharing && screenStreamRef.current) ? screenStreamRef.current : localStreamRef.current;
+      if (activeStream && localVideoRef.current.srcObject !== activeStream) {
+        localVideoRef.current.srcObject = activeStream;
+      }
+    }
+  }, [isVideoOn, inLobby, isWaitingRoom, isScreenSharing]);
+
   // WebRTC Peer Connection Helper
   const getOrCreatePeerConnection = (targetSocketId: string) => {
     if (peerConnectionsRef.current.has(targetSocketId)) {
@@ -839,7 +849,10 @@ export default function InstantMeetingPage() {
               ref={el => {
                 remoteVideoRefs.current.set(p.socketId, el);
                 if (el && remoteStreamsRef.current.has(p.socketId)) {
-                  el.srcObject = remoteStreamsRef.current.get(p.socketId)!;
+                  const stream = remoteStreamsRef.current.get(p.socketId)!;
+                  if (el.srcObject !== stream) {
+                    el.srcObject = stream;
+                  }
                 }
               }}
               autoPlay
