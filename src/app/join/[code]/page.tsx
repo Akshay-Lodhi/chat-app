@@ -170,14 +170,22 @@ export default function InstantMeetingPage() {
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
       ]
     });
 
     // Add local tracks to peer connection
     if (localStreamRef.current) {
+      const existingSenders = pc.getSenders();
       localStreamRef.current.getTracks().forEach(track => {
-        pc.addTrack(track, localStreamRef.current!);
+        const hasTrack = existingSenders.some(s => s.track && s.track.kind === track.kind);
+        if (!hasTrack) {
+          pc.addTrack(track, localStreamRef.current!);
+        }
       });
     }
 
@@ -201,6 +209,13 @@ export default function InstantMeetingPage() {
       if (vidElem) {
         vidElem.srcObject = remoteStream;
         vidElem.play().catch(err => console.warn('Video play error:', err));
+      }
+    };
+
+    // Monitor ICE connection state
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setActiveRemoteStreams(prev => ({ ...prev, [targetSocketId]: true }));
       }
     };
 
@@ -266,26 +281,9 @@ export default function InstantMeetingPage() {
       setWaitingGuests(prev => [...prev.filter(g => g.socketId !== guestData.socketId), guestData]);
     });
 
-    socket.on('meeting-participant-joined', async (participant: any) => {
+    socket.on('meeting-participant-joined', (participant: any) => {
       setParticipants(prev => [...prev.filter(p => p.socketId !== participant.socketId), participant]);
-
-      // Create WebRTC Offer for newly joined participant
-      try {
-        const pc = getOrCreatePeerConnection(participant.socketId);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        socket.emit('meeting-signal-offer', {
-          code,
-          targetSocketId: participant.socketId,
-          offer,
-          callerName: guestName,
-          callerAvatar: customAvatar,
-          isHost
-        });
-      } catch (err) {
-        console.error('Error creating WebRTC offer:', err);
-      }
+      // Wait for incoming offer from newly joined participant to prevent WebRTC offer glare
     });
 
     // Handle incoming WebRTC Offer
