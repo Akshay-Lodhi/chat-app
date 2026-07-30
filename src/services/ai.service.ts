@@ -62,8 +62,16 @@ export const callGeminiContentApi = async (parts: any[]): Promise<string> => {
   throw new Error('All Gemini API model attempts failed.');
 };
 
-export const getLocalSmartReplies = (messageContent: string): string[] => {
+export const getLocalSmartReplies = (messageContent: string, isOwnMessage?: boolean): string[] => {
   const lower = (messageContent || '').toLowerCase();
+  
+  if (isOwnMessage) {
+    if (lower.endsWith('?')) {
+      return ["Aaj ka kya plan hai?", "Kab mil rahe hain? ☕", "Koi aur news?"];
+    }
+    return ["Aur batao!", "Aaj ka kya plan hai? 🤔", "Kab free ho?"];
+  }
+
   if (lower.includes('morning') || lower.includes('gm')) {
     return ["Good morning! ☀️", "Morning! Have a great day 😊", "GM! 👋"];
   }
@@ -173,10 +181,18 @@ Output ONLY the direct sendable text below:
   }
 };
 
-export const generateSmartReplies = async (messageContent: string, senderName?: string): Promise<string[]> => {
-  const prompt = `
-Given the chat message: "${messageContent}" from ${senderName || 'a contact'},
-Generate 3 short, natural, conversational reply suggestions (1 to 4 words each).
+export const generateSmartReplies = async (messageContent: string, senderName?: string, isOwnMessage?: boolean): Promise<string[]> => {
+  const prompt = isOwnMessage
+    ? `
+The user just sent this message in a chat: "${messageContent}".
+Generate 3 short, natural follow-up options or next conversation topics that the SAME user could send next to continue the conversation (1 to 4 words each).
+Do NOT answer the question or reply to the user. Generate next thoughts/questions for the sender.
+Respond ONLY with a valid JSON array of 3 strings. Example: ["Aaj ka plan?", "Aur batao", "Kab mil rahe?"]
+Do not add markdown formatting or code block backticks.
+`.trim()
+    : `
+Given the incoming chat message: "${messageContent}" from ${senderName || 'a contact'},
+Generate 3 short, natural, conversational reply suggestions to respond to them (1 to 4 words each).
 Respond ONLY with a valid JSON array of 3 strings. Example: ["Sounds great! 👍", "I'll check now", "Thanks!"]
 Do not add markdown formatting or code block backticks.
 `.trim();
@@ -193,7 +209,7 @@ Do not add markdown formatting or code block backticks.
     console.warn('Smart replies API call failed, using dynamic local engine:', err);
   }
 
-  return getLocalSmartReplies(messageContent);
+  return getLocalSmartReplies(messageContent, isOwnMessage);
 };
 
 export const transcribeVoiceNote = async (messageId: string): Promise<string> => {

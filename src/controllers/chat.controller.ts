@@ -354,9 +354,9 @@ export const summarizeChatController = async (req: AuthRequest, res: Response) =
 
 export const getSmartRepliesController = async (req: AuthRequest, res: Response) => {
   try {
-    const { content, senderName } = req.body;
+    const { content, senderName, isOwnMessage } = req.body;
     if (!content) return res.status(400).json({ error: 'Message content is required' });
-    const replies = await generateSmartReplies(content, senderName);
+    const replies = await generateSmartReplies(content, senderName, isOwnMessage);
     res.json({ replies });
   } catch (error: any) {
     console.error('Error generating smart replies:', error);
