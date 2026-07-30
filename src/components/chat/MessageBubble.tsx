@@ -905,7 +905,13 @@ export function MessageBubble({
                   </button>
 
                   {showFullEmojiPicker && (
-                    <div className={cn("absolute z-50", isMine ? "right-0" : "left-0", emojiPickerDirection === 'down' ? "top-10" : "bottom-10")}>
+                    <div className={cn(
+                      "fixed md:absolute z-[60]",
+                      "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+                      "md:left-auto md:top-auto md:translate-x-0 md:translate-y-0",
+                      isMine ? "md:right-0" : "md:left-0",
+                      emojiPickerDirection === 'down' ? "md:top-10" : "md:bottom-10"
+                    )}>
                       <EmojiPicker
                         isOpen={showFullEmojiPicker}
                         onClose={() => setShowFullEmojiPicker(false)}
