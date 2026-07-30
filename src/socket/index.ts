@@ -891,6 +891,102 @@ export function setupSocket(server: HttpServer) {
       socket.to(`call-room-${chatId}`).emit('participant-invited', { targetUserId, inviterId: userId });
     });
 
+    // ----------------------------------------------------
+    // INSTANT MEETING ROOM SIGNALING (Zoom / Meet Style)
+    // ----------------------------------------------------
+    socket.on('join-instant-meeting', async ({ code, userName, userAvatar }) => {
+      try {
+        const meeting = await (prisma as any).meeting.findUnique({
+          where: { code },
+          include: { host: { select: { id: true, name: true } } }
+        });
+
+        if (!meeting || !meeting.isActive) {
+          socket.emit('instant-meeting-error', { error: 'Meeting not found or has ended' });
+          return;
+        }
+
+        const isHost = meeting.hostId === userId;
+
+        // Admit to meeting room
+        socket.join(`meeting-room-${code}`);
+
+        // Notify room of new participant
+        socket.to(`meeting-room-${code}`).emit('meeting-participant-joined', {
+          socketId: socket.id,
+          userId,
+          userName: userName || (isHost ? meeting.host.name || 'Host' : 'Participant'),
+          userAvatar,
+          isHost
+        });
+
+        socket.emit('instant-meeting-admitted', {
+          code,
+          isHost,
+          meetingTitle: meeting.title,
+          callType: meeting.callType
+        });
+      } catch (err) {
+        console.error('Error joining instant meeting:', err);
+        socket.emit('instant-meeting-error', { error: 'Failed to join meeting' });
+      }
+    });
+
+    socket.on('approve-meeting-guest', ({ code, guestSocketId }) => {
+      const guestSocket = chatNamespace.sockets.get(guestSocketId);
+      if (guestSocket) {
+        guestSocket.join(`meeting-room-${code}`);
+        guestSocket.emit('instant-meeting-admitted', {
+          code,
+          isHost: false,
+          meetingTitle: 'Instant Nexus Meeting'
+        });
+
+        chatNamespace.to(`meeting-room-${code}`).emit('meeting-participant-joined', {
+          socketId: guestSocket.id,
+          userId: guestSocket.data.userId || 'guest',
+          isHost: false
+        });
+      }
+    });
+
+    socket.on('reject-meeting-guest', ({ code, guestSocketId }) => {
+      chatNamespace.to(guestSocketId).emit('meeting-entry-denied', { reason: 'Host declined entry request' });
+    });
+
+    socket.on('meeting-host-mute-all', ({ code }) => {
+      socket.to(`meeting-room-${code}`).emit('meeting-muted-by-host');
+    });
+
+    socket.on('meeting-host-remove-participant', ({ code, targetSocketId }) => {
+      chatNamespace.to(targetSocketId).emit('meeting-kicked-by-host');
+      const targetSocket = chatNamespace.sockets.get(targetSocketId);
+      if (targetSocket) {
+        targetSocket.leave(`meeting-room-${code}`);
+      }
+      socket.to(`meeting-room-${code}`).emit('meeting-participant-left', { socketId: targetSocketId });
+    });
+
+    socket.on('meeting-hand-toggle', ({ code, isRaised, userName }) => {
+      chatNamespace.to(`meeting-room-${code}`).emit('meeting-hand-updated', {
+        socketId: socket.id,
+        userId,
+        userName,
+        isRaised
+      });
+    });
+
+    socket.on('meeting-send-chat', ({ code, content, userName }) => {
+      chatNamespace.to(`meeting-room-${code}`).emit('meeting-chat-received', {
+        id: Date.now().toString(),
+        socketId: socket.id,
+        senderId: userId,
+        senderName: userName || 'Participant',
+        content,
+        timestamp: new Date()
+      });
+    });
+
     socket.on('end-call', async ({ chatId, duration, type, isInitiator, targetUserId, isGroup, participantsInfo }) => {
       if (targetUserId) {
         chatNamespace.to(targetUserId).emit('call-end', { callerId: userId });

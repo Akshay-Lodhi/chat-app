@@ -11,6 +11,7 @@ import userRoutes from './routes/user.routes';
 import chatRoutes from './routes/chat.routes';
 import liveRoutes from './routes/live.routes';
 import storyRoutes from './routes/story.routes';
+import meetingRoutes from './routes/meeting.routes';
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/live', liveRoutes);
 app.use('/api/stories', storyRoutes);
+app.use('/api/meetings', meetingRoutes);
 app.use('/api/upload', uploadRoutes);
 
 app.get('/health', (req, res) => {

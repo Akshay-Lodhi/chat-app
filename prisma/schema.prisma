@@ -40,6 +40,7 @@ model User {
   storyViews         StoryView[]
   storyLikes         StoryLike[]
   starredMessages    StarredMessage[]
+  meetingsHosted     Meeting[]         @relation("MeetingHost")
 }
 
 model Session {
@@ -326,4 +327,19 @@ enum StoryType {
   TEXT
   IMAGE
   VIDEO
+}
+
+model Meeting {
+  id               String    @id @default(uuid())
+  code             String    @unique
+  title            String?   @default("Instant Nexus Meeting")
+  hostId           String
+  callType         CallType  @default(VIDEO)
+  isActive         Boolean   @default(true)
+  requiresApproval Boolean   @default(true)
+  passcode         String?
+  createdAt        DateTime  @default(now())
+  endedAt          DateTime?
+
+  host             User      @relation("MeetingHost", fields: [hostId], references: [id], onDelete: Cascade)
 }
