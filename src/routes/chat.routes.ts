@@ -59,7 +59,8 @@ router.patch('/:chatId/picture', requireAuth, updateGroupPicture as any);
 // Delete a group chat (Admin only)
 router.delete('/:chatId', requireAuth, deleteGroup as any);
 
-// Delete a single message
+// Delete a single or bulk message in a chat
+router.delete('/:chatId/messages/:messageId', requireAuth, deleteMessage as any);
 router.delete('/messages/:messageId', requireAuth, deleteMessage as any);
 
 // Clear all messages in a chat

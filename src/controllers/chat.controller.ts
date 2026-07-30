@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { getIO } from '../socket';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { ChatService } from '../services/chat.service';
-import { transcribeVoiceNote, summarizeChatMessages, generateSmartReplies, generateAIResponse } from '../services/ai.service';
+import { transcribeVoiceNote, summarizeChatMessages, generateSmartReplies, generateAIResponse, generateAIPrivateDraft } from '../services/ai.service';
 
 export const getChats = async (req: AuthRequest, res: Response) => {
   try {
@@ -163,13 +163,14 @@ export const deleteMessage = async (req: AuthRequest, res: Response) => {
     if (result.deletedForEveryone) {
       getIO().of('/chat').to(result.chatId).emit('message-deleted', {
         messageId,
+        messageIds: result.messageIds,
         chatId: result.chatId,
         deleteFor: 'everyone',
         deletedAt: new Date().toISOString()
       });
     }
 
-    res.json({ success: true });
+    res.json({ success: true, messageIds: result.messageIds });
   } catch (error: any) {
     console.error(error);
     res.status(400).json({ error: error.message || 'Server error' });
@@ -367,7 +368,7 @@ export const handleAiPromptController = async (req: AuthRequest, res: Response) 
   try {
     const { chatId, prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
-    const response = await generateAIResponse(chatId || '', prompt, req.user?.userId || 'User');
+    const response = await generateAIPrivateDraft(chatId || '', prompt, req.user?.userId || 'User');
     res.json({ response });
   } catch (error: any) {
     console.error('Error handling AI prompt:', error);

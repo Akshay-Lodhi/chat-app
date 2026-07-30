@@ -88,6 +88,7 @@ export const getLocalSmartReplies = (messageContent: string): string[] => {
   return ["Sounds good! 👍", "Got it, thanks!", "Let's do that! 😊"];
 };
 
+// 1-on-1 Bot Chat & @AI Mention Response Generator
 export const generateAIResponse = async (chatId: string, userMessage: string, senderName: string): Promise<string> => {
   let conversationHistory = '';
   try {
@@ -104,15 +105,15 @@ export const generateAIResponse = async (chatId: string, userMessage: string, se
   } catch (e) {}
 
   const prompt = `
-You are Nexus AI, the official, highly intelligent, and friendly chat assistant for NexusChat.
+You are Nexus AI, the official, highly intelligent, polite, and friendly chat assistant for NexusChat.
 
 ### Conversation Context
 ${conversationHistory}
 
-The user you are replying to is: ${senderName}
-They just said: "${userMessage}"
+The user chatting with you is: ${senderName}
+They said: "${userMessage}"
 
-Write your best, most helpful, and natural reply to ${senderName} below:
+Write a helpful, friendly, polite, and comprehensive assistant reply to ${senderName} below:
 `.trim();
 
   try {
@@ -120,6 +121,55 @@ Write your best, most helpful, and natural reply to ${senderName} below:
   } catch (err) {
     console.error('generateAIResponse error:', err);
     return "I'm receiving a high volume of requests right now! Please wait a moment and try asking me again. 🚀";
+  }
+};
+
+// Private AI Writing Assistant Modal (Suggest Reply, Ask AI Anything, Improve Draft, Translate)
+export const generateAIPrivateDraft = async (chatId: string, userMessage: string, senderName: string): Promise<string> => {
+  let conversationHistory = '';
+  try {
+    if (chatId) {
+      const recentMessages = await prisma.message.findMany({
+        where: { chatId },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+        include: { sender: true }
+      });
+
+      conversationHistory = recentMessages.reverse().map((msg: any) => {
+        return `${msg.sender.name}: ${msg.content}`;
+      }).join('\n');
+    }
+  } catch (e) {}
+
+  const prompt = `
+STRICT RULES FOR PRIVATE WRITING ASSISTANT:
+1. DIRECT TEXT OUTPUT ONLY: Write ONLY the exact response or content requested. NEVER write introductory preambles (e.g. NEVER write "Here is a joke:", "Sure, here is your message:", "Here is a suggestion:").
+2. NO AI SIGN-OFFS OR BOT FLUFF: NEVER write closing conversational fluff like "Let me know if you need anything else", "Hope this helps!", "Let me know if you want another one", or mention "NexusChat" or "AI".
+3. NATURAL HUMAN CONVERSATIONAL TONE: Write in a 100% natural, polite, authentic, and human tone — as if written directly by a human friend.
+4. If asked to write a joke, birthday wish, caption, status, or reply, output ONLY the actual content so the user can send it directly.
+
+${conversationHistory ? `### Conversation Context\n${conversationHistory}\n` : ''}
+User requested: "${userMessage}"
+
+Output ONLY the direct sendable text below:
+`.trim();
+
+  try {
+    let result = await callGeminiContentApi([{ text: prompt }]);
+    
+    // Post-process cleanup to strip any leftover AI conversational preambles/postambles
+    result = result
+      .replace(/^(here is|here's|sure,? here|certainly,? here|of course,? here)[^:\n]*:\s*/gi, '')
+      .replace(/let me know if you (want|need|have|would like)[^\n.]*[\n.]*/gi, '')
+      .replace(/hope this helps!?[\n.]*/gi, '')
+      .replace(/here on nexuschat!?[\n.]*/gi, '')
+      .trim();
+
+    return result;
+  } catch (err) {
+    console.error('generateAIPrivateDraft error:', err);
+    return "I'm receiving a high volume of requests right now! Please try again in a moment. 🚀";
   }
 };
 

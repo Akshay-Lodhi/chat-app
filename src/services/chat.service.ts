@@ -329,14 +329,13 @@ export class ChatService {
   }
 
   static async getMessagesForChat(userId: string, chatId: string, limit = 50, cursor?: string) {
-    // We will expand cursor logic in Phase 2
     const messages = await prisma.message.findMany({
       where: {
         chatId,
-        NOT: {
-          isScheduled: true,
-          scheduledStatus: 'PENDING'
-        },
+        NOT: [
+          { isScheduled: true, scheduledStatus: 'PENDING' },
+          { deletedForUsers: { has: userId } }
+        ],
         OR: [
           { expiresAt: null },
           { expiresAt: { gt: new Date() } }
@@ -385,48 +384,50 @@ export class ChatService {
   }
 
   static async deleteMessage(userId: string, messageId: string, deleteFor: 'me' | 'everyone') {
-    const message = await prisma.message.findUnique({ where: { id: messageId } });
-    if (!message) throw new Error('Message not found');
-    // Note: If you see TS errors here, please restart your IDE's TS Server (the Prisma Client was recently regenerated).
-    if (deleteFor === 'everyone') {
-      // Only the sender can delete for everyone
-      if (message.senderId !== userId) throw new Error('Only the sender can delete for everyone');
-      
-      // Enforce 24-hour limit
-      const now = new Date();
-      const messageAgeMs = now.getTime() - message.createdAt.getTime();
-      const hoursAge = messageAgeMs / (1000 * 60 * 60);
-      if (hoursAge > 24) {
-        throw new Error('Messages can only be deleted for everyone within 24 hours of sending');
-      }
+    const isBulk = messageId.includes(',');
+    const messageIds = isBulk ? messageId.split(',') : [messageId];
 
-      // @ts-ignore - Bypass IDE cache for newly generated Prisma fields
-      await prisma.message.update({
-        where: { id: messageId },
-        data: {
-          deletedForEveryone: true,
-          deletedAt: now,
-          content: null, // Optional: clear content from DB for privacy
-          mediaUrl: null
-        } as any
-      });
-    } else {
-      // Delete for 'me'
-      // @ts-ignore
-      if (!message.deletedForUsers.includes(userId)) {
-        // @ts-ignore - Bypass IDE cache for newly generated Prisma fields
-        await prisma.message.update({
-          where: { id: messageId },
+    const messages = await prisma.message.findMany({
+      where: { id: { in: messageIds } }
+    });
+    if (!messages || messages.length === 0) throw new Error('Message not found');
+
+    const chatId = messages[0].chatId;
+    const now = new Date();
+
+    if (deleteFor === 'everyone') {
+      const eligibleIds = messages
+        .filter(msg => msg.senderId === userId && (now.getTime() - msg.createdAt.getTime()) / (1000 * 60 * 60) <= 24)
+        .map(msg => msg.id);
+
+      if (eligibleIds.length > 0) {
+        await prisma.message.updateMany({
+          where: { id: { in: eligibleIds } },
           data: {
-            deletedForUsers: {
-              push: userId
-            }
+            deletedForEveryone: true,
+            deletedAt: now,
+            content: null,
+            mediaUrl: null
           } as any
         });
       }
+    } else {
+      for (const msg of messages) {
+        const deletedForUsers: string[] = (msg as any).deletedForUsers || [];
+        if (!deletedForUsers.includes(userId)) {
+          await prisma.message.update({
+            where: { id: msg.id },
+            data: {
+              deletedForUsers: {
+                push: userId
+              }
+            } as any
+          });
+        }
+      }
     }
-    // @ts-ignore
-    return { chatId: message.chatId, deletedForEveryone: deleteFor === 'everyone', deletedForUsers: deleteFor === 'me' ? [...message.deletedForUsers, userId] : message.deletedForUsers };
+
+    return { chatId, messageIds, deletedForEveryone: deleteFor === 'everyone' };
   }
 
   static async clearChatMessages(userId: string, chatId: string) {
