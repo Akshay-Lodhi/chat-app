@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2, Calendar, Clock, Sparkles, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useChatStore } from '@/store/useChatStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { apiClient } from '@/lib/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EmojiPicker } from './EmojiPicker';
@@ -120,13 +121,16 @@ export function MessageComposer({
 
     if (lastMsg.senderId !== 'nexus-ai-system' && lastMsg.type === 'TEXT' && lastMsg.content) {
       lastFetchedMsgIdRef.current = lastMsg.id;
+      const currentUserId = useAuthStore.getState().user?.id;
+      const isOwnMessage = lastMsg.senderId === currentUserId;
       const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
       apiClient(`${SERVER_URL}/api/chats/smart-replies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: lastMsg.content,
-          senderName: (lastMsg as any).sender?.name
+          senderName: (lastMsg as any).sender?.name,
+          isOwnMessage
         })
       })
       .then(res => res.json())

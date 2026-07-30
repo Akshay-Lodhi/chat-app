@@ -35,7 +35,7 @@ export default function AIAssistantModal({
     try {
       let finalPrompt = inputPrompt;
       if (activeMode === 'SUGGEST') {
-        finalPrompt = `Based on this incoming chat message: "${lastMessageContent || 'Hi, how are you?'}", write 2 short, natural, polite options to reply back.`;
+        finalPrompt = `Based on this incoming chat message: "${lastMessageContent || 'Hi, how are you?'}", write ONE short, natural, polite response to reply back directly. Do not include option numbers or introductory fluff.`;
       } else if (activeMode === 'REWRITE') {
         finalPrompt = `Rewrite and improve the following draft message to be clear, professional, and friendly: "${inputPrompt || lastMessageContent || 'hello'}"`;
       } else if (activeMode === 'TRANSLATE') {
@@ -62,6 +62,16 @@ export default function AIAssistantModal({
       setIsLoading(false);
     }
   };
+
+  const parsedOptions = React.useMemo(() => {
+    if (!generatedText) return [];
+    const lines = generatedText.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    const isNumberedList = lines.length > 1 && lines.every(l => /^\d+[\.\)]\s*/.test(l));
+    if (isNumberedList) {
+      return lines.map(l => l.replace(/^\d+[\.\)]\s*/, '').trim());
+    }
+    return [generatedText];
+  }, [generatedText]);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
@@ -207,42 +217,52 @@ export default function AIAssistantModal({
           )}
 
           {generatedText && !isLoading && (
-            <div className="bg-[#111b21] border border-purple-500/40 rounded-xl p-4 space-y-3">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-purple-400 flex items-center gap-1.5">
-                  <Sparkles size={14} /> AI Private Recommendation:
+                  <Sparkles size={14} /> AI Recommendation:
                 </span>
               </div>
-              <p className="text-sm text-white whitespace-pre-wrap leading-relaxed bg-black/20 p-3 rounded-lg border border-white/5">
-                {generatedText}
-              </p>
 
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onUseDraft(generatedText);
-                    onClose();
-                  }}
-                  className="flex-1 py-2 px-3 bg-[#1f2c34] hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
-                >
-                  <Edit3 size={14} className="text-purple-400" />
-                  <span>Insert in Message Box</span>
-                </button>
+              {parsedOptions.map((optionText, idx) => (
+                <div key={idx} className="bg-[#111b21] border border-purple-500/40 rounded-xl p-4 space-y-3">
+                  {parsedOptions.length > 1 && (
+                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-md font-bold uppercase">
+                      Option {idx + 1}
+                    </span>
+                  )}
+                  <p className="text-sm text-white whitespace-pre-wrap leading-relaxed bg-black/20 p-3 rounded-lg border border-white/5">
+                    {optionText}
+                  </p>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSendMessage(generatedText);
-                    onClose();
-                  }}
-                  className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow transition-all cursor-pointer"
-                >
-                  <Send size={14} />
-                  <span>Send to Chat</span>
-                </button>
-              </div>
+                  {/* Action Buttons */}
+                  <div className="flex items-center space-x-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUseDraft(optionText);
+                        onClose();
+                      }}
+                      className="flex-1 py-2 px-3 bg-[#1f2c34] hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                    >
+                      <Edit3 size={14} className="text-purple-400" />
+                      <span>Insert in Message Box</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSendMessage(optionText);
+                        onClose();
+                      }}
+                      className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow transition-all cursor-pointer"
+                    >
+                      <Send size={14} />
+                      <span>Send to Chat</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
