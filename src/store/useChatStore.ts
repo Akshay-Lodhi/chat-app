@@ -506,6 +506,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     });
 
+    socket.on('message-deleted', ({ messageId, messageIds, chatId, deleteFor }: { messageId: string; messageIds?: string[]; chatId: string; deleteFor: 'everyone' | 'me' }) => {
+      const ids = messageIds && messageIds.length > 0 ? messageIds : [messageId];
+      const currentUserId = useAuthStore.getState().user?.id;
+
+      set((state) => {
+        if (!state.messages[chatId]) return state;
+
+        let newMessages = state.messages[chatId];
+        if (deleteFor === 'me') {
+          // Remove from local list if deleted for me
+          newMessages = newMessages.filter(msg => !ids.includes(msg.id));
+        } else {
+          // Mark deleted for everyone
+          newMessages = newMessages.map(msg => {
+            if (ids.includes(msg.id)) {
+              return {
+                ...msg,
+                deletedForEveryone: true,
+                content: null,
+                mediaUrl: null,
+                deletedAt: new Date().toISOString()
+              };
+            }
+            return msg;
+          });
+        }
+
+        return {
+          messages: {
+            ...state.messages,
+            [chatId]: newMessages
+          }
+        };
+      });
+    });
+
     socket.on('active-call-update', (data: { chatId: string; activeCount: number; callType?: 'AUDIO' | 'VIDEO' }) => {
       if (data?.chatId) {
         useCallStore.getState().setActiveCallInfo(
