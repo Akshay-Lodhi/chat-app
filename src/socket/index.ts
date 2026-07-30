@@ -898,7 +898,7 @@ export function setupSocket(server: HttpServer) {
       try {
         const meeting = await (prisma as any).meeting.findUnique({
           where: { code },
-          include: { host: { select: { id: true, name: true } } }
+          include: { host: { select: { id: true, name: true, profilePicture: true, image: true } } }
         });
 
         if (!meeting || !meeting.isActive) {
@@ -908,6 +908,14 @@ export function setupSocket(server: HttpServer) {
 
         const isHost = meeting.hostId === userId;
 
+        const dbUser = userId ? await prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, profilePicture: true, image: true, phoneNumber: true }
+        }) : null;
+
+        const resolvedName = userName && userName !== 'Guest Participant' ? userName : (dbUser?.name || dbUser?.phoneNumber || (isHost ? meeting.host.name || 'Host' : 'Participant'));
+        const resolvedAvatar = userAvatar || dbUser?.profilePicture || dbUser?.image || null;
+
         // Admit to meeting room
         socket.join(`meeting-room-${code}`);
 
@@ -915,8 +923,8 @@ export function setupSocket(server: HttpServer) {
         socket.to(`meeting-room-${code}`).emit('meeting-participant-joined', {
           socketId: socket.id,
           userId,
-          userName: userName || (isHost ? meeting.host.name || 'Host' : 'Participant'),
-          userAvatar,
+          userName: resolvedName,
+          userAvatar: resolvedAvatar,
           isHost
         });
 
@@ -964,7 +972,31 @@ export function setupSocket(server: HttpServer) {
       if (targetSocket) {
         targetSocket.leave(`meeting-room-${code}`);
       }
-      socket.to(`meeting-room-${code}`).emit('meeting-participant-left', { socketId: targetSocketId });
+      chatNamespace.to(`meeting-room-${code}`).emit('meeting-participant-left', { socketId: targetSocketId });
+    });
+
+    // Multi-Peer WebRTC Audio/Video Signaling
+    socket.on('meeting-signal-offer', ({ targetSocketId, offer, callerName, callerAvatar }) => {
+      chatNamespace.to(targetSocketId).emit('meeting-signal-offer', {
+        callerSocketId: socket.id,
+        offer,
+        callerName,
+        callerAvatar
+      });
+    });
+
+    socket.on('meeting-signal-answer', ({ targetSocketId, answer }) => {
+      chatNamespace.to(targetSocketId).emit('meeting-signal-answer', {
+        responderSocketId: socket.id,
+        answer
+      });
+    });
+
+    socket.on('meeting-signal-candidate', ({ targetSocketId, candidate }) => {
+      chatNamespace.to(targetSocketId).emit('meeting-signal-candidate', {
+        senderSocketId: socket.id,
+        candidate
+      });
     });
 
     socket.on('meeting-hand-toggle', ({ code, isRaised, userName }) => {
