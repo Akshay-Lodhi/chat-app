@@ -123,6 +123,17 @@ export default function InstantMeetingPage() {
         // Apply initial mic/video enable toggles
         stream.getVideoTracks().forEach(t => (t.enabled = isVideoOn));
         stream.getAudioTracks().forEach(t => (t.enabled = isMicOn));
+
+        // Attach tracks to any peer connections initialized prior to stream readiness
+        peerConnectionsRef.current.forEach(pc => {
+          const senders = pc.getSenders();
+          stream.getTracks().forEach(track => {
+            const exists = senders.some(s => s.track && s.track.kind === track.kind);
+            if (!exists) {
+              pc.addTrack(track, stream);
+            }
+          });
+        });
       } catch (err) {
         console.warn('Could not access camera/mic:', err);
       }
@@ -216,10 +227,34 @@ export default function InstantMeetingPage() {
     const socket = getSocket();
     if (!socket || inLobby) return;
 
-    socket.on('instant-meeting-admitted', (data: any) => {
+    socket.on('instant-meeting-admitted', async (data: any) => {
       setInLobby(false);
       setIsWaitingRoom(false);
       setIsHost(data.isHost);
+
+      if (data.existingParticipants && Array.isArray(data.existingParticipants)) {
+        setParticipants(data.existingParticipants);
+
+        // Initiate WebRTC peer connections to all existing room participants
+        for (const p of data.existingParticipants) {
+          try {
+            const pc = getOrCreatePeerConnection(p.socketId);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            socket.emit('meeting-signal-offer', {
+              code,
+              targetSocketId: p.socketId,
+              offer,
+              callerName: guestName,
+              callerAvatar: customAvatar,
+              isHost: data.isHost
+            });
+          } catch (err) {
+            console.error('Error connecting to existing participant:', err);
+          }
+        }
+      }
     });
 
     socket.on('meeting-waiting-approval', () => {
@@ -245,7 +280,8 @@ export default function InstantMeetingPage() {
           targetSocketId: participant.socketId,
           offer,
           callerName: guestName,
-          callerAvatar: customAvatar
+          callerAvatar: customAvatar,
+          isHost
         });
       } catch (err) {
         console.error('Error creating WebRTC offer:', err);
@@ -253,10 +289,10 @@ export default function InstantMeetingPage() {
     });
 
     // Handle incoming WebRTC Offer
-    socket.on('meeting-signal-offer', async ({ callerSocketId, offer, callerName, callerAvatar }: any) => {
+    socket.on('meeting-signal-offer', async ({ callerSocketId, offer, callerName, callerAvatar, isHost: callerIsHost }: any) => {
       setParticipants(prev => [
         ...prev.filter(p => p.socketId !== callerSocketId),
-        { socketId: callerSocketId, userName: callerName, userAvatar: callerAvatar }
+        { socketId: callerSocketId, userName: callerName, userAvatar: callerAvatar, isHost: callerIsHost }
       ]);
 
       try {
@@ -503,6 +539,23 @@ export default function InstantMeetingPage() {
     }
   };
 
+  const handleLeaveMeeting = () => {
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('leave-instant-meeting', { code });
+    }
+    peerConnectionsRef.current.forEach(pc => pc.close());
+    peerConnectionsRef.current.clear();
+    remoteStreamsRef.current.clear();
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+    }
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(t => t.stop());
+    }
+    window.location.href = '/chat';
+  };
+
   const sendChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -740,18 +793,22 @@ export default function InstantMeetingPage() {
       {/* Main Video Tile Grid */}
       <div className="flex-1 p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-center justify-center overflow-y-auto">
         {/* Local Participant Tile */}
-        <div className="relative aspect-video bg-[#111b21] rounded-2xl overflow-hidden border border-emerald-500/40 shadow-xl group">
+        <div className={`relative bg-[#111b21] rounded-2xl overflow-hidden shadow-xl transition-all ${
+          isScreenSharing 
+            ? 'col-span-full aspect-video h-[50vh] sm:h-[65vh] w-full border-2 border-emerald-500 bg-black' 
+            : 'aspect-video border border-emerald-500/40'
+        }`}>
           {isVideoOn ? (
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover transform -scale-x-100"
+              className={`w-full h-full ${isScreenSharing ? 'object-contain bg-black' : 'object-cover transform -scale-x-100'}`}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">
-              {customAvatar ? (
+              {customAvatar && customAvatar.trim() ? (
                 <img
                   src={customAvatar}
                   alt={guestName}
@@ -765,13 +822,13 @@ export default function InstantMeetingPage() {
             </div>
           )}
 
-          <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 text-[11px] sm:text-xs font-medium flex items-center space-x-1.5">
+          <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 text-[11px] sm:text-xs font-medium flex items-center space-x-1.5 z-10">
             <span className="truncate max-w-[120px]">{guestName} (You)</span>
             {isHost && <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1 py-0.5 rounded font-bold">HOST</span>}
           </div>
 
           {isHandRaised && (
-            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-amber-500 text-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center space-x-1 shadow-lg animate-bounce">
+            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-amber-500 text-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center space-x-1 shadow-lg animate-bounce z-10">
               <Hand size={12} /> <span>Hand Raised</span>
             </div>
           )}
@@ -794,7 +851,7 @@ export default function InstantMeetingPage() {
 
             {!activeRemoteStreams[p.socketId] && (
               <div className="absolute inset-0 bg-[#111b21] flex flex-col items-center justify-center pointer-events-none">
-                {p.userAvatar ? (
+                {p.userAvatar && p.userAvatar.trim() ? (
                   <img src={p.userAvatar} alt={p.userName} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-indigo-500 shadow-lg" />
                 ) : (
                   <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xl sm:text-2xl uppercase shadow-lg">
@@ -804,12 +861,13 @@ export default function InstantMeetingPage() {
               </div>
             )}
 
-            <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 text-[11px] sm:text-xs font-medium">
+            <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 text-[11px] sm:text-xs font-medium flex items-center space-x-1.5 z-10">
               <span className="truncate max-w-[120px]">{p.userName || 'Participant'}</span>
+              {p.isHost && <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1 py-0.5 rounded font-bold">HOST</span>}
             </div>
 
             {p.isHandRaised && (
-              <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-amber-500 text-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center space-x-1 shadow-lg animate-bounce">
+              <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-amber-500 text-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center space-x-1 shadow-lg animate-bounce z-10">
                 <Hand size={12} /> <span>Hand Raised</span>
               </div>
             )}
@@ -881,7 +939,7 @@ export default function InstantMeetingPage() {
         </button>
 
         <button
-          onClick={() => router.push('/chat')}
+          onClick={handleLeaveMeeting}
           className="px-3 sm:px-6 py-2.5 sm:py-3 bg-danger hover:bg-danger/90 text-white font-bold rounded-xl sm:rounded-2xl text-xs sm:text-sm flex items-center space-x-1.5 shadow-xl transition-all"
         >
           <PhoneOff size={16} />
