@@ -24,9 +24,17 @@ export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onC
   // Use a fallback position if it's somehow not available but isOpen is true
   const menuPos = position || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   
-  // Adjust position so it doesn't go off-screen
+  // Adjust position so it doesn't go off-screen horizontally
   const adjustedX = Math.min(menuPos.x, window.innerWidth - 200);
-  const adjustedY = Math.min(menuPos.y, window.innerHeight - 300);
+  
+  // Determine vertical positioning based on available space
+  const menuHeight = 400; // Approximate max height of the menu
+  const spaceBelow = window.innerHeight - menuPos.y;
+  const isSpaceBelow = spaceBelow >= menuHeight;
+  
+  const verticalStyle = isSpaceBelow 
+    ? { top: menuPos.y }
+    : { bottom: Math.max(20, window.innerHeight - menuPos.y) };
 
   return (
     <AnimatePresence>
@@ -41,13 +49,13 @@ export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onC
             onContextMenu={(e) => { e.preventDefault(); onClose(); }}
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            initial={{ opacity: 0, scale: 0.9, y: isSpaceBelow ? 10 : -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+            exit={{ opacity: 0, scale: 0.9, y: isSpaceBelow ? 10 : -10 }}
             style={{ 
               position: 'fixed',
-              left: adjustedX,
-              top: adjustedY
+              left: Math.max(10, adjustedX),
+              ...verticalStyle
             }}
             className="z-50 w-48 bg-surface border border-surface-border rounded-xl shadow-xl overflow-hidden py-1"
           >
