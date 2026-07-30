@@ -967,11 +967,13 @@ export function setupSocket(server: HttpServer) {
     });
 
     socket.on('meeting-host-remove-participant', ({ code, targetSocketId }) => {
-      chatNamespace.to(targetSocketId).emit('meeting-kicked-by-host');
+      chatNamespace.to(targetSocketId).emit('meeting-kicked-by-host', { code });
+      
       const targetSocket = chatNamespace.sockets.get(targetSocketId);
       if (targetSocket) {
         targetSocket.leave(`meeting-room-${code}`);
       }
+      
       chatNamespace.to(`meeting-room-${code}`).emit('meeting-participant-left', { socketId: targetSocketId });
     });
 
