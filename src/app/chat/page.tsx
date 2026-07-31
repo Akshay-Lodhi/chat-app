@@ -231,7 +231,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-[100dvh] w-full max-w-[100vw] bg-background text-foreground overflow-hidden relative">
+    <div className="fixed inset-0 flex h-[100dvh] w-full max-w-[100vw] bg-background text-foreground overflow-hidden">
       
       {/* Left Sidebar Pane with Tabs & Bottom Navigation */}
       <div className={cn(

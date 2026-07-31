@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
 export default function Home() {
-  // In a real app, you would check for a valid session here.
-  // For now, we redirect to login.
-  redirect('/login');
+  // Let the /chat route handle the authentication check.
+  // It will redirect to /login if the user is not authenticated.
+  redirect('/chat');
 }

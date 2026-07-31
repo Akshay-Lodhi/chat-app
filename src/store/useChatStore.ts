@@ -1179,6 +1179,13 @@ export const useChatStore = create<ChatState>()(
       }, (response: any) => {
         if (response && response.message) {
           const updatedMsg = { ...response.message, tempId: tempId };
+          
+          // CRITICAL FIX: The server sends back the encrypted ciphertext in `response.message.content`.
+          // We must NOT overwrite our local plaintext `content` with the ciphertext, otherwise the UI shows JSON.
+          if (updatedMsg.isEncrypted && updatedMsg.type === 'TEXT') {
+            updatedMsg.content = content; 
+          }
+
           set((state) => ({
             messages: {
               ...state.messages,
