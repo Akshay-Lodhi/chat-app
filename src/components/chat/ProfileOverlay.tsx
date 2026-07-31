@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WallpaperModal } from './WallpaperModal';
+import { useTheme } from 'next-themes';
 
 interface ProfileOverlayProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
   const [editName, setEditName] = useState(user?.name || '');
   const [editAbout, setEditAbout] = useState(user?.about || 'Hey there! I am using NexusChat.');
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     if (isOpen) {
@@ -132,7 +134,23 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
             <WallpaperModal isOpen={showWallpaperModal} onClose={() => setShowWallpaperModal(false)} />
 
             <div className="w-full mb-8">
-              <p className="text-primary text-sm font-medium mb-3">Appearance</p>
+              <p className="text-primary text-sm font-medium mb-3">App Theme</p>
+              <div className="flex space-x-2 p-1.5 bg-surface-hover rounded-xl border border-surface-border">
+                {['light', 'dark', 'midnight'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTheme(t)}
+                    className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize transition-all ${theme === t ? 'bg-primary text-white shadow-md' : 'text-text-secondary hover:text-text-primary'}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="w-full mb-8">
+              <p className="text-primary text-sm font-medium mb-3">Chat Appearance</p>
               <button 
                 type="button"
                 onClick={() => setShowWallpaperModal(true)}
@@ -143,8 +161,8 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
                     <Palette size={22} />
                   </div>
                   <div>
-                    <p className="text-text-primary text-sm font-medium">Chat Wallpaper & Theme</p>
-                    <p className="text-text-secondary text-xs mt-0.5">Customize chat background colors & wallpapers</p>
+                    <p className="text-text-primary text-sm font-medium">Chat Wallpaper</p>
+                    <p className="text-text-secondary text-xs mt-0.5">Customize chat background wallpapers</p>
                   </div>
                 </div>
               </button>

@@ -75,24 +75,24 @@ export default function AIAssistantModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="bg-[#1f2c34] border border-purple-500/30 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-surface border border-surface-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-4 border-b border-surface-border flex items-center justify-between bg-gradient-to-r from-purple-900/30 to-indigo-900/30">
+        <div className="p-4 border-b border-surface-border flex items-center justify-between bg-surface-hover">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-white shadow">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow">
               <Sparkles size={18} className="animate-pulse" />
             </div>
             <div>
-              <h3 className="font-semibold text-white text-base flex items-center gap-2">
-                Private AI Writing Assistant
-                <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">Only You See This</span>
+              <h3 className="font-semibold text-text-primary text-base flex items-center gap-2">
+                Private AI Assistant
+                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase font-bold border border-primary/20">Private</span>
               </h3>
               <p className="text-xs text-text-secondary">Get private suggestions, translations, or writing help</p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 text-text-secondary hover:text-white hover:bg-white/10 rounded-full transition-colors"
+            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-surface-active rounded-full transition-colors"
           >
             <X size={20} />
           </button>
@@ -110,11 +110,11 @@ export default function AIAssistantModal({
               }}
               className={`p-3 rounded-xl border flex items-center space-x-2.5 text-xs font-medium transition-all cursor-pointer ${
                 mode === 'SUGGEST' 
-                  ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow' 
-                  : 'bg-[#111b21] border-surface-border text-text-secondary hover:bg-white/5'
+                  ? 'bg-primary/10 border-primary text-primary shadow' 
+                  : 'bg-background border-surface-border text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              <Wand2 size={16} className="text-purple-400 shrink-0" />
+              <Wand2 size={16} className={`${mode === 'SUGGEST' ? 'text-primary' : 'text-text-tertiary'} shrink-0`} />
               <span>Suggest Reply</span>
             </button>
 
@@ -125,11 +125,11 @@ export default function AIAssistantModal({
               }}
               className={`p-3 rounded-xl border flex items-center space-x-2.5 text-xs font-medium transition-all cursor-pointer ${
                 mode === 'REWRITE' 
-                  ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow' 
-                  : 'bg-[#111b21] border-surface-border text-text-secondary hover:bg-white/5'
+                  ? 'bg-primary/10 border-primary text-primary shadow' 
+                  : 'bg-background border-surface-border text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              <Edit3 size={16} className="text-indigo-400 shrink-0" />
+              <Edit3 size={16} className={`${mode === 'REWRITE' ? 'text-primary' : 'text-text-tertiary'} shrink-0`} />
               <span>Improve My Draft</span>
             </button>
 
@@ -140,11 +140,11 @@ export default function AIAssistantModal({
               }}
               className={`p-3 rounded-xl border flex items-center space-x-2.5 text-xs font-medium transition-all cursor-pointer ${
                 mode === 'TRANSLATE' 
-                  ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow' 
-                  : 'bg-[#111b21] border-surface-border text-text-secondary hover:bg-white/5'
+                  ? 'bg-primary/10 border-primary text-primary shadow' 
+                  : 'bg-background border-surface-border text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              <Globe size={16} className="text-emerald-400 shrink-0" />
+              <Globe size={16} className={`${mode === 'TRANSLATE' ? 'text-primary' : 'text-text-tertiary'} shrink-0`} />
               <span>Translate Text</span>
             </button>
 
@@ -155,18 +155,18 @@ export default function AIAssistantModal({
               }}
               className={`p-3 rounded-xl border flex items-center space-x-2.5 text-xs font-medium transition-all cursor-pointer ${
                 mode === 'CUSTOM' 
-                  ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow' 
-                  : 'bg-[#111b21] border-surface-border text-text-secondary hover:bg-white/5'
+                  ? 'bg-primary/10 border-primary text-primary shadow' 
+                  : 'bg-background border-surface-border text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              <Bot size={16} className="text-amber-400 shrink-0" />
+              <Bot size={16} className={`${mode === 'CUSTOM' ? 'text-primary' : 'text-text-tertiary'} shrink-0`} />
               <span>Ask AI Anything</span>
             </button>
           </div>
 
           {/* Mode Inputs */}
           {mode === 'TRANSLATE' && (
-            <div className="flex flex-wrap items-center gap-2 bg-[#111b21] p-2.5 rounded-xl border border-surface-border">
+            <div className="flex flex-wrap items-center gap-2 bg-background p-2.5 rounded-xl border border-surface-border">
               <span className="text-xs text-text-secondary shrink-0">Translate to:</span>
               {['Hindi', 'English', 'Hinglish', 'Spanish'].map(lang => (
                 <button
@@ -174,7 +174,7 @@ export default function AIAssistantModal({
                   type="button"
                   onClick={() => setTargetLang(lang)}
                   className={`px-2.5 py-1 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap ${
-                    targetLang === lang ? 'bg-emerald-500 text-white font-semibold' : 'bg-white/5 text-text-secondary hover:bg-white/10'
+                    targetLang === lang ? 'bg-primary text-white font-semibold' : 'bg-surface-hover text-text-secondary hover:bg-surface-active'
                   }`}
                 >
                   {lang}
@@ -194,13 +194,13 @@ export default function AIAssistantModal({
                   "Type text to translate..."
                 }
                 rows={3}
-                className="w-full bg-[#111b21] border border-surface-border rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500 resize-none placeholder-text-secondary/60"
+                className="w-full bg-background border border-surface-border rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-purple-500 resize-none placeholder-text-secondary/60"
               />
               <button
                 type="button"
                 onClick={() => handleGenerate()}
                 disabled={isLoading}
-                className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center space-x-2 shadow transition-all cursor-pointer disabled:opacity-50"
+                className="w-full py-2.5 bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl text-xs flex items-center justify-center space-x-2 shadow transition-all cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                 <span>Generate Private Suggestion</span>
@@ -210,28 +210,28 @@ export default function AIAssistantModal({
 
           {/* Generated Result Output */}
           {isLoading && (
-            <div className="flex flex-col items-center justify-center p-6 space-y-3 bg-[#111b21] rounded-xl border border-surface-border">
-              <Loader2 size={24} className="animate-spin text-purple-400" />
-              <p className="text-xs text-purple-300 font-medium">Generating AI suggestion for you...</p>
+            <div className="flex flex-col items-center justify-center p-6 space-y-3 bg-background rounded-xl border border-surface-border">
+              <Loader2 size={24} className="animate-spin text-primary" />
+              <p className="text-xs text-primary font-medium">Generating AI suggestion for you...</p>
             </div>
           )}
 
           {generatedText && !isLoading && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-purple-400 flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-primary flex items-center gap-1.5">
                   <Sparkles size={14} /> AI Recommendation:
                 </span>
               </div>
 
               {parsedOptions.map((optionText, idx) => (
-                <div key={idx} className="bg-[#111b21] border border-purple-500/40 rounded-xl p-4 space-y-3">
+                <div key={idx} className="bg-background border border-primary/40 rounded-xl p-4 space-y-3">
                   {parsedOptions.length > 1 && (
-                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-md font-bold uppercase">
+                    <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-md font-bold uppercase">
                       Option {idx + 1}
                     </span>
                   )}
-                  <p className="text-sm text-white whitespace-pre-wrap leading-relaxed bg-black/20 p-3 rounded-lg border border-white/5">
+                  <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-lg border border-surface-border">
                     {optionText}
                   </p>
 
@@ -243,9 +243,9 @@ export default function AIAssistantModal({
                         onUseDraft(optionText);
                         onClose();
                       }}
-                      className="flex-1 py-2 px-3 bg-[#1f2c34] hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                      className="flex-1 py-2 px-3 bg-surface hover:bg-surface-hover text-text-primary border border-surface-border rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
                     >
-                      <Edit3 size={14} className="text-purple-400" />
+                      <Edit3 size={14} className="text-primary" />
                       <span>Insert in Message Box</span>
                     </button>
 

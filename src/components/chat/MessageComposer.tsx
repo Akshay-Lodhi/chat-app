@@ -119,30 +119,34 @@ export function MessageComposer({
       return;
     }
 
-    if (lastMsg.senderId !== 'nexus-ai-system' && lastMsg.type === 'TEXT' && lastMsg.content) {
-      lastFetchedMsgIdRef.current = lastMsg.id;
-      const currentUserId = useAuthStore.getState().user?.id;
-      const isOwnMessage = lastMsg.senderId === currentUserId;
-      const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
-      apiClient(`${SERVER_URL}/api/chats/smart-replies`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: lastMsg.content,
-          senderName: (lastMsg as any).sender?.name,
-          isOwnMessage
+    const timer = setTimeout(() => {
+      if (lastMsg.senderId !== 'nexus-ai-system' && lastMsg.type === 'TEXT' && lastMsg.content) {
+        lastFetchedMsgIdRef.current = lastMsg.id;
+        const currentUserId = useAuthStore.getState().user?.id;
+        const isOwnMessage = lastMsg.senderId === currentUserId;
+        const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+        apiClient(`${SERVER_URL}/api/chats/smart-replies`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: lastMsg.content,
+            senderName: (lastMsg as any).sender?.name,
+            isOwnMessage
+          })
         })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data?.replies && Array.isArray(data.replies)) {
-          setSmartReplies(data.replies);
-        }
-      })
-      .catch(() => setSmartReplies([]));
-    } else {
-      setSmartReplies([]);
-    }
+        .then(res => res.json())
+        .then(data => {
+          if (data?.replies && Array.isArray(data.replies)) {
+            setSmartReplies(data.replies);
+          }
+        })
+        .catch(() => setSmartReplies([]));
+      } else {
+        setSmartReplies([]);
+      }
+    }, 800); // Debounce by 800ms to prevent duplicates from rapid status updates
+
+    return () => clearTimeout(timer);
   }, [activeChatId, messages]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,7 +264,7 @@ export function MessageComposer({
             initial={{ opacity: 0, y: 10, height: 0 }}
             animate={{ opacity: 1, y: 0, height: 'auto' }}
             exit={{ opacity: 0, y: 10, height: 0 }}
-            className="flex items-center justify-between bg-[#1f2c34] p-3 rounded-2xl border-l-4 border-warning mb-2 shadow-lg relative z-0"
+            className="flex items-center justify-between bg-surface p-3 rounded-2xl border-l-4 border-warning mb-2 shadow-lg relative z-0"
           >
             <div className="flex flex-col min-w-0">
               <span className="text-warning text-xs font-semibold flex items-center">
@@ -281,7 +285,7 @@ export function MessageComposer({
             initial={{ opacity: 0, y: 10, height: 0 }}
             animate={{ opacity: 1, y: 0, height: 'auto' }}
             exit={{ opacity: 0, y: 10, height: 0 }}
-            className="flex items-center justify-between bg-[#1f2c34] p-3 rounded-2xl border-l-4 border-primary mb-2 shadow-lg relative z-0"
+            className="flex items-center justify-between bg-surface p-3 rounded-2xl border-l-4 border-primary mb-2 shadow-lg relative z-0"
           >
             <div className="flex flex-col min-w-0">
               <span className="text-primary text-xs font-semibold">Replying to message</span>
@@ -324,7 +328,7 @@ export function MessageComposer({
             initial={{ opacity: 0, scale: 0.9, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className="absolute bottom-[calc(100%+10px)] left-4 bg-[#1f2c34] rounded-2xl shadow-2xl border border-surface-border p-2 flex flex-col space-y-2 z-30"
+            className="absolute bottom-[calc(100%+10px)] left-4 bg-surface rounded-2xl shadow-2xl border border-surface-border p-2 flex flex-col space-y-2 z-30"
           >
             <button 
               onClick={() => fileInputRef.current?.click()}
@@ -380,7 +384,7 @@ export function MessageComposer({
           exit={{ opacity: 0, y: 5 }}
           className="flex items-center space-x-2 px-2 py-1 mb-1.5 overflow-x-auto no-scrollbar shrink-0 relative z-10"
         >
-          <div className="flex items-center space-x-1 text-[11px] font-semibold text-purple-400 shrink-0 bg-purple-500/10 px-2 py-1 rounded-full border border-purple-500/20">
+          <div className="flex items-center space-x-1 text-[11px] font-semibold text-purple-500 shrink-0 bg-purple-500/10 px-2 py-1 rounded-full border border-purple-500/20">
             <Sparkles size={12} className="animate-pulse" />
             <span>AI Suggest</span>
           </div>
@@ -392,7 +396,7 @@ export function MessageComposer({
                 onSendMessage(reply);
                 setSmartReplies([]);
               }}
-              className="text-xs bg-[#1f2c34] hover:bg-purple-500/20 hover:border-purple-400/50 text-[#e9edef] border border-white/10 px-3 py-1 rounded-full transition-all shrink-0 active:scale-95 shadow-sm font-medium cursor-pointer"
+              className="text-xs bg-surface hover:bg-purple-500/20 hover:border-purple-400/50 text-text-primary border border-surface-border px-3 py-1 rounded-full transition-all shrink-0 active:scale-95 shadow-sm font-medium cursor-pointer"
             >
               {reply}
             </button>
@@ -407,7 +411,7 @@ export function MessageComposer({
             initial={{ opacity: 0, y: 5, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 5, scale: 0.98 }}
-            className="absolute bottom-16 left-4 z-30 bg-[#1f2c34] border border-purple-500/30 rounded-xl p-2.5 shadow-2xl backdrop-blur-lg flex items-center space-x-3 cursor-pointer hover:bg-purple-500/10 transition-colors"
+            className="absolute bottom-16 left-4 z-30 bg-surface border border-purple-500/30 rounded-xl p-2.5 shadow-2xl backdrop-blur-lg flex items-center space-x-3 cursor-pointer hover:bg-purple-500/10 transition-colors"
             onClick={() => {
               const base = message.replace(/@\w*$/, '');
               setMessage(base + '@AI ');
@@ -419,8 +423,8 @@ export function MessageComposer({
             </div>
             <div>
               <div className="flex items-center space-x-1.5">
-                <span className="text-sm font-semibold text-white">@AI</span>
-                <span className="text-[10px] bg-purple-500/20 text-purple-300 font-bold px-1.5 py-0.5 rounded-full uppercase">Nexus Bot</span>
+                <span className="text-sm font-semibold text-text-primary">@AI</span>
+                <span className="text-[10px] bg-purple-500/20 text-purple-500 font-bold px-1.5 py-0.5 rounded-full uppercase">Nexus Bot</span>
               </div>
               <p className="text-xs text-text-secondary">Mention @AI in any chat for instant answers, code, or help</p>
             </div>
@@ -431,18 +435,18 @@ export function MessageComposer({
       <form onSubmit={handleSubmit} className="flex items-center space-x-1.5 relative z-10 w-full min-w-0 flex-nowrap">
         
         {isRecording ? (
-          <div className="flex-1 min-w-0 flex items-center justify-between bg-[#1f2c34] rounded-full px-4 py-2.5 shadow-md">
+          <div className="flex-1 min-w-0 flex items-center justify-between bg-surface rounded-full px-4 py-2.5 shadow-md">
             <div className="flex items-center space-x-3">
               <div className="w-3 h-3 bg-danger rounded-full animate-pulse" />
               <span className="text-danger font-medium text-sm">{formatDuration(recordingDuration)}</span>
             </div>
-            <button type="button" onClick={cancelRecording} className="text-[#8696a0] hover:text-danger p-1 transition-colors">
+            <button type="button" onClick={cancelRecording} className="text-text-secondary hover:text-danger p-1 transition-colors">
               <X size={20} />
             </button>
           </div>
         ) : (
           /* WhatsApp-style Input Pill */
-          <div className="flex-1 min-w-0 bg-[#1f2c34] rounded-full flex items-center px-2.5 py-1 shadow-md min-h-[44px] border border-transparent focus-within:border-primary/30 transition-all overflow-hidden">
+          <div className="flex-1 min-w-0 bg-surface rounded-full flex items-center px-2.5 py-1 shadow-md min-h-[44px] border border-transparent focus-within:border-primary/30 transition-all overflow-hidden">
             {/* Smile / Emoji */}
             <button 
               type="button" 
@@ -450,7 +454,7 @@ export function MessageComposer({
                 e.stopPropagation();
                 setShowEmojiPicker(!showEmojiPicker);
               }}
-              className="p-1 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0" 
+              className="p-1 text-text-secondary hover:text-[#aebac1] transition-colors shrink-0" 
               title="Emoji"
             >
               <Smile size={22} />
@@ -475,7 +479,7 @@ export function MessageComposer({
               placeholder="Message"
               value={message}
               onChange={handleChange}
-              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 text-[#e9edef] placeholder-[#8696a0] px-1.5 py-1 text-[15px] leading-normal"
+              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 text-text-primary placeholder-[#8696a0] px-1.5 py-1 text-[15px] leading-normal"
             />
 
             {/* Attach Icon */}
@@ -485,7 +489,7 @@ export function MessageComposer({
                 e.stopPropagation();
                 setShowAttachMenu(!showAttachMenu);
               }} 
-              className="p-1 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 rotate-45" 
+              className="p-1 text-text-secondary hover:text-[#aebac1] transition-colors shrink-0 rotate-45" 
               title="Attach file"
             >
               <Paperclip size={20} />
@@ -493,14 +497,14 @@ export function MessageComposer({
 
             {/* Rupee Icon (hidden when typing, matching WhatsApp) */}
             {!message.trim() && (
-              <button type="button" className="p-1 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex items-center justify-center" title="Payment">
+              <button type="button" className="p-1 text-text-secondary hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex items-center justify-center" title="Payment">
                 <IndianRupee size={18} />
               </button>
             )}
 
             {/* Camera Icon (hidden when typing, matching WhatsApp) */}
             {!message.trim() && (
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1 text-[#8696a0] hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex" title="Camera">
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1 text-text-secondary hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex" title="Camera">
                 <Camera size={20} />
               </button>
             )}

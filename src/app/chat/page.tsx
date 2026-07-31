@@ -32,6 +32,7 @@ import { useLiveStore } from '@/store/useLiveStore';
 
 import CallOverlay from './CallOverlay';
 import MediaViewer from './MediaViewer';
+import toast from 'react-hot-toast';
 
 export default function ChatPage() {
   const router = useRouter();
@@ -177,7 +178,7 @@ export default function ChatPage() {
 
   const handleSendLocation = () => {
     if (!activeChatId) return;
-    if (!navigator.geolocation) return alert('Geolocation is not supported');
+    if (!navigator.geolocation) return toast.error('Geolocation is not supported');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -186,7 +187,7 @@ export default function ChatPage() {
       },
       (error) => {
         console.error('Location error:', error);
-        alert('Unable to retrieve location');
+        toast.error('Unable to retrieve location');
       }
     );
   };
@@ -218,14 +219,14 @@ export default function ChatPage() {
 
   const getWallpaperClass = (type: string) => {
     switch (type) {
-      case 'doodle-dark': return 'bg-[#0b141a] chat-bg-pattern';
+      case 'doodle-dark': return 'bg-chat-bg chat-bg-pattern';
       case 'doodle-light': return 'bg-[#efeae2] text-text-primary';
       case 'solid-teal': return 'bg-[#075e54]';
       case 'solid-midnight': return 'bg-[#0d1418]';
       case 'solid-black': return 'bg-[#000000]';
       case 'solid-purple': return 'bg-[#1f1b24]';
-      case 'custom': return 'bg-[#0b141a]';
-      default: return 'bg-[#0b141a] chat-bg-pattern';
+      case 'custom': return 'bg-chat-bg';
+      default: return 'bg-chat-bg chat-bg-pattern';
     }
   };
 
@@ -328,7 +329,7 @@ export default function ChatPage() {
 
             {pinnedMessage && (
               <div 
-                className="bg-[#182229]/95 backdrop-blur border-b border-[#222d34] px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-[#202c33] transition-colors shrink-0 select-none active:scale-[0.99]"
+                className="bg-[#182229]/95 backdrop-blur border-b border-surface-border px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-surface transition-colors shrink-0 select-none active:scale-[0.99]"
                 onClick={() => scrollToPinnedMessage(pinnedMessage.id)}
                 onTouchEnd={(e) => {
                   e.preventDefault();
@@ -407,7 +408,7 @@ export default function ChatPage() {
 
           {pinnedMessage && (
             <div 
-              className="bg-[#182229]/95 backdrop-blur border-b border-[#222d34] px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-[#202c33] transition-colors shrink-0 select-none active:scale-[0.99]"
+              className="bg-[#182229]/95 backdrop-blur border-b border-surface-border px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-surface transition-colors shrink-0 select-none active:scale-[0.99]"
               onClick={() => scrollToPinnedMessage(pinnedMessage.id)}
               onTouchEnd={(e) => {
                 e.preventDefault();

@@ -60,14 +60,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111B21] flex items-center justify-center p-4 font-sans text-[#E9EDEF]">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 font-sans text-text-primary">
       <div className="w-full max-w-md bg-[#202C33] rounded-lg shadow-2xl p-8 transform transition-all">
         <div className="flex flex-col items-center mb-8">
           <div className="w-24 h-24 mb-4 flex items-center justify-center">
             <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-light text-white mb-2">NexusChat</h1>
-          <p className="text-[#8696A0] text-sm text-center">
+          <p className="text-text-secondary text-sm text-center">
             {step === 'PHONE' ? 'Enter your phone number to continue' : 'Enter the OTP sent to your phone'}
           </p>
         </div>
@@ -81,12 +81,12 @@ export default function LoginPage() {
         {step === 'PHONE' ? (
           <form onSubmit={handleRequestOtp} className="space-y-6">
             <div>
-              <label className="block text-[#8696A0] text-xs font-semibold mb-2 uppercase tracking-wider">Phone Number</label>
+              <label className="block text-text-secondary text-xs font-semibold mb-2 uppercase tracking-wider">Phone Number</label>
               <input
                 type="text"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full bg-[#2A3942] text-[#E9EDEF] border-b-2 border-[#00A884] focus:outline-none focus:border-[#00A884] px-4 py-3 rounded-t transition-colors placeholder-[#8696A0]"
+                className="w-full bg-[#2A3942] text-text-primary border-b-2 border-[#00A884] focus:outline-none focus:border-[#00A884] px-4 py-3 rounded-t transition-colors placeholder-[#8696A0]"
                 placeholder="+1 234 567 8900"
                 autoFocus
               />
@@ -107,12 +107,12 @@ export default function LoginPage() {
         ) : (
           <form onSubmit={handleVerifyOtp} className="space-y-6">
             <div>
-              <label className="block text-[#8696A0] text-xs font-semibold mb-2 uppercase tracking-wider">OTP Code (Default: 4321)</label>
+              <label className="block text-text-secondary text-xs font-semibold mb-2 uppercase tracking-wider">OTP Code (Default: 4321)</label>
               <input
                 type="text"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full bg-[#2A3942] text-[#E9EDEF] border-b-2 border-[#00A884] focus:outline-none focus:border-[#00A884] px-4 py-3 rounded-t transition-colors placeholder-[#8696A0] text-center tracking-[1em] font-mono text-xl"
+                className="w-full bg-[#2A3942] text-text-primary border-b-2 border-[#00A884] focus:outline-none focus:border-[#00A884] px-4 py-3 rounded-t transition-colors placeholder-[#8696A0] text-center tracking-[1em] font-mono text-xl"
                 placeholder="----"
                 maxLength={4}
                 autoFocus

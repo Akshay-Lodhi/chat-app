@@ -97,21 +97,21 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji, className }: Emoji
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className={cn("z-40 w-80 md:w-96 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col h-80", className)}
+        className={cn("z-40 w-80 md:w-96 bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col h-80", className)}
       >
         {/* Search Header */}
-        <div className="p-2.5 border-b border-surface-border flex items-center bg-[#111b21]">
-          <div className="flex-1 flex items-center bg-[#202c33] rounded-xl px-3 py-1.5 border border-surface-border/50">
-            <Search size={16} className="text-[#8696a0] mr-2" />
+        <div className="p-2.5 border-b border-surface-border flex items-center bg-background">
+          <div className="flex-1 flex items-center bg-surface rounded-xl px-3 py-1.5 border border-surface-border/50">
+            <Search size={16} className="text-text-secondary mr-2" />
             <input
               type="text"
               placeholder="Search emojis..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent border-none outline-none text-xs text-[#e9edef] placeholder-[#8696a0] w-full"
+              className="bg-transparent border-none outline-none text-xs text-text-primary placeholder-[#8696a0] w-full"
             />
             {search && (
-              <button onClick={() => setSearch('')} className="text-[#8696a0] hover:text-[#e9edef]">
+              <button onClick={() => setSearch('')} className="text-text-secondary hover:text-text-primary">
                 <X size={14} />
               </button>
             )}
@@ -120,12 +120,12 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji, className }: Emoji
 
         {/* Category Tabs */}
         {!search && (
-          <div className="flex border-b border-surface-border bg-[#111b21] px-2 py-1 space-x-1">
+          <div className="flex border-b border-surface-border bg-background px-2 py-1 space-x-1">
             {EMOJI_CATEGORIES.map((cat, idx) => (
               <button
                 key={cat.name}
                 onClick={() => scrollToCategory(idx)}
-                className={`flex-1 py-1 text-base rounded-lg transition-colors flex items-center justify-center ${activeCategory === idx ? 'bg-[#2a3942] text-white shadow-sm' : 'hover:bg-[#202c33] text-[#8696a0]'}`}
+                className={`flex-1 py-1 text-base rounded-lg transition-colors flex items-center justify-center ${activeCategory === idx ? 'bg-surface-hover text-text-primary shadow-sm' : 'hover:bg-surface text-text-secondary'}`}
                 title={cat.name}
               >
                 {cat.icon}
@@ -147,7 +147,7 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji, className }: Emoji
                 <button
                   key={`${emoji}-${i}`}
                   onClick={() => onSelectEmoji(emoji)}
-                  className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-[#2a3942] rounded-xl transition-transform hover:scale-125 active:scale-95"
+                  className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-surface-hover rounded-xl transition-transform hover:scale-125 active:scale-95"
                 >
                   {emoji}
                 </button>
@@ -161,7 +161,7 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji, className }: Emoji
                   ref={(el) => { categoryRefs.current[catIdx] = el; }}
                   className="scroll-mt-2"
                 >
-                  <h4 className="text-xs font-semibold text-[#8696a0] uppercase mb-2 pl-1 sticky top-0 bg-[#1f2c34]/95 backdrop-blur-sm py-1 z-10">
+                  <h4 className="text-xs font-semibold text-text-secondary uppercase mb-2 pl-1 sticky top-0 bg-surface/95 backdrop-blur-sm py-1 z-10">
                     {category.name}
                   </h4>
                   <div className="grid grid-cols-7 gap-1.5">
@@ -169,7 +169,7 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji, className }: Emoji
                       <button
                         key={`${category.name}-${emoji}-${i}`}
                         onClick={() => onSelectEmoji(emoji)}
-                        className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-[#2a3942] rounded-xl transition-transform hover:scale-125 active:scale-95"
+                        className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-surface-hover rounded-xl transition-transform hover:scale-125 active:scale-95"
                       >
                         {emoji}
                       </button>

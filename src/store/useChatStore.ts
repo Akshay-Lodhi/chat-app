@@ -3,6 +3,21 @@ import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from './useAuthStore';
 import { useCallStore } from './useCallStore';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
+import * as idb from 'idb-keyval';
+import toast from 'react-hot-toast';
+
+const idbStorage: StateStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    return (await idb.get(name)) || null;
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    await idb.set(name, value);
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await idb.del(name);
+  },
+};
 
 export interface Chat {
   id: string;
@@ -41,6 +56,8 @@ export interface Message {
   reactions?: Record<string, string>;
   tempId?: string;
   isStarred?: boolean;
+  isEncrypted?: boolean;
+  sender?: any;
 }
 
 interface ChatState {
@@ -126,8 +143,10 @@ interface ChatState {
 const pendingMessageFetches = new Map<string, Promise<any>>();
 let pendingCallsFetch: Promise<any> | null = null;
 
-export const useChatStore = create<ChatState>((set, get) => ({
-  socket: null,
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => ({
+      socket: null,
   chats: [],
   activeChatId: null,
   activeTab: 'chats',
@@ -426,6 +445,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     socket.on('receive-message', (message: Message) => {
+      // E2EE Decryption
+      if (message.isEncrypted && message.content && message.type === 'TEXT') {
+        try {
+          const authState = require('@/store/useAuthStore').useAuthStore.getState();
+          const myPriv = authState.privateKey;
+          const myUserId = authState.user?.id;
+          if (myPriv && myUserId) {
+            const payload = JSON.parse(message.content);
+            const { decryptE2EEPayload } = require('@/lib/encryption');
+            const senderPub = message.sender?.publicKey;
+            
+            if (senderPub) {
+              const decrypted = decryptE2EEPayload(payload, myUserId, myPriv, senderPub);
+              if (decrypted) {
+                message.content = decrypted;
+              } else {
+                message.content = "🔒 [Message could not be decrypted]";
+              }
+            } else {
+               message.content = "🔒 [Encrypted Message - Unknown Sender Key]";
+            }
+          }
+        } catch (e) {
+          console.error("E2EE Decryption error", e);
+        }
+      }
+
       const currentUserId = useAuthStore.getState().user?.id;
       const chatMsgs = get().messages[message.chatId] || [];
       const isDuplicate = chatMsgs.some(m => m.id === message.id || (m.tempId && m.tempId === message.tempId));
@@ -759,7 +805,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
           credentials: 'include'
         });
         if (res.ok) {
-          const msgs = await res.json();
+          let msgs = await res.json();
+          
+          // E2EE Decryption Pass
+          try {
+            const authState = require('@/store/useAuthStore').useAuthStore.getState();
+            const myPriv = authState.privateKey;
+            const myUserId = authState.user?.id;
+            
+            if (myPriv && myUserId) {
+              const { decryptE2EEPayload } = require('@/lib/encryption');
+              msgs = msgs.map((m: any) => {
+                if (m.isEncrypted && m.content && m.type === 'TEXT') {
+                  const senderPub = m.sender?.publicKey;
+                  if (senderPub) {
+                    try {
+                      const payload = JSON.parse(m.content);
+                      const decrypted = decryptE2EEPayload(payload, myUserId, myPriv, senderPub);
+                      if (decrypted) m.content = decrypted;
+                      else m.content = "🔒 [Message could not be decrypted]";
+                    } catch (e) {
+                       m.content = "🔒 [Message corrupted]";
+                    }
+                  } else {
+                     m.content = "🔒 [Encrypted Message - Unknown Sender Key]";
+                  }
+                }
+                return m;
+              });
+            }
+          } catch (e) {
+             console.error("Bulk E2EE Decryption error", e);
+          }
+
           set((state) => ({
             messages: {
               ...state.messages,
@@ -895,7 +973,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (e) {
       console.error(e);
-      alert(e instanceof Error ? e.message : 'Failed to add participants');
+      toast.error(e instanceof Error ? e.message : 'Failed to add participants');
     }
   },
 
@@ -916,7 +994,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (e) {
       console.error(e);
-      alert(e instanceof Error ? e.message : 'Failed to remove participant');
+      toast.error(e instanceof Error ? e.message : 'Failed to remove participant');
     }
   },
 
@@ -939,7 +1017,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (e) {
       console.error(e);
-      alert(e instanceof Error ? e.message : 'Failed to update group picture');
+      toast.error(e instanceof Error ? e.message : 'Failed to update group picture');
     }
   },
   
@@ -1048,31 +1126,56 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       const tempId = `temp_${Date.now()}`;
       const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id || 'me';
+      let finalContent = content;
+      let isEncrypted = false;
+      
+      const currentPriv = require('@/store/useAuthStore').useAuthStore.getState().privateKey;
+      const chat = get().chats.find(c => c.id === chatId);
+      const participants = chat?.participants || [];
+      
+      if (currentPriv && type === 'TEXT' && content) {
+        const pKeys = participants.map(p => ({ userId: p.user?.id || p.userId, publicKey: p.user?.publicKey || '' }));
+        // Only encrypt if ALL other participants have a public key
+        const others = pKeys.filter(p => p.userId !== currentUserId);
+        const canEncrypt = others.length > 0 && others.every(p => p.publicKey);
+        
+        if (canEncrypt) {
+          const { createE2EEPayload } = require('@/lib/encryption');
+          // Add ourselves to the list so we can decrypt our own messages on other devices if keys sync
+          const encryptFor = [...others, { userId: currentUserId, publicKey: require('@/store/useAuthStore').useAuthStore.getState().publicKey }];
+          const payload = createE2EEPayload(content, encryptFor, currentPriv);
+          finalContent = JSON.stringify(payload);
+          isEncrypted = true;
+        }
+      }
+
       const newMessage: Message = {
         id: tempId,
         tempId: tempId,
         chatId,
         senderId: currentUserId,
-        content,
+        content: content, // UI shows plaintext immediately
         type: type as any,
         mediaUrl: mediaUrl,
         replyToId,
         replyTo: replyToObj,
         createdAt: new Date().toISOString(),
         status: 'PENDING',
-        metadata
+        metadata,
+        isEncrypted
       };
       
       get().addMessage(chatId, newMessage);
       
       socket.emit('send-message', {
         chatId,
-        content,
+        content: finalContent, // Sending ciphertext to server
         type,
         mediaUrl,
         replyToId,
         tempId,
-        metadata
+        metadata,
+        isEncrypted
       }, (response: any) => {
         if (response && response.message) {
           const updatedMsg = { ...response.message, tempId: tempId };
@@ -1219,6 +1322,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (err) {
       console.error('Error clearing chat:', err);
       return false;
+      return false;
     }
   }
+}), {
+  name: 'nexus-chat-storage',
+  storage: createJSONStorage(() => idbStorage),
+  partialize: (state) => ({
+    chats: state.chats,
+    messages: state.messages,
+    calls: state.calls,
+    starredMessages: state.starredMessages
+  }),
 }));

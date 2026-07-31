@@ -15,8 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NexusChat",
   description: "A real-time chat application",
+  manifest: "/manifest.json",
   icons: {
     icon: '/logo.svg',
+    apple: '/logo.svg',
   },
 };
 
@@ -29,6 +31,9 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content"
 };
 
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { Toaster } from "react-hot-toast";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -37,10 +42,25 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          themes={['light', 'dark', 'midnight', 'coffee']}
+        >
+          {children}
+        </ThemeProvider>
+        <Toaster position="top-center" toastOptions={{
+          style: {
+            background: 'var(--surface)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--surface-border)'
+          }
+        }} />
       </body>
     </html>
   );

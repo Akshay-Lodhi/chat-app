@@ -46,7 +46,7 @@ export function InAppNotificationToast() {
         exit={{ opacity: 0, y: -50, scale: 0.95 }}
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
         onClick={handleClick}
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] w-[92%] max-w-md bg-[#1f2c34]/95 border border-[#25D366]/40 backdrop-blur-xl rounded-2xl p-3.5 shadow-2xl cursor-pointer hover:bg-[#2a3942] transition-colors select-none text-white"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] w-[92%] max-w-md bg-surface/95 border border-[#25D366]/40 backdrop-blur-xl rounded-2xl p-3.5 shadow-2xl cursor-pointer hover:bg-surface-hover transition-colors select-none text-text-primary"
       >
         <div className="flex items-center space-x-3 min-w-0">
           {/* Sender / Group Avatar */}
@@ -67,7 +67,7 @@ export function InAppNotificationToast() {
           {/* Details */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-              <h4 className="font-extrabold text-sm text-white truncate flex items-center space-x-1.5">
+              <h4 className="font-extrabold text-sm text-text-primary truncate flex items-center space-x-1.5">
                 <span>{isGroup ? groupName : senderName}</span>
                 {isGroup && (
                   <span className="text-[10px] bg-[#005c4b]/80 text-[#25D366] px-1.5 py-0.2 rounded-md font-medium border border-[#25D366]/30">
@@ -90,7 +90,7 @@ export function InAppNotificationToast() {
               e.stopPropagation();
               clearNotificationToast();
             }}
-            className="p-1.5 rounded-full hover:bg-white/10 text-text-tertiary hover:text-white transition-colors shrink-0"
+            className="p-1.5 rounded-full hover:bg-surface-hover text-text-tertiary hover:text-text-primary transition-colors shrink-0"
             title="Dismiss notification"
           >
             <X size={16} />

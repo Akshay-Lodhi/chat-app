@@ -14,6 +14,7 @@ import DisappearingMessagesModal from './DisappearingMessagesModal';
 import AISummaryModal from './AISummaryModal';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/lib/apiClient';
+import toast from 'react-hot-toast';
 
 interface ChatHeaderProps {
   onBack: () => void;
@@ -54,12 +55,12 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
         if (navigator.clipboard) {
           navigator.clipboard.writeText(data.meetingUrl);
         }
-        alert(`Meeting Link Created & Copied!\n\nLink: ${data.meetingUrl}`);
+        toast.success(`Meeting Link Created & Copied!\n\nLink: ${data.meetingUrl}`);
         window.open(`/join/${data.code}`, '_blank');
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to generate instant meeting link.');
+      toast.error('Failed to generate instant meeting link.');
     }
   };
 
@@ -217,7 +218,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -8 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-                    className="absolute top-12 right-0 w-52 bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl py-2 z-[9999]"
+                    className="absolute top-12 right-0 w-52 bg-surface border border-surface-border rounded-2xl shadow-2xl py-2 z-[9999]"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -326,7 +327,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 {selectedMessageIds.length === 1 && (
                   <button 
                     onClick={() => {
-                      alert('Reply coming soon');
+                      toast.error('Reply coming soon');
                       clearMessageSelection();
                     }}
                     className="p-2 hover:bg-black/10 rounded-full transition-colors"
@@ -464,14 +465,14 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="bg-[#1f2c34] border border-surface-border rounded-2xl shadow-2xl p-6 w-full max-w-sm z-50 relative"
+                className="bg-surface border border-surface-border rounded-2xl shadow-2xl p-6 w-full max-w-sm z-50 relative"
               >
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="p-2.5 rounded-full bg-danger/20">
                     <AlertTriangle size={20} className="text-danger" />
                   </div>
                   <div>
-                    <h3 className="text-white font-semibold text-base">Clear Chat</h3>
+                    <h3 className="text-text-primary font-semibold text-base">Clear Chat</h3>
                     <p className="text-text-secondary text-xs">This cannot be undone</p>
                   </div>
                 </div>
@@ -481,7 +482,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 <div className="flex items-center justify-end space-x-3">
                   <button
                     onClick={() => setShowClearConfirm(false)}
-                    className="px-4 py-2 rounded-xl text-sm text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+                    className="px-4 py-2 rounded-xl text-sm text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 const AudioPlayer = ({ stream }: { stream: MediaStream }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -499,7 +500,7 @@ export default function CallOverlay() {
       const initializeCallMedia = async () => {
         try {
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert('Camera and Microphone access requires a secure connection (HTTPS) or localhost.');
+            toast.error('Camera and Microphone access requires a secure connection (HTTPS) or localhost.');
             handleEndCall();
             return;
           }
@@ -531,7 +532,7 @@ export default function CallOverlay() {
           }
         } catch (err) { 
           console.error('Failed to initialize call media:', err);
-          alert('Failed to access camera/microphone. Please ensure permissions are granted.');
+          toast.error('Failed to access camera/microphone. Please ensure permissions are granted.');
           handleEndCall(); 
         }
       };
@@ -770,7 +771,7 @@ export default function CallOverlay() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-[#0b141a] flex flex-col select-none overflow-hidden"
+        className="fixed inset-0 z-[100] bg-chat-bg flex flex-col select-none overflow-hidden"
       >
         <audio 
           ref={ringtoneRef} 
@@ -786,7 +787,7 @@ export default function CallOverlay() {
         {/* ─── Incoming Call Screen ─── */}
         {isReceivingCall && !isCalling && (
           <div 
-            className="flex-1 flex flex-col items-center justify-between relative overflow-hidden bg-[#0b141a]"
+            className="flex-1 flex flex-col items-center justify-between relative overflow-hidden bg-chat-bg"
             style={{ 
               paddingTop: 'max(24px, env(safe-area-inset-top))', 
               paddingBottom: 'max(36px, env(safe-area-inset-bottom))', 
@@ -817,7 +818,7 @@ export default function CallOverlay() {
                 <div className="absolute w-44 h-44 rounded-full border-2 border-emerald-500/30 animate-ping" style={{ animationDuration: '2.5s' }} />
                 <div className="absolute w-56 h-56 rounded-full border border-emerald-500/15 animate-ping" style={{ animationDuration: '3.5s' }} />
                 
-                <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_50px_rgba(0,168,132,0.3)] bg-[#1f2c34] flex items-center justify-center relative z-10">
+                <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_50px_rgba(0,168,132,0.3)] bg-surface flex items-center justify-center relative z-10">
                   {callAvatar ? (
                     <img src={callAvatar} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -854,7 +855,7 @@ export default function CallOverlay() {
         {/* ─── Active Call Screen ─── */}
         {isCalling && (
           <div 
-            className="flex-1 flex flex-col relative bg-[#0b141a] overflow-hidden"
+            className="flex-1 flex flex-col relative bg-chat-bg overflow-hidden"
             onClick={() => setShowControls(prev => !prev)}
           >
             {/* Top Bar Header */}
@@ -906,14 +907,14 @@ export default function CallOverlay() {
                   {localStream ? (
                     <VideoPlayer stream={localStream} isLocal={true} isVideoOff={isVideoOff} avatar={currentUser?.profilePicture || ''} name={currentUser?.name || ''} />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-[#0b141a]" />
+                    <div className="w-full h-full flex items-center justify-center bg-chat-bg" />
                   )}
 
                   {/* Calling Status at the Top */}
                   <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center space-y-4 text-center w-full px-4">
                     <div className="flex -space-x-4 mb-2 justify-center">
                       {allCallParticipants.slice(0, 3).map((p) => (
-                        <div key={p.userId} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-2xl bg-[#1f2c34] flex items-center justify-center z-10 relative">
+                        <div key={p.userId} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-2xl bg-surface flex items-center justify-center z-10 relative">
                           {p.avatar ? (
                             <img src={p.avatar} className="w-full h-full object-cover" />
                           ) : (
@@ -939,7 +940,7 @@ export default function CallOverlay() {
                   <div className="relative flex items-center justify-center">
                     <div className="flex -space-x-4 mb-2 justify-center">
                       {allCallParticipants.slice(0, 3).map((p) => (
-                        <div key={p.userId} className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center z-10 relative">
+                        <div key={p.userId} className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-surface flex items-center justify-center z-10 relative">
                           {p.avatar ? (
                             <img src={p.avatar} alt="" className="w-full h-full object-cover" />
                           ) : (
@@ -984,8 +985,8 @@ export default function CallOverlay() {
                     )
                   ) : (
                     /* Audio mode full bleed (same as ringing but without pulse) */
-                    <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 pt-16 pb-28 bg-[#0b141a]">
-                      <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-[#1f2c34] flex items-center justify-center">
+                    <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 pt-16 pb-28 bg-chat-bg">
+                      <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-emerald-500/40 shadow-[0_0_60px_rgba(0,168,132,0.2)] bg-surface flex items-center justify-center">
                         {gridParticipants[0].avatar ? (
                           <img src={gridParticipants[0].avatar} alt="" className="w-full h-full object-cover" />
                         ) : (
@@ -1041,7 +1042,7 @@ export default function CallOverlay() {
                   {gridParticipants.map((item) => (
                     <div 
                       key={item.userId} 
-                      className="relative w-full h-full bg-[#1f2c34] rounded-2xl overflow-hidden border border-white/10 shadow-xl flex items-center justify-center min-h-[140px]"
+                      className="relative w-full h-full bg-surface rounded-2xl overflow-hidden border border-white/10 shadow-xl flex items-center justify-center min-h-[140px]"
                     >
                       {callType === 'VIDEO' && item.stream ? (
                         <VideoPlayer stream={item.stream} avatar={item.avatar || ''} name={item.name || ''} isVideoOff={item.isVideoOff} />
@@ -1114,11 +1115,11 @@ export default function CallOverlay() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="pointer-events-auto w-full max-w-[360px] sm:max-w-md mx-auto px-2">
-                <div className="bg-[#111b21]/95 backdrop-blur-2xl border border-white/20 rounded-full px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-around shadow-[0_10px_40px_rgba(0,0,0,0.8)] gap-1 sm:gap-2">
+                <div className="bg-background/95 backdrop-blur-2xl border border-white/20 rounded-full px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-around shadow-[0_10px_40px_rgba(0,0,0,0.8)] gap-1 sm:gap-2">
                   {callType === 'VIDEO' && (
                     <button
                       onClick={switchCamera}
-                      className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#1f2c34] hover:bg-[#2a3942] active:scale-90 text-white flex items-center justify-center transition-all border border-white/10 shadow-md cursor-pointer shrink-0"
+                      className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-surface hover:bg-surface-hover active:scale-90 text-white flex items-center justify-center transition-all border border-white/10 shadow-md cursor-pointer shrink-0"
                       title="Switch Camera"
                     >
                       <SwitchCamera size={20} />
@@ -1130,7 +1131,7 @@ export default function CallOverlay() {
                       onClick={toggleVideo}
                       className={cn(
                         "w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer shrink-0 border border-white/10 shadow-md",
-                        isVideoOff ? "bg-rose-500 text-white shadow-rose-500/40 border-rose-400" : "bg-[#1f2c34] text-white hover:bg-[#2a3942]"
+                        isVideoOff ? "bg-rose-500 text-white shadow-rose-500/40 border-rose-400" : "bg-surface text-white hover:bg-surface-hover"
                       )}
                       title={isVideoOff ? "Turn Video On" : "Turn Video Off"}
                     >
@@ -1143,7 +1144,7 @@ export default function CallOverlay() {
                       onClick={toggleScreenShare}
                       className={cn(
                         "hidden sm:flex w-11 h-11 sm:w-12 sm:h-12 rounded-full items-center justify-center transition-all active:scale-90 cursor-pointer shrink-0 border border-white/10 shadow-md",
-                        isScreenSharing ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/50 ring-2 ring-emerald-400 border-emerald-400" : "bg-[#1f2c34] text-white hover:bg-[#2a3942]"
+                        isScreenSharing ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/50 ring-2 ring-emerald-400 border-emerald-400" : "bg-surface text-white hover:bg-surface-hover"
                       )}
                       title={isScreenSharing ? "Stop Screen Share" : "Share Screen (Desktop only)"}
                     >
@@ -1155,7 +1156,7 @@ export default function CallOverlay() {
                     onClick={toggleMute}
                     className={cn(
                       "w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer shrink-0 border border-white/10 shadow-md",
-                      isMuted ? "bg-rose-500 text-white shadow-rose-500/40 border-rose-400" : "bg-[#1f2c34] text-white hover:bg-[#2a3942]"
+                      isMuted ? "bg-rose-500 text-white shadow-rose-500/40 border-rose-400" : "bg-surface text-white hover:bg-surface-hover"
                     )}
                     title={isMuted ? "Unmute" : "Mute"}
                   >
@@ -1164,7 +1165,7 @@ export default function CallOverlay() {
 
                   <button
                     onClick={() => setShowAddParticipant(true)}
-                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#1f2c34] hover:bg-[#2a3942] active:scale-90 text-white flex items-center justify-center transition-all border border-white/10 shadow-md cursor-pointer shrink-0"
+                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-surface hover:bg-surface-hover active:scale-90 text-white flex items-center justify-center transition-all border border-white/10 shadow-md cursor-pointer shrink-0"
                     title="Add Contact"
                   >
                     <UserPlus size={20} />
@@ -1198,7 +1199,7 @@ export default function CallOverlay() {
                 initial={{ y: '100%' }} 
                 animate={{ y: 0 }} 
                 exit={{ y: '100%' }} 
-                className="bg-[#111b21] border border-surface-border w-full max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden z-10 relative max-h-[80vh] flex flex-col"
+                className="bg-background border border-surface-border w-full max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden z-10 relative max-h-[80vh] flex flex-col"
               >
                 <div className="flex items-center justify-between p-4 border-b border-surface-border bg-[#182229]">
                   <div className="flex items-center space-x-2">

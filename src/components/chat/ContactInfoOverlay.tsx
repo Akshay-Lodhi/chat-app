@@ -6,6 +6,7 @@ import { X, Search, Bell, Video, Phone, ChevronRight, Info, Ban, Flag, ArrowLeft
 import { Avatar } from '@/components/ui/Avatar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WallpaperModal } from './WallpaperModal';
+import toast from 'react-hot-toast';
 
 interface ContactInfoOverlayProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
     <AnimatePresence>
       {isOpen && (
         <motion.div 
+          key="contact-info-overlay"
           ref={overlayRef}
           initial={{ x: '100%' }}
           animate={{ x: 0 }}
@@ -119,7 +121,7 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
                 <button 
                   onClick={async () => {
                     await unblockUser(otherParticipant.userId);
-                    alert(`${contactName} has been unblocked.`);
+                    toast.success(`${contactName} has been unblocked.`);
                   }}
                   className="flex items-center p-4 text-primary hover:bg-surface-hover transition-colors text-left w-full border-b border-surface-border"
                 >
@@ -132,7 +134,7 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
                     const confirmed = window.confirm(`Are you sure you want to block ${contactName}?`);
                     if (confirmed) {
                       await blockUser(otherParticipant.userId);
-                      alert(`${contactName} has been blocked.`);
+                      toast.success(`${contactName} has been blocked.`);
                     }
                   }}
                   className="flex items-center p-4 text-danger hover:bg-surface-hover transition-colors text-left w-full border-b border-surface-border"
@@ -146,7 +148,7 @@ export function ContactInfoOverlay({ isOpen, onClose }: ContactInfoOverlayProps)
                   const reason = window.prompt(`Reason for reporting ${contactName}?`);
                   if (reason !== null) {
                     await reportUser(otherParticipant.userId, reason);
-                    alert(`You have reported ${contactName}.`);
+                    toast.success(`You have reported ${contactName}.`);
                     onClose();
                   }
                 }}

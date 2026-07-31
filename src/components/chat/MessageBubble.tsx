@@ -721,7 +721,7 @@ export function MessageBubble({
             ? "max-w-[95%] md:max-w-full"
             : "max-w-[75%] md:max-w-[65%]",
           isMine
-            ? "bg-bubble-out text-white rounded-br-sm"
+            ? "bg-bubble-out text-text-primary rounded-br-sm"
             : "bg-bubble-in text-text-primary rounded-bl-sm",
           selectedMessageIds.includes(message.id) &&
             "bg-[#00A884]/20 ring-2 ring-[#00A884] opacity-90 text-text-primary",
@@ -776,7 +776,7 @@ export function MessageBubble({
             <span
               className={cn(
                 "truncate max-w-[250px] relative z-10 text-[13px]",
-                isMine ? "text-white/95" : "text-[#e9edef]/95",
+                isMine ? "text-text-primary/95" : "text-text-primary/95",
               )}
             >
               {getReplyPreview(message.replyTo)}
@@ -817,7 +817,7 @@ export function MessageBubble({
               <span
                 className={cn(
                   "truncate max-w-[200px] text-[13px]",
-                  isMine ? "text-white/95" : "text-[#e9edef]/95",
+                  isMine ? "text-text-primary/95" : "text-text-primary/95",
                 )}
               >
                 {message.metadata.storyContent || (message.metadata.storyType === 'VIDEO' ? 'Video' : message.metadata.storyType === 'IMAGE' ? 'Photo' : 'Status')}
@@ -831,7 +831,7 @@ export function MessageBubble({
         <div
           className={cn(
             "flex items-center justify-end space-x-1 mt-1 text-[11px]",
-            isMine ? "text-white/80" : "text-text-tertiary",
+            isMine ? "text-text-secondary" : "text-text-tertiary",
           )}
         >
           {message.expiresAt && <span title="Disappearing message"><Clock size={11} className="mr-0.5 text-emerald-400" /></span>}
@@ -844,9 +844,9 @@ export function MessageBubble({
               {(message.status || "SENT") === "READ" ? (
                 <CheckCheck size={14} className="text-[#53bdeb]" />
               ) : (message.status || "SENT") === "DELIVERED" ? (
-                <CheckCheck size={14} className="text-white/80" />
+                <CheckCheck size={14} className="text-text-secondary" />
               ) : (
-                <Check size={14} className="text-white/80" />
+                <Check size={14} className="text-text-secondary" />
               )}
             </span>
           )}

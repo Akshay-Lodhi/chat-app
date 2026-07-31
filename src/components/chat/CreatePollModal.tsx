@@ -69,7 +69,7 @@ export default function CreatePollModal({ chatId, onClose }: CreatePollModalProp
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Ask a question"
-              className="w-full bg-[#202c33] border border-surface-border rounded-lg p-3 text-text-primary focus:outline-none focus:border-[#00a884] transition-colors"
+              className="w-full bg-surface border border-surface-border rounded-lg p-3 text-text-primary focus:outline-none focus:border-[#00a884] transition-colors"
               autoFocus
             />
           </div>
@@ -83,7 +83,7 @@ export default function CreatePollModal({ chatId, onClose }: CreatePollModalProp
                   value={option.text}
                   onChange={(e) => handleOptionChange(option.id, e.target.value)}
                   placeholder={`Option ${index + 1}`}
-                  className="flex-1 bg-[#202c33] border border-surface-border rounded-lg p-3 text-text-primary focus:outline-none focus:border-[#00a884] transition-colors"
+                  className="flex-1 bg-surface border border-surface-border rounded-lg p-3 text-text-primary focus:outline-none focus:border-[#00a884] transition-colors"
                 />
                 {options.length > 2 && (
                   <button type="button" onClick={() => handleRemoveOption(option.id)} className="p-2 text-text-secondary hover:text-red-400 transition-colors">

@@ -100,7 +100,7 @@ export function MessageInfoOverlay() {
                     initial={{ opacity: 0, scale: 0.95, y: -5 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                    className="absolute right-0 top-full mt-2 w-52 bg-[#1f2c34] border border-surface-border rounded-xl shadow-2xl z-50 overflow-hidden py-1"
+                    className="absolute right-0 top-full mt-2 w-52 bg-surface border border-surface-border rounded-xl shadow-2xl z-50 overflow-hidden py-1"
                   >
                     {isMine && (
                       <button

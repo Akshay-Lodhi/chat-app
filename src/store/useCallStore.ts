@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import Peer, { Instance } from 'simple-peer';
+import toast from 'react-hot-toast';
 
 export interface ActiveCallInfo {
   chatId: string;
@@ -276,7 +277,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         }
 
         if (!screenStream) {
-          alert("Screen sharing is not supported by your browser. Please use Chrome/Edge/Firefox on Desktop or enable screen capture in browser settings.");
+          toast.error("Screen sharing is not supported by your browser. Please use Chrome/Edge/Firefox on Desktop or enable screen capture in browser settings.");
           return;
         }
 

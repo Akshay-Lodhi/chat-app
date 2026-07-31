@@ -11,7 +11,7 @@ interface WallpaperModalProps {
 }
 
 const PRESETS: { type: WallpaperType; label: string; bgClass: string; color: string }[] = [
-  { type: 'doodle-dark', label: 'Default NexusChat Dark', bgClass: 'bg-[#0b141a] chat-bg-pattern', color: '#0b141a' },
+  { type: 'doodle-dark', label: 'Default NexusChat Dark', bgClass: 'bg-chat-bg chat-bg-pattern', color: '#0b141a' },
   { type: 'doodle-light', label: 'NexusChat Light Doodle', bgClass: 'bg-[#efeae2] chat-bg-pattern-light text-black', color: '#efeae2' },
   { type: 'solid-teal', label: 'Emerald Teal', bgClass: 'bg-[#075e54]', color: '#075e54' },
   { type: 'solid-midnight', label: 'Midnight Blue', bgClass: 'bg-[#0d1418]', color: '#0d1418' },
@@ -76,7 +76,7 @@ export function WallpaperModal({ isOpen, onClose, chatId }: WallpaperModalProps)
           className="bg-surface border border-surface-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden z-10 relative flex flex-col"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-surface-border bg-[#111b21]">
+          <div className="flex items-center justify-between p-4 border-b border-surface-border bg-background">
             <div className="flex items-center space-x-2">
               <Sparkles size={20} className="text-primary" />
               <h2 className="text-lg font-medium text-text-primary">Chat Wallpaper & Theme</h2>
@@ -87,19 +87,19 @@ export function WallpaperModal({ isOpen, onClose, chatId }: WallpaperModalProps)
           </div>
 
           {/* Segmented Control Tabs */}
-          <div className="p-3 border-b border-surface-border bg-[#111b21]">
-            <div className="flex bg-[#202c33] p-1 rounded-xl border border-surface-border/50">
+          <div className="p-3 border-b border-surface-border bg-background">
+            <div className="flex bg-surface p-1 rounded-xl border border-surface-border/50">
               <button 
                 type="button"
                 onClick={() => setActiveTab('presets')}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${activeTab === 'presets' ? 'bg-primary text-white shadow-md' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${activeTab === 'presets' ? 'bg-primary text-white shadow-md' : 'text-text-secondary hover:text-text-primary'}`}
               >
                 Preset Wallpapers
               </button>
               <button 
                 type="button"
                 onClick={() => setActiveTab('custom')}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${activeTab === 'custom' ? 'bg-primary text-white shadow-md' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${activeTab === 'custom' ? 'bg-primary text-white shadow-md' : 'text-text-secondary hover:text-text-primary'}`}
               >
                 Custom Photo / URL
               </button>

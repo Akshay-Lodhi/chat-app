@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useCallStore } from '@/store/useCallStore';
 import { MessageBubble } from '@/components/chat/MessageBubble';
+import { Virtuoso } from 'react-virtuoso';
 import { motion } from 'framer-motion';
 import { Lock, Pin } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -31,9 +32,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
     m.content?.toLowerCase().includes(searchQuery.toLowerCase())
   ) : chatMessages;
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [filteredMessages]);
+  // Smooth scroll logic handled natively by Virtuoso via followOutput
 
   if (!activeChatId) return null;
 
@@ -48,9 +47,9 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
 
       {/* End-to-End Encryption Notice */}
       <div className="flex justify-center mb-4 px-2">
-        <div className="bg-[#182229] border border-[#222d34] rounded-xl px-4 py-2.5 max-w-sm md:max-w-md text-center shadow-sm flex items-start space-x-2">
-          <Lock size={13} className="text-[#febd2d] shrink-0 mt-0.5" />
-          <p className="text-[11px] text-[#febd2d] leading-normal font-normal">
+        <div className="bg-warning/10 border border-warning/20 rounded-xl px-4 py-2.5 max-w-sm md:max-w-md text-center shadow-sm flex items-start space-x-2">
+          <Lock size={13} className="text-warning shrink-0 mt-0.5" />
+          <p className="text-[11px] text-warning leading-normal font-normal">
             Messages and calls are end-to-end encrypted. No one outside of this chat, not even NexusChat, can read or listen to them. <span className="hover:underline cursor-pointer">Tap to learn more.</span>
           </p>
         </div>
@@ -72,61 +71,67 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
           </p>
         </div>
       ) : (
-        filteredMessages.map((msg, index) => {
-          const isMine = msg.senderId === user?.id;
-          const showDate = index === 0 || 
-            new Date(filteredMessages[index - 1].createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
-            
-          return (
-            <React.Fragment key={msg.tempId || msg.id || `msg_${index}`}>
-              {showDate && (
-                <div className="flex justify-center my-4">
-                  <span className="bg-surface-hover text-text-secondary text-xs px-3 py-1 rounded-full shadow-sm">
-                    {new Date(msg.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
-                </div>
-              )}
-              <MessageBubble 
-                message={msg} 
-                isMine={isMine} 
-                onReply={() => onReply(msg)}
-                onMediaClick={() => onMediaClick(msg.mediaUrl || msg.content || '', msg.type as 'IMAGE' | 'VIDEO')}
-                onForward={() => onForward?.(msg)}
-                onCallClick={(type: 'AUDIO' | 'VIDEO', callData?: any) => {
-                  const isGroupLog = callData?.isGroup || activeChat?.isGroup;
-                  const chatName = isGroupLog
-                    ? (activeChat?.isGroup ? activeChat.name : 'Group Call')
-                    : (activeChat?.participants?.find((p: any) => p.userId !== user?.id)?.user?.name || 'Unknown');
-                  
-                  useCallStore.setState({ caller: chatName });
+        <Virtuoso
+          className="w-full h-full scrollbar-thin scrollbar-thumb-surface-border"
+          data={filteredMessages}
+          initialTopMostItemIndex={filteredMessages.length > 0 ? filteredMessages.length - 1 : 0}
+          followOutput="smooth"
+          alignToBottom={true}
+          itemContent={(index, msg) => {
+            const isMine = msg.senderId === user?.id;
+            const showDate = index === 0 || 
+              new Date(filteredMessages[index - 1].createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
+              
+            return (
+              <div className="pb-2">
+                {showDate && (
+                  <div className="flex justify-center my-4">
+                    <span className="bg-surface-hover text-text-secondary text-xs px-3 py-1 rounded-full shadow-sm">
+                      {new Date(msg.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+                <MessageBubble 
+                  message={msg} 
+                  isMine={isMine} 
+                  onReply={() => onReply(msg)}
+                  onMediaClick={() => onMediaClick(msg.mediaUrl || msg.content || '', msg.type as 'IMAGE' | 'VIDEO')}
+                  onForward={() => onForward?.(msg)}
+                  onCallClick={(type: 'AUDIO' | 'VIDEO', callData?: any) => {
+                    const isGroupLog = callData?.isGroup || activeChat?.isGroup;
+                    const chatName = isGroupLog
+                      ? (activeChat?.isGroup ? activeChat.name : 'Group Call')
+                      : (activeChat?.participants?.find((p: any) => p.userId !== user?.id)?.user?.name || 'Unknown');
+                    
+                    useCallStore.setState({ caller: chatName });
 
-                  let invitedIds: string[] = [];
-                  const initialProfiles: Record<string, { name: string; avatar: string | null }> = {};
-                  if (callData?.participants && Array.isArray(callData.participants)) {
-                    invitedIds = callData.participants
-                      .map((p: any) => p.userId || p.id)
-                      .filter((id: string) => id && id !== user?.id);
+                    let invitedIds: string[] = [];
+                    const initialProfiles: Record<string, { name: string; avatar: string | null }> = {};
+                    if (callData?.participants && Array.isArray(callData.participants)) {
+                      invitedIds = callData.participants
+                        .map((p: any) => p.userId || p.id)
+                        .filter((id: string) => id && id !== user?.id);
 
-                    callData.participants.forEach((p: any) => {
-                      const uid = p.userId || p.id;
-                      if (uid) {
-                        initialProfiles[uid] = {
-                          name: p.name || 'Participant',
-                          avatar: p.avatar || p.profilePicture || null
-                        };
-                      }
-                    });
-                  }
+                      callData.participants.forEach((p: any) => {
+                        const uid = p.userId || p.id;
+                        if (uid) {
+                          initialProfiles[uid] = {
+                            name: p.name || 'Participant',
+                            avatar: p.avatar || p.profilePicture || null
+                          };
+                        }
+                      });
+                    }
 
-                  initiateCall(type, activeChatId!, invitedIds, initialProfiles);
-                }}
-                highlight={searchQuery !== '' && msg.content?.toLowerCase().includes(searchQuery.toLowerCase())}
-              />
-            </React.Fragment>
-          );
-        })
+                    initiateCall(type, activeChatId!, invitedIds, initialProfiles);
+                  }}
+                  highlight={searchQuery !== '' && msg.content?.toLowerCase().includes(searchQuery.toLowerCase())}
+                />
+              </div>
+            );
+          }}
+        />
       )}
-      <div ref={messagesEndRef} className="h-1" />
     </div>
   );
 }

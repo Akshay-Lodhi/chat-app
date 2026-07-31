@@ -85,7 +85,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="bg-[#111b21] border border-surface-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden z-10 relative flex flex-col max-h-[90vh]"
+          className="bg-background border border-surface-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden z-10 relative flex flex-col max-h-[90vh]"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-surface-border bg-[#182229]">
@@ -113,7 +113,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
           <div className="p-4 max-h-[60vh] overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             
             {/* Call Summary Badge */}
-            <div className="bg-[#1f2c34] p-3.5 rounded-2xl border border-surface-border/60 flex items-center justify-between">
+            <div className="bg-surface p-3.5 rounded-2xl border border-surface-border/60 flex items-center justify-between">
               <div className="flex items-center space-x-2 text-xs text-white/80">
                 <Clock size={15} className="text-primary" />
                 <span>Call Duration: <strong className="text-white font-medium">{durationText}</strong></span>
@@ -135,7 +135,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                     const isMe = Boolean(currentUserId && p.userId === currentUserId);
                     const displayName = isMe && !p.name.includes('(You)') ? `${p.name} (You)` : p.name;
                     return (
-                    <div key={p.userId || idx} className="flex items-center justify-between p-3 rounded-2xl bg-[#1f2c34]/70 border border-emerald-500/30">
+                    <div key={p.userId || idx} className="flex items-center justify-between p-3 rounded-2xl bg-surface/70 border border-emerald-500/30">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-semibold overflow-hidden border border-emerald-500/40">
                           {p.avatar ? (
@@ -145,7 +145,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                           )}
                         </div>
                         <div>
-                          <p className="text-white text-sm font-medium flex items-center gap-1.5">
+                          <p className="text-text-primary text-sm font-medium flex items-center gap-1.5">
                             {displayName}
                           </p>
                           <p className="text-emerald-400 text-xs font-medium">
@@ -164,7 +164,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
             {/* Invited / Missed Section */}
             {invitedList.length > 0 && (
               <div>
-                <div className="flex items-center space-x-1.5 text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">
+                <div className="flex items-center space-x-1.5 text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">
                   <XCircle size={14} />
                   <span>Invited / Didn't Join ({invitedList.length})</span>
                 </div>
@@ -173,9 +173,9 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                     const isMe = Boolean(currentUserId && p.userId === currentUserId);
                     const displayName = isMe && !p.name.includes('(You)') ? `${p.name} (You)` : p.name;
                     return (
-                    <div key={p.userId || idx} className="flex items-center justify-between p-3 rounded-2xl bg-[#1f2c34]/40 border border-surface-border">
+                    <div key={p.userId || idx} className="flex items-center justify-between p-3 rounded-2xl bg-surface/40 border border-surface-border">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-white/10 text-white/60 flex items-center justify-center font-medium overflow-hidden">
+                        <div className="w-10 h-10 rounded-full bg-surface-hover text-text-secondary flex items-center justify-center font-medium overflow-hidden">
                           {p.avatar ? (
                             <img src={p.avatar} className="w-full h-full object-cover" />
                           ) : (
@@ -183,13 +183,13 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                           )}
                         </div>
                         <div>
-                          <p className="text-white/80 text-sm font-medium flex items-center gap-1.5">
+                          <p className="text-text-primary/80 text-sm font-medium flex items-center gap-1.5">
                             {displayName}
                           </p>
-                          <p className="text-white/40 text-xs">Invited • No Answer</p>
+                          <p className="text-text-tertiary text-xs">Invited • No Answer</p>
                         </div>
                       </div>
-                      <span className="text-[11px] bg-white/10 text-white/50 px-3 py-1 rounded-full font-medium">Missed</span>
+                      <span className="text-[11px] bg-surface-hover text-text-tertiary px-3 py-1 rounded-full font-medium">Missed</span>
                     </div>
                   );
                  })}
@@ -199,7 +199,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
 
             {/* Default Participant info if list empty */}
             {participants.length === 0 && (
-              <div className="text-center py-4 text-white/60 text-xs">
+              <div className="text-center py-4 text-text-secondary text-xs">
                 Call log details recorded.
               </div>
             )}

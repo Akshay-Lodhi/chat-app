@@ -2,35 +2,104 @@
 
 @theme {
   /* AMOLED Base -> WhatsApp Base */
-  --color-background: #111b21;
-  --color-foreground: #e9edef;
+  --color-background: var(--bg-base);
+  --color-foreground: var(--fg-base);
   
   /* Primary & Accent (WhatsApp Green) */
-  --color-primary: #00a884;
-  --color-primary-hover: #008f6f;
-  --color-accent: #00a884;
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-accent: var(--accent);
   
   /* UI Surface Layers */
-  --color-surface: #202c33;
-  --color-surface-hover: #2a3942;
-  --color-surface-active: #374a59;
-  --color-surface-border: #222d34;
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-surface-border: var(--surface-border);
   
   /* Chat specifics */
-  --color-chat-bg: #0b141a;
-  --color-bubble-in: #202c33;
-  --color-bubble-out: #005c4b;
+  --color-chat-bg: var(--chat-bg);
+  --color-bubble-in: var(--bubble-in);
+  --color-bubble-out: var(--bubble-out);
   
   /* States */
-  --color-success: #30D158;
-  --color-warning: #f1b000;
-  --color-danger: #ea0038;
-  --color-read-tick: #53bdeb;
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-read-tick: var(--read-tick);
   
   /* Text */
-  --color-text-primary: #e9edef;
-  --color-text-secondary: #8696a0;
-  --color-text-tertiary: #667781;
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+}
+
+/* Default Dark Theme */
+:root {
+  --bg-base: #111b21;
+  --fg-base: #e9edef;
+  --primary: #00a884;
+  --primary-hover: #008f6f;
+  --accent: #00a884;
+  --surface: #202c33;
+  --surface-hover: #2a3942;
+  --surface-active: #374a59;
+  --surface-border: #222d34;
+  --chat-bg: #0b141a;
+  --bubble-in: #202c33;
+  --bubble-out: #005c4b;
+  --success: #30D158;
+  --warning: #f1b000;
+  --danger: #ea0038;
+  --read-tick: #53bdeb;
+  --text-primary: #e9edef;
+  --text-secondary: #8696a0;
+  --text-tertiary: #667781;
+}
+
+/* Light Theme */
+.light {
+  --bg-base: #f0f2f5;
+  --fg-base: #111b21;
+  --primary: #00a884;
+  --primary-hover: #008f6f;
+  --accent: #00a884;
+  --surface: #ffffff;
+  --surface-hover: #f5f6f6;
+  --surface-active: #e9edef;
+  --surface-border: #d1d7db;
+  --chat-bg: #efeae2;
+  --bubble-in: #ffffff;
+  --bubble-out: #d9fdd3;
+  --success: #25D366;
+  --warning: #f1b000;
+  --danger: #ea0038;
+  --read-tick: #53bdeb;
+  --text-primary: #111b21;
+  --text-secondary: #54656f;
+  --text-tertiary: #8696a0;
+}
+
+/* Midnight Blue Theme */
+.midnight {
+  --bg-base: #0f172a;
+  --fg-base: #f8fafc;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --accent: #3b82f6;
+  --surface: #1e293b;
+  --surface-hover: #334155;
+  --surface-active: #475569;
+  --surface-border: #334155;
+  --chat-bg: #020617;
+  --bubble-in: #1e293b;
+  --bubble-out: #1d4ed8;
+  --success: #22c55e;
+  --warning: #eab308;
+  --danger: #ef4444;
+  --read-tick: #38bdf8;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
 }
 
 :root {

@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { apiClient } from '@/lib/apiClient';
 import { getSocket } from '../../../lib/socket';
+import toast from 'react-hot-toast';
 
 interface MeetingInfo {
   id: string;
@@ -374,7 +375,7 @@ export default function InstantMeetingPage() {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
       }
-      alert('You have been removed from this meeting by the host.');
+      toast.error('You have been removed from this meeting by the host.');
       window.location.href = '/chat';
     });
 
@@ -576,7 +577,7 @@ export default function InstantMeetingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0b141a] flex flex-col items-center justify-center text-white space-y-4">
+      <div className="min-h-screen bg-chat-bg flex flex-col items-center justify-center text-white space-y-4">
         <Loader2 size={36} className="animate-spin text-emerald-500" />
         <p className="text-sm text-text-secondary">Loading Instant Meeting Room...</p>
       </div>
@@ -585,7 +586,7 @@ export default function InstantMeetingPage() {
 
   if (error || !meeting) {
     return (
-      <div className="min-h-screen bg-[#0b141a] flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-chat-bg flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-danger/10 border border-danger/30 flex items-center justify-center text-danger mb-4 shadow-lg">
           <AlertCircle size={32} />
         </div>
@@ -604,7 +605,7 @@ export default function InstantMeetingPage() {
   // SCREEN 1: PRE-JOIN LOBBY PREVIEW (With Name & Avatar Selection)
   if (inLobby) {
     return (
-      <div className="min-h-screen bg-[#0b141a] text-white flex flex-col justify-between p-6 overflow-y-auto">
+      <div className="min-h-screen bg-chat-bg text-white flex flex-col justify-between p-6 overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
@@ -624,7 +625,7 @@ export default function InstantMeetingPage() {
 
           <button
             onClick={handleCopyLink}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#1f2c34] hover:bg-white/10 text-white border border-white/10 rounded-xl text-xs font-medium transition-all"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-surface hover:bg-white/10 text-white border border-white/10 rounded-xl text-xs font-medium transition-all"
           >
             {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
             <span>{copiedLink ? 'Link Copied!' : 'Copy Link'}</span>
@@ -633,7 +634,7 @@ export default function InstantMeetingPage() {
 
         {/* Video Camera Preview Container */}
         <div className="flex-1 my-6 flex flex-col items-center justify-center max-w-2xl mx-auto w-full">
-          <div className="relative w-full aspect-video bg-[#111b21] rounded-2xl overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
+          <div className="relative w-full aspect-video bg-background rounded-2xl overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
             {isVideoOn ? (
               <video
                 ref={localVideoRef}
@@ -680,7 +681,7 @@ export default function InstantMeetingPage() {
           </div>
 
           {/* Name & Avatar Customization Box */}
-          <div className="w-full mt-6 bg-[#111b21] border border-white/10 rounded-2xl p-4 space-y-4 shadow-xl">
+          <div className="w-full mt-6 bg-background border border-white/10 rounded-2xl p-4 space-y-4 shadow-xl">
             <div>
               <label className="text-xs font-semibold text-text-secondary mb-1.5 block">Your Call Display Name:</label>
               <input
@@ -688,7 +689,7 @@ export default function InstantMeetingPage() {
                 value={guestName}
                 onChange={e => setGuestName(e.target.value)}
                 placeholder="Enter your name for the call..."
-                className="w-full bg-[#1f2c34] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-medium"
+                className="w-full bg-surface border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-medium"
               />
             </div>
 
@@ -736,7 +737,7 @@ export default function InstantMeetingPage() {
   // SCREEN 2: WAITING ROOM SCREEN
   if (isWaitingRoom) {
     return (
-      <div className="min-h-screen bg-[#0b141a] text-white flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-chat-bg text-white flex flex-col items-center justify-center p-6 text-center">
         <div className="relative w-24 h-24 mb-6">
           <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
           <div className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-2xl">
@@ -749,7 +750,7 @@ export default function InstantMeetingPage() {
           You are in the waiting room for <span className="font-semibold text-white">{meeting.title}</span> as <span className="text-emerald-400 font-bold">{guestName}</span>.
         </p>
 
-        <div className="flex items-center space-x-3 bg-[#111b21] border border-white/10 px-4 py-2.5 rounded-full text-xs text-emerald-400">
+        <div className="flex items-center space-x-3 bg-background border border-white/10 px-4 py-2.5 rounded-full text-xs text-emerald-400">
           <Volume2 size={16} className="animate-bounce" />
           <span>Camera & Mic ready</span>
         </div>
@@ -759,9 +760,9 @@ export default function InstantMeetingPage() {
 
   // SCREEN 3: ACTIVE ZOOM/MEET-STYLE FULLSCREEN MEETING ROOM
   return (
-    <div className="h-[100dvh] w-full min-h-[100dvh] bg-[#0b141a] text-white flex flex-col justify-between relative overflow-hidden select-none">
+    <div className="h-[100dvh] w-full min-h-[100dvh] bg-chat-bg text-white flex flex-col justify-between relative overflow-hidden select-none">
       {/* Top Header Bar */}
-      <div className="p-3 sm:p-4 bg-[#111b21]/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between z-20">
+      <div className="p-3 sm:p-4 bg-background/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between z-20">
         <div className="flex items-center space-x-2.5">
           <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow">
             <Sparkles size={18} />
@@ -790,7 +791,7 @@ export default function InstantMeetingPage() {
 
           <button
             onClick={handleCopyLink}
-            className="p-2 bg-[#1f2c34] hover:bg-white/10 text-white border border-white/10 rounded-xl transition-all"
+            className="p-2 bg-surface hover:bg-white/10 text-white border border-white/10 rounded-xl transition-all"
             title="Copy Invite Link"
           >
             {copiedLink ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
@@ -801,7 +802,7 @@ export default function InstantMeetingPage() {
       {/* Main Video Tile Grid */}
       <div className="flex-1 p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-center justify-center overflow-y-auto">
         {/* Local Participant Tile */}
-        <div className={`relative bg-[#111b21] rounded-2xl overflow-hidden shadow-xl transition-all ${
+        <div className={`relative bg-background rounded-2xl overflow-hidden shadow-xl transition-all ${
           isScreenSharing 
             ? 'col-span-full aspect-video h-[50vh] sm:h-[65vh] w-full border-2 border-emerald-500 bg-black' 
             : 'aspect-video border border-emerald-500/40'
@@ -844,7 +845,7 @@ export default function InstantMeetingPage() {
 
         {/* Remote Participants Video Tiles */}
         {participants.map((p, idx) => (
-          <div key={p.socketId || idx} className="relative aspect-video bg-[#111b21] rounded-2xl overflow-hidden border border-white/10 shadow-xl">
+          <div key={p.socketId || idx} className="relative aspect-video bg-background rounded-2xl overflow-hidden border border-white/10 shadow-xl">
             <video
               ref={el => {
                 remoteVideoRefs.current.set(p.socketId, el);
@@ -861,7 +862,7 @@ export default function InstantMeetingPage() {
             />
 
             {!activeRemoteStreams[p.socketId] && (
-              <div className="absolute inset-0 bg-[#111b21] flex flex-col items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 bg-background flex flex-col items-center justify-center pointer-events-none">
                 {p.userAvatar && p.userAvatar.trim() ? (
                   <img src={p.userAvatar} alt={p.userName} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-indigo-500 shadow-lg" />
                 ) : (
@@ -887,11 +888,11 @@ export default function InstantMeetingPage() {
       </div>
 
       {/* Floating Bottom Control Bar Optimized for Mobile Navigation/Gesture Bar */}
-      <div className="p-2 sm:p-4 pb-6 sm:pb-4 bg-[#111b21]/95 backdrop-blur-md border-t border-white/10 flex items-center justify-center space-x-1.5 sm:space-x-3 z-20">
+      <div className="p-2 sm:p-4 pb-6 sm:pb-4 bg-background/95 backdrop-blur-md border-t border-white/10 flex items-center justify-center space-x-1.5 sm:space-x-3 z-20">
         <button
           onClick={() => setIsMicOn(!isMicOn)}
           className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all shadow-lg ${
-            isMicOn ? 'bg-[#1f2c34] hover:bg-white/15 text-white' : 'bg-danger text-white'
+            isMicOn ? 'bg-surface hover:bg-white/15 text-white' : 'bg-danger text-white'
           }`}
           title="Toggle Mic"
         >
@@ -901,7 +902,7 @@ export default function InstantMeetingPage() {
         <button
           onClick={() => setIsVideoOn(!isVideoOn)}
           className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all shadow-lg ${
-            isVideoOn ? 'bg-[#1f2c34] hover:bg-white/15 text-white' : 'bg-danger text-white'
+            isVideoOn ? 'bg-surface hover:bg-white/15 text-white' : 'bg-danger text-white'
           }`}
           title="Toggle Camera"
         >
@@ -911,7 +912,7 @@ export default function InstantMeetingPage() {
         <button
           onClick={toggleScreenShare}
           className={`hidden md:block p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all shadow-lg ${
-            isScreenSharing ? 'bg-emerald-500 text-black font-bold' : 'bg-[#1f2c34] hover:bg-white/15 text-white'
+            isScreenSharing ? 'bg-emerald-500 text-black font-bold' : 'bg-surface hover:bg-white/15 text-white'
           }`}
           title="Share Screen"
         >
@@ -921,7 +922,7 @@ export default function InstantMeetingPage() {
         <button
           onClick={toggleHand}
           className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all shadow-lg ${
-            isHandRaised ? 'bg-amber-500 text-black font-bold' : 'bg-[#1f2c34] hover:bg-white/15 text-white'
+            isHandRaised ? 'bg-amber-500 text-black font-bold' : 'bg-surface hover:bg-white/15 text-white'
           }`}
           title="Raise Hand"
         >
@@ -930,7 +931,7 @@ export default function InstantMeetingPage() {
 
         <button
           onClick={() => setShowParticipantsDrawer(!showParticipantsDrawer)}
-          className="p-2.5 sm:p-3.5 bg-[#1f2c34] hover:bg-white/15 text-white rounded-xl sm:rounded-2xl transition-all relative shadow-lg"
+          className="p-2.5 sm:p-3.5 bg-surface hover:bg-white/15 text-white rounded-xl sm:rounded-2xl transition-all relative shadow-lg"
           title="Participants"
         >
           <Users size={18} />
@@ -943,7 +944,7 @@ export default function InstantMeetingPage() {
 
         <button
           onClick={() => setShowChatDrawer(!showChatDrawer)}
-          className="p-2.5 sm:p-3.5 bg-[#1f2c34] hover:bg-white/15 text-white rounded-xl sm:rounded-2xl transition-all shadow-lg"
+          className="p-2.5 sm:p-3.5 bg-surface hover:bg-white/15 text-white rounded-xl sm:rounded-2xl transition-all shadow-lg"
           title="In-Meeting Chat"
         >
           <MessageSquare size={18} />
@@ -960,7 +961,7 @@ export default function InstantMeetingPage() {
 
       {/* Participants & Host Drawer */}
       {showParticipantsDrawer && (
-        <div className="absolute right-4 top-16 bottom-20 w-80 bg-[#1f2c34] border border-white/15 rounded-2xl p-4 shadow-2xl flex flex-col z-30 animate-in slide-in-from-right duration-200">
+        <div className="absolute right-4 top-16 bottom-20 w-80 bg-surface border border-white/15 rounded-2xl p-4 shadow-2xl flex flex-col z-30 animate-in slide-in-from-right duration-200">
           <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
             <h3 className="font-bold text-white text-sm flex items-center gap-2">
               <Users size={16} /> Participants ({participants.length + 1})
@@ -985,7 +986,7 @@ export default function InstantMeetingPage() {
             <div className="mb-4 space-y-2">
               <h4 className="text-xs font-bold text-amber-400 uppercase">Waiting Room ({waitingGuests.length})</h4>
               {waitingGuests.map(g => (
-                <div key={g.socketId} className="flex items-center justify-between bg-[#111b21] p-2.5 rounded-xl border border-amber-500/30">
+                <div key={g.socketId} className="flex items-center justify-between bg-background p-2.5 rounded-xl border border-amber-500/30">
                   <span className="text-xs font-medium text-white">{g.userName}</span>
                   <div className="flex items-center space-x-1.5">
                     <button
@@ -1019,7 +1020,7 @@ export default function InstantMeetingPage() {
             </div>
 
             {participants.map(p => (
-              <div key={p.socketId} className="flex items-center justify-between p-2 bg-[#111b21] rounded-xl text-xs border border-white/5">
+              <div key={p.socketId} className="flex items-center justify-between p-2 bg-background rounded-xl text-xs border border-white/5">
                 <div className="flex items-center space-x-2">
                   {p.userAvatar && <img src={p.userAvatar} className="w-5 h-5 rounded-full object-cover" />}
                   <span className="text-white font-medium">{p.userName}</span>
@@ -1040,7 +1041,7 @@ export default function InstantMeetingPage() {
 
       {/* In-Meeting Chat Drawer */}
       {showChatDrawer && (
-        <div className="absolute right-4 top-16 bottom-20 w-80 bg-[#1f2c34] border border-white/15 rounded-2xl p-4 shadow-2xl flex flex-col z-30 animate-in slide-in-from-right duration-200">
+        <div className="absolute right-4 top-16 bottom-20 w-80 bg-surface border border-white/15 rounded-2xl p-4 shadow-2xl flex flex-col z-30 animate-in slide-in-from-right duration-200">
           <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
             <h3 className="font-bold text-white text-sm flex items-center gap-2">
               <MessageSquare size={16} /> Meeting Messages
@@ -1055,7 +1056,7 @@ export default function InstantMeetingPage() {
               <p className="text-xs text-text-secondary text-center mt-10">No messages yet in this meeting.</p>
             ) : (
               chatMessages.map(m => (
-                <div key={m.id} className="bg-[#111b21] p-2.5 rounded-xl border border-white/5 text-xs">
+                <div key={m.id} className="bg-background p-2.5 rounded-xl border border-white/5 text-xs">
                   <span className="font-bold text-emerald-400 block mb-0.5">{m.senderName}:</span>
                   <p className="text-white">{m.content}</p>
                 </div>
@@ -1069,7 +1070,7 @@ export default function InstantMeetingPage() {
               placeholder="Send message to call..."
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
-              className="flex-1 bg-[#111b21] border border-surface-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+              className="flex-1 bg-background border border-surface-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
             />
             <button type="submit" className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold">
               Send

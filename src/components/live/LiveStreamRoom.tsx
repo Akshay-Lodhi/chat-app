@@ -843,7 +843,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="bg-[#1f2c34] border-t border-white/10 w-full max-w-md rounded-t-3xl p-5 pb-8 space-y-4 max-h-[70vh] flex flex-col pointer-events-auto"
+              className="bg-surface border-t border-white/10 w-full max-w-md rounded-t-3xl p-5 pb-8 space-y-4 max-h-[70vh] flex flex-col pointer-events-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between border-b border-white/10 pb-3">

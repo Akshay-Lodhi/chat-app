@@ -24,7 +24,7 @@ export function GroupInfoOverlay({ isOpen, onClose, onAddMemberClick }: GroupInf
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
 
-  if (!isOpen || !activeChat || !activeChat.isGroup) return null;
+  if (!activeChat || !activeChat.isGroup) return null;
 
   const isAdmin = activeChat.adminId === user?.id;
 
@@ -64,13 +64,15 @@ export function GroupInfoOverlay({ isOpen, onClose, onAddMemberClick }: GroupInf
 
   return (
     <AnimatePresence>
-      <motion.div 
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="absolute top-0 right-0 w-full md:w-[350px] lg:w-[400px] h-full bg-surface z-[10000] flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.1)] border-l border-surface-border"
-      >
+      {isOpen && (
+        <motion.div 
+          key="group-info-overlay"
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className="absolute top-0 right-0 w-full md:w-[350px] lg:w-[400px] h-full bg-surface z-[10000] flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.1)] border-l border-surface-border"
+        >
         {/* Header */}
         <div className="h-16 bg-surface-hover flex items-center px-4 shrink-0 shadow-sm border-b border-surface-border">
           <button onClick={onClose} className="text-text-secondary hover:text-text-primary mr-4 transition-colors">
@@ -180,7 +182,8 @@ export function GroupInfoOverlay({ isOpen, onClose, onAddMemberClick }: GroupInf
             </div>
           </div>
         </div>
-      </motion.div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }

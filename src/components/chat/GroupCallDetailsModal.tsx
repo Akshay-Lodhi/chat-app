@@ -92,18 +92,18 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="relative w-full max-w-md max-h-[85vh] flex flex-col bg-[#1f2c34] border border-surface-border/60 rounded-3xl shadow-2xl overflow-hidden text-white z-10"
+          className="relative w-full max-w-md max-h-[85vh] flex flex-col bg-surface border border-surface-border/60 rounded-3xl shadow-2xl overflow-hidden text-text-primary z-10"
         >
           {/* Header Bar */}
-          <div className="flex items-center justify-between p-4 border-b border-surface-border/40 bg-[#111b21] shrink-0">
+          <div className="flex items-center justify-between p-4 border-b border-surface-border/40 bg-background shrink-0">
             <div className="flex items-center space-x-2">
               <Users size={18} className="text-[#25D366]" />
-              <h3 className="font-extrabold text-base text-white">Group Call Info</h3>
+              <h3 className="font-extrabold text-base text-text-primary">Group Call Info</h3>
             </div>
 
             <button 
               onClick={onClose}
-              className="p-1.5 rounded-full hover:bg-surface-hover text-text-tertiary hover:text-white transition-colors"
+              className="p-1.5 rounded-full hover:bg-surface-hover text-text-tertiary hover:text-text-primary transition-colors"
             >
               <X size={18} />
             </button>
@@ -112,7 +112,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
           {/* Scrollable Content Container (Banner + Participants) */}
           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-surface-border flex flex-col">
             {/* Group Banner Info */}
-            <div className="p-5 flex flex-col items-center border-b border-surface-border/30 bg-[#1f2c34] shrink-0">
+            <div className="p-5 flex flex-col items-center border-b border-surface-border/30 bg-surface shrink-0">
               {/* Avatar / Image */}
               <div className="relative mb-3">
                 {groupPfp ? (
@@ -131,7 +131,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
               </div>
 
               {/* Title & Badge */}
-              <h2 className="text-lg font-bold text-white text-center">{groupName}</h2>
+              <h2 className="text-lg font-bold text-text-primary text-center">{groupName}</h2>
               <div className="flex items-center space-x-1.5 mt-1 text-xs text-text-tertiary">
                 <Clock size={13} />
                 <span>{formattedDateTime}</span>
@@ -153,7 +153,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                 </span>
 
                 {call.duration && call.duration > 0 ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#111b21] text-white/90 border border-surface-border/60 flex items-center space-x-1">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-background text-text-primary border border-surface-border/60 flex items-center space-x-1">
                     <Clock size={12} className="text-[#25D366] mr-1" />
                     <span>Duration: {Math.floor(call.duration / 60)}m {call.duration % 60}s</span>
                   </span>
@@ -173,7 +173,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
 
                   <div className="space-y-2">
                     {joinedUsers.map((u, i) => (
-                      <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-[#111b21] border border-surface-border/30">
+                      <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-background border border-surface-border/30">
                         <div className="flex items-center space-x-3">
                           {u.profilePicture ? (
                             <img src={u.profilePicture} alt="" className="w-9 h-9 rounded-full object-cover" />
@@ -183,7 +183,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                             </div>
                           )}
                           <div>
-                            <p className="text-xs font-semibold text-white">
+                            <p className="text-xs font-semibold text-text-primary">
                               {u.id === currentUser?.id ? `${u.name || 'You'} (You)` : (u.name || u.phoneNumber || 'User')}
                             </p>
                             <p className="text-[10px] text-text-tertiary">{u.statusLabel}</p>
@@ -208,7 +208,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
 
                   <div className="space-y-2">
                     {notJoinedUsers.map((u, i) => (
-                      <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-[#111b21] border border-surface-border/30">
+                      <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-background border border-surface-border/30">
                         <div className="flex items-center space-x-3">
                           {u.profilePicture ? (
                             <img src={u.profilePicture} alt="" className="w-9 h-9 rounded-full object-cover" />
@@ -218,7 +218,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                             </div>
                           )}
                           <div>
-                            <p className="text-xs font-semibold text-white">
+                            <p className="text-xs font-semibold text-text-primary">
                               {u.id === currentUser?.id ? `${u.name || 'You'} (You)` : (u.name || u.phoneNumber || 'User')}
                             </p>
                             <p className="text-[10px] text-text-tertiary">{u.statusLabel}</p>
@@ -236,7 +236,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
           </div>
 
           {/* Footer Call Back Actions */}
-          <div className="p-4 border-t border-surface-border/40 bg-[#111b21] flex items-center space-x-3 shrink-0">
+          <div className="p-4 border-t border-surface-border/40 bg-background flex items-center space-x-3 shrink-0">
             <button 
               onClick={() => {
                 onClose();

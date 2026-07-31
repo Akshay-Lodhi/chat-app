@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Send, Image as ImageIcon, Video, Type } from 'lucide-react';
 import { useStoryStore } from '@/store/useStoryStore';
 import { apiClient } from '@/lib/apiClient';
+import toast from 'react-hot-toast';
 
 interface StoryCreatorModalProps {
   type: 'TEXT' | 'MEDIA';
@@ -61,7 +62,7 @@ export const StoryCreatorModal = ({ type, onClose }: StoryCreatorModalProps) => 
       onClose();
     } catch (err) {
       console.error(err);
-      alert('Failed to post status update');
+      toast.error('Failed to post status update');
     } finally {
       setIsUploading(false);
     }

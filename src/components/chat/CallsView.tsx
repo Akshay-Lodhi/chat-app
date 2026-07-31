@@ -293,7 +293,7 @@ export function CallsView() {
       </div>
 
       {/* Search & Filter Pills Bar */}
-      <div className="p-4 border-b border-surface-border/40 space-y-3 bg-[#111b21]">
+      <div className="p-4 border-b border-surface-border/40 space-y-3 bg-background">
         {/* Pills: All, Missed, Unanswered */}
         <div className="flex items-center space-x-2">
           <button
@@ -301,8 +301,8 @@ export function CallsView() {
             className={cn(
               "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm",
               filter === "all"
-                ? "bg-[#005c4b] text-[#25D366] border border-[#25D366]/40"
-                : "bg-[#1f2c34] text-text-secondary hover:bg-surface-hover",
+                ? "bg-primary/20 text-primary border border-primary/40"
+                : "bg-surface text-text-secondary hover:bg-surface-hover",
             )}
           >
             All
@@ -314,7 +314,7 @@ export function CallsView() {
               "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm",
               filter === "missed"
                 ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                : "bg-[#1f2c34] text-text-secondary hover:bg-surface-hover",
+                : "bg-surface text-text-secondary hover:bg-surface-hover",
             )}
           >
             Missed
@@ -326,7 +326,7 @@ export function CallsView() {
               "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm",
               filter === "unanswered"
                 ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                : "bg-[#1f2c34] text-text-secondary hover:bg-surface-hover",
+                : "bg-surface text-text-secondary hover:bg-surface-hover",
             )}
           >
             Unanswered
@@ -341,7 +341,7 @@ export function CallsView() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search call logs..."
-            className="w-full bg-[#1f2c34] border border-surface-border/40 text-white text-xs pl-10 pr-4 py-2.5 rounded-xl focus:outline-none focus:border-[#25D366]"
+            className="w-full bg-surface border border-surface-border/40 text-text-primary text-xs pl-10 pr-4 py-2.5 rounded-xl focus:outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -350,10 +350,10 @@ export function CallsView() {
       <div className="flex-1 p-2 divide-y divide-surface-border/30">
         {filteredCalls.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
-            <div className="p-4 rounded-full bg-[#1f2c34] text-text-tertiary">
+            <div className="p-4 rounded-full bg-surface text-text-tertiary">
               <Phone size={36} />
             </div>
-            <h3 className="text-base font-bold text-white">No Call Logs</h3>
+            <h3 className="text-base font-bold text-text-primary">No Call Logs</h3>
             <p className="text-xs text-text-secondary max-w-xs">
               {isCleared
                 ? "Call logs cleared from database."
@@ -383,7 +383,7 @@ export function CallsView() {
               <div
                 key={call.id}
                 onClick={() => setSelectedCall(call)}
-                className="flex items-center justify-between p-3 hover:bg-[#1f2c34]/60 rounded-2xl transition-colors group cursor-pointer"
+                className="flex items-center justify-between p-3 hover:bg-surface/60 rounded-2xl transition-colors group cursor-pointer"
               >
                 <div className="flex items-center space-x-3.5 min-w-0">
                   {/* Profile Avatar / Group Grid Avatar with Click Handler for Details Modal */}
@@ -402,7 +402,7 @@ export function CallsView() {
                         className="w-12 h-12 rounded-full object-cover border border-surface-border/50 shadow-sm hover:scale-105 transition-transform"
                       />
                     ) : isGroup ? (
-                      <div className="w-12 h-12 rounded-full bg-[#1f2c34] border border-surface-border/50 grid grid-cols-2 p-0.5 gap-0.5 overflow-hidden hover:scale-105 transition-transform shadow-sm">
+                      <div className="w-12 h-12 rounded-full bg-surface border border-surface-border/50 grid grid-cols-2 p-0.5 gap-0.5 overflow-hidden hover:scale-105 transition-transform shadow-sm">
                         {groupParticipants
                           .slice(0, 4)
                           .map((pUser: any, i: number) => (
