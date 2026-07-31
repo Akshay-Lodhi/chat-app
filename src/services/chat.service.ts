@@ -347,7 +347,12 @@ export class ChatService {
       ],
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
-      include: { statuses: true, replyTo: true, starredBy: { select: { userId: true } } }
+      include: { 
+        statuses: true, 
+        replyTo: true, 
+        starredBy: { select: { userId: true } },
+        sender: { select: { id: true, name: true, phoneNumber: true, publicKey: true, profilePicture: true } }
+      }
     });
 
     const formatted = messages.map((msg: any) => {
