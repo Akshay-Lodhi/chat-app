@@ -14,8 +14,8 @@ export const getMe = async (req: AuthRequest, res: Response) => {
 
 export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, about, profilePicture } = req.body;
-    const user = await UserService.updateProfile(req.user!.userId, { name, about, profilePicture });
+    const { name, about, profilePicture, publicKey } = req.body;
+    const user = await UserService.updateProfile(req.user!.userId, { name, about, profilePicture, publicKey });
     res.json(user);
   } catch (error) {
     console.error(error);

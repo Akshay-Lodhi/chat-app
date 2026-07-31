@@ -20,6 +20,7 @@ model User {
   isOnline            Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  publicKey           String?  @db.Text
 
   sessions           Session[]
   accounts           Account[]
@@ -119,6 +120,8 @@ model ChatParticipant {
   chat Chat @relation(fields: [chatId], references: [id])
 
   @@id([userId, chatId])
+  @@index([userId])
+  @@index([chatId])
 }
 
 model Message {
@@ -133,6 +136,7 @@ model Message {
   deletedForEveryone Boolean     @default(false)
   deletedForUsers    String[]    @default([])
   deletedAt          DateTime?
+  isEncrypted        Boolean     @default(false)
 
   isEdited           Boolean         @default(false)
   updatedAt          DateTime        @default(now()) @updatedAt
@@ -155,6 +159,9 @@ model Message {
 
   reactions Json?
   metadata  Json?
+
+  @@index([chatId, createdAt])
+  @@index([senderId])
 }
 
 enum ScheduledStatus {
@@ -187,6 +194,7 @@ model MessageStatus {
   user    User    @relation(fields: [userId], references: [id])
 
   @@id([messageId, userId])
+  @@index([userId, status])
 }
 
 enum DeliveryStatus {

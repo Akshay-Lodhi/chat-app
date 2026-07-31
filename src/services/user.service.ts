@@ -7,7 +7,7 @@ export class UserService {
     });
   }
 
-  static async updateProfile(userId: string, data: { name?: string, about?: string, profilePicture?: string }) {
+  static async updateProfile(userId: string, data: { name?: string, about?: string, profilePicture?: string, publicKey?: string }) {
     return await prisma.user.update({
       where: { id: userId },
       data
@@ -34,7 +34,8 @@ export class UserService {
         profilePicture: true,
         about: true,
         isOnline: true,
-        lastSeen: true
+        lastSeen: true,
+        publicKey: true
       }
     });
   }

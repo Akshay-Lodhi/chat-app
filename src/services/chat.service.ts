@@ -12,7 +12,7 @@ export class ChatService {
       include: {
         participants: {
           include: {
-            user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, lastSeen: true } }
+            user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true, lastSeen: true } }
           }
         },
         messages: {
@@ -113,7 +113,7 @@ export class ChatService {
       },
       include: {
         participants: {
-          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } } }
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true } } }
         }
       }
     });
@@ -134,7 +134,7 @@ export class ChatService {
       },
       include: {
         participants: {
-          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } } }
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true } } }
         }
       }
     });
@@ -184,7 +184,7 @@ export class ChatService {
       },
       include: {
         participants: {
-          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } } }
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true } } }
         }
       }
     });
@@ -224,7 +224,7 @@ export class ChatService {
       where: { id: chatId },
       include: {
         participants: {
-          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, about: true } } }
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true, about: true } } }
         }
       }
     });
@@ -260,7 +260,7 @@ export class ChatService {
       where: { id: chatId },
       include: {
         participants: {
-          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, about: true } } }
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true, about: true } } }
         }
       }
     });
@@ -284,7 +284,7 @@ export class ChatService {
       data: { groupPicture: pictureUrl },
       include: {
         participants: {
-          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, about: true } } }
+          include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true, about: true } } }
         }
       }
     });
@@ -467,9 +467,9 @@ export class ChatService {
       prisma.call.findMany({
         where: callWhere,
         include: {
-          caller: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } },
-          receiver: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } },
-          participants: { include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } } } },
+          caller: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true } },
+          receiver: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true } },
+          participants: { include: { user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true } } } },
           chat: { select: { id: true, name: true, isGroup: true, groupPicture: true } }
         },
         orderBy: { startedAt: 'desc' }
@@ -477,12 +477,12 @@ export class ChatService {
       prisma.message.findMany({
         where: messageWhere,
         include: {
-          sender: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } },
+          sender: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true } },
           chat: {
             include: {
               participants: {
                 include: {
-                  user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true } }
+                  user: { select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true } }
                 }
               }
             }
@@ -613,7 +613,7 @@ export class ChatService {
         message: {
           include: {
             sender: {
-              select: { id: true, name: true, phoneNumber: true, profilePicture: true }
+              select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true }
             },
             chat: {
               select: { id: true, isGroup: true, name: true }
@@ -697,7 +697,7 @@ export class ChatService {
       },
       include: {
         sender: {
-          select: { id: true, name: true, phoneNumber: true, profilePicture: true }
+          select: { id: true, name: true, phoneNumber: true, profilePicture: true, publicKey: true }
         }
       }
     });

@@ -204,7 +204,7 @@ export function setupSocket(server: HttpServer) {
     });
 
     socket.on('send-message', async (data, callback) => {
-      const { chatId, content, type, mediaUrl, tempId, replyToId, metadata } = data;
+      const { chatId, content, type, mediaUrl, tempId, replyToId, metadata, isEncrypted } = data;
 
       const chat = await prisma.chat.findUnique({
         where: { id: chatId },
@@ -216,7 +216,7 @@ export function setupSocket(server: HttpServer) {
         : null;
 
       const message = await prisma.message.create({
-        data: { chatId, senderId: userId, content, type, mediaUrl, replyToId, metadata, expiresAt } as any,
+        data: { chatId, senderId: userId, content, type, mediaUrl, replyToId, metadata, expiresAt, isEncrypted: isEncrypted || false } as any,
         include: { replyTo: true, sender: true }
       });
       
@@ -227,7 +227,7 @@ export function setupSocket(server: HttpServer) {
       }
 
       // --- LINK PREVIEW EXTRACTION (Async) ---
-      if (type === 'TEXT' && content) {
+      if (type === 'TEXT' && content && !isEncrypted) {
         // Find the first URL in the content
         const urlMatch = content.match(/(https?:\/\/[^\s]+)/g);
         if (urlMatch && urlMatch.length > 0) {
