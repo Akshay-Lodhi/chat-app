@@ -479,6 +479,12 @@ export function MessageComposer({
               placeholder="Message"
               value={message}
               onChange={handleChange}
+              onFocus={(e) => {
+                // Ensure input stays visible when mobile keyboard opens
+                setTimeout(() => {
+                  try { e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(err) {}
+                }, 300);
+              }}
               className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 text-text-primary placeholder-[#8696a0] px-1.5 py-1 text-[15px] leading-normal"
             />
 
