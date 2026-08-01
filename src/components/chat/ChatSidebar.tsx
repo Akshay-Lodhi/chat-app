@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
-import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed, BarChart2, Star, Pin, PinOff } from 'lucide-react';
+import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed, BarChart2, Star, Pin, PinOff, Lock } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
@@ -286,6 +286,14 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                                 );
                               }
                             }
+                            if (lastMessage.isEncrypted && lastMessage.type === 'TEXT' && typeof lastMessage.content === 'string' && lastMessage.content.startsWith('{"isEncrypted"')) {
+                                return (
+                                  <>
+                                    <Lock size={14} className="mr-1 shrink-0" /> 
+                                    <span className="truncate">Encrypted message</span>
+                                  </>
+                                );
+                              }
                             return lastMessage.content;
                           })()}
                         </span>

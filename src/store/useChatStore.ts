@@ -488,6 +488,10 @@ export const useChatStore = create<ChatState>()(
     });
 
     socket.on('receive-message', (message: Message) => {
+      if (!message.isEncrypted && message.type === 'TEXT' && typeof message.content === 'string' && message.content.startsWith('{"isEncrypted":true')) {
+        message.isEncrypted = true;
+      }
+      
       // E2EE Decryption
       if (message.isEncrypted && message.content && message.type === 'TEXT') {
         try {
@@ -509,6 +513,8 @@ export const useChatStore = create<ChatState>()(
             } else {
                message.content = "🔒 [Encrypted Message - Unknown Sender Key]";
             }
+          } else {
+            message.content = "🔒 [Encrypted Message - Keys not ready]";
           }
         } catch (e) {
           console.error("E2EE Decryption error", e);
@@ -843,7 +849,49 @@ export const useChatStore = create<ChatState>()(
         credentials: 'include'
       });
       if (res.ok) {
-        const chats = await res.json();
+        let chats = await res.json();
+        
+        // Try to decrypt the latest messages for sidebar preview
+        try {
+          const authState = require('@/store/useAuthStore').useAuthStore.getState();
+          const myPriv = authState.privateKey;
+          const myUserId = authState.user?.id;
+          
+          if (myPriv && myUserId) {
+            const { decryptE2EEPayload } = require('@/lib/encryption');
+            chats = chats.map((c: any) => {
+              if (c.messages && c.messages.length > 0) {
+                const m = c.messages[0];
+                
+                if (!m.isEncrypted && m.type === 'TEXT' && typeof m.content === 'string' && m.content.startsWith('{"isEncrypted"')) {
+                  m.isEncrypted = true;
+                }
+                
+                if (m.isEncrypted && m.content && m.type === 'TEXT') {
+                  const senderPub = m.sender?.publicKey || c.participants?.find((p: any) => p.userId === m.senderId)?.user?.publicKey;
+                  if (senderPub) {
+                    try {
+                      const payload = JSON.parse(m.content);
+                      const decrypted = decryptE2EEPayload(payload, myUserId, myPriv, senderPub);
+                      if (decrypted) m.content = decrypted;
+                      else m.content = "🔒 [Message could not be decrypted]";
+                    } catch (e) {
+                       m.content = "🔒 [Message corrupted]";
+                    }
+                  } else {
+                     m.content = "🔒 [Encrypted Message - Unknown Sender Key]";
+                  }
+                } else if (m.isEncrypted) {
+                  m.content = "🔒 [Encrypted Message - Keys not ready]";
+                }
+              }
+              return c;
+            });
+          }
+        } catch (e) {
+           console.error("Chats preview E2EE Decryption error", e);
+        }
+
         set((state) => {
           const newOnlineUsers = { ...state.onlineUsers };
           chats.forEach((c: any) => {
@@ -882,10 +930,14 @@ export const useChatStore = create<ChatState>()(
             const myPriv = authState.privateKey;
             const myUserId = authState.user?.id;
             
-            if (myPriv && myUserId) {
-              const { decryptE2EEPayload } = require('@/lib/encryption');
-              msgs = msgs.map((m: any) => {
-                if (m.isEncrypted && m.content && m.type === 'TEXT') {
+            const { decryptE2EEPayload } = require('@/lib/encryption');
+            msgs = msgs.map((m: any) => {
+              if (!m.isEncrypted && m.type === 'TEXT' && typeof m.content === 'string' && m.content.startsWith('{"isEncrypted":true')) {
+                m.isEncrypted = true;
+              }
+
+              if (m.isEncrypted && m.content && m.type === 'TEXT') {
+                if (myPriv && myUserId) {
                   const senderPub = m.sender?.publicKey;
                   if (senderPub) {
                     try {
@@ -899,10 +951,12 @@ export const useChatStore = create<ChatState>()(
                   } else {
                      m.content = "🔒 [Encrypted Message - Unknown Sender Key]";
                   }
+                } else {
+                  m.content = "🔒 [Encrypted Message - Keys not ready]";
                 }
-                return m;
-              });
-            }
+              }
+              return m;
+            });
           } catch (e) {
              console.error("Bulk E2EE Decryption error", e);
           }
