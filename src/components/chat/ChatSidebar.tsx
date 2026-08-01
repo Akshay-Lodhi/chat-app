@@ -19,6 +19,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
   const [searchQuery, setSearchQuery] = useState('');
   const [showStarredMessages, setShowStarredMessages] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chatId: string; isPinned: boolean } | null>(null);
+  const [isCreatingAiChat, setIsCreatingAiChat] = useState(false);
 
   // Close context menu on click outside
   React.useEffect(() => {
@@ -37,6 +38,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
   };
 
   const handleAiChat = async () => {
+    if (isCreatingAiChat) return;
     const aiUserId = 'nexus-ai-system';
     
     // Check if chat already exists
@@ -48,6 +50,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
     if (existingChat) {
       setActiveChat(existingChat.id);
     } else {
+      setIsCreatingAiChat(true);
       // Create new chat with AI
       try {
         const token = useAuthStore.getState().token;
@@ -57,11 +60,24 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
         }
       } catch (err) {
         console.error('Failed to start AI chat', err);
+      } finally {
+        setIsCreatingAiChat(false);
       }
     }
   };
 
-  const filteredChats = chats.filter(chat => {
+  const uniqueChats = React.useMemo(() => {
+    const seen1on1s = new Set<string>();
+    return chats.filter(chat => {
+      if (chat.isGroup) return true;
+      const participants = chat.participants.map((p: any) => p.userId).sort().join('-');
+      if (seen1on1s.has(participants)) return false;
+      seen1on1s.add(participants);
+      return true;
+    });
+  }, [chats]);
+
+  const filteredChats = uniqueChats.filter(chat => {
     const q = searchQuery.toLowerCase();
     if (chat.name?.toLowerCase().includes(q)) return true;
     return chat.participants.some((p: any) => {

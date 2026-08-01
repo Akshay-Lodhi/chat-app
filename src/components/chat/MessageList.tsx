@@ -38,7 +38,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
 
   return (
     <div 
-      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 scrollbar-thin scrollbar-thumb-surface-border relative"
+      className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-2 no-scrollbar md:scrollbar-thin md:scrollbar-thumb-surface-border relative"
       style={{
         paddingLeft: 'max(16px, env(safe-area-inset-left))',
         paddingRight: 'max(16px, env(safe-area-inset-right))'
@@ -72,7 +72,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
         </div>
       ) : (
         <Virtuoso
-          className="w-full h-full scrollbar-thin scrollbar-thumb-surface-border"
+          className="w-full h-full no-scrollbar md:scrollbar-thin md:scrollbar-thumb-surface-border"
           data={filteredMessages}
           initialTopMostItemIndex={filteredMessages.length > 0 ? filteredMessages.length - 1 : 0}
           followOutput="smooth"

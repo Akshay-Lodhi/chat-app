@@ -82,11 +82,7 @@ export function MessageComposer({
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       
       if (editingMessageId && activeChatId) {
-        socket?.emit('edit-message', {
-          messageId: editingMessageId,
-          content: message.trim(),
-          chatId: activeChatId
-        });
+        useChatStore.getState().editMessage(activeChatId, editingMessageId, message.trim());
         setEditingMessageId(null);
         setMessage('');
       } else {

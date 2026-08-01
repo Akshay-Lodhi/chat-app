@@ -98,6 +98,7 @@ interface ChatState {
   deleteMessage: (chatId: string, messageId: string, deleteFor?: 'everyone' | 'me') => Promise<boolean>;
   clearChat: (chatId: string) => Promise<boolean>;
   sendTypingStatus: (chatId: string, isTyping: boolean) => void;
+  editMessage: (chatId: string, messageId: string, content: string) => void;
   toggleReaction: (chatId: string, messageId: string, reaction: string) => void;
   togglePinChat: (chatId: string) => Promise<void>;
   togglePinMessage: (chatId: string, messageId: string) => Promise<void>;
@@ -387,6 +388,48 @@ export const useChatStore = create<ChatState>()(
     get().socket?.emit('typing', { chatId, isTyping });
   },
 
+  editMessage: (chatId, messageId, content) => {
+    const { socket } = get();
+    if (socket && socket.connected) {
+      const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id || 'me';
+      let finalContent = content;
+      
+      const currentPriv = require('@/store/useAuthStore').useAuthStore.getState().privateKey;
+      const chat = get().chats.find(c => c.id === chatId);
+      const participants = chat?.participants || [];
+      
+      if (currentPriv && content) {
+        const pKeys = participants.map(p => ({ userId: p.user?.id || p.userId, publicKey: p.user?.publicKey || '' }));
+        const others = pKeys.filter(p => p.userId !== currentUserId);
+        const canEncrypt = others.length > 0 && others.every(p => p.publicKey);
+        
+        if (canEncrypt) {
+          const { createE2EEPayload } = require('@/lib/encryption');
+          const encryptFor = [...others, { userId: currentUserId, publicKey: require('@/store/useAuthStore').useAuthStore.getState().publicKey }];
+          const payload = createE2EEPayload(content, encryptFor, currentPriv);
+          finalContent = JSON.stringify(payload);
+        }
+      }
+
+      // Optimistically update the UI to show the new content
+      set((state) => {
+        const newMessages = { ...state.messages };
+        if (newMessages[chatId]) {
+          newMessages[chatId] = newMessages[chatId].map(msg => 
+            msg.id === messageId ? { ...msg, content, isEdited: true } : msg
+          );
+        }
+        return { messages: newMessages };
+      });
+
+      socket.emit('edit-message', {
+        messageId,
+        content: finalContent,
+        chatId
+      });
+    }
+  },
+
   connectSocket: (token: string, userId: string) => {
     const existingSocket = get().socket;
     if (existingSocket || get().isConnecting) return;
@@ -585,6 +628,32 @@ export const useChatStore = create<ChatState>()(
             [chatId]: newMessages
           }
         };
+      });
+    });
+
+    socket.on('user-updated', ({ userId, publicKey }: { userId: string, publicKey: string }) => {
+      set((state) => {
+        const newChats = state.chats.map(chat => {
+          let updated = false;
+          const newParticipants = chat.participants.map(p => {
+            if (p.userId === userId) {
+              updated = true;
+              return {
+                ...p,
+                user: {
+                  ...(p.user || {}),
+                  publicKey: publicKey
+                }
+              };
+            }
+            return p;
+          });
+          if (updated) {
+            return { ...chat, participants: newParticipants };
+          }
+          return chat;
+        });
+        return { chats: newChats };
       });
     });
 
