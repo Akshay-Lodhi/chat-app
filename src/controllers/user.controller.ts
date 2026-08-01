@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { UserService } from '../services/user.service';
+import { getIO } from '../socket';
+import { prisma } from '../lib/prisma';
 
 export const getMe = async (req: AuthRequest, res: Response) => {
   try {
@@ -16,6 +18,22 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
     const { name, about, profilePicture, publicKey } = req.body;
     const user = await UserService.updateProfile(req.user!.userId, { name, about, profilePicture, publicKey });
+
+    if (publicKey) {
+      try {
+        const userChats = await prisma.chatParticipant.findMany({
+          where: { userId: req.user!.userId },
+          select: { chatId: true }
+        });
+        const io = getIO().of('/chat');
+        userChats.forEach(c => {
+          io.to(c.chatId).emit('user-updated', { userId: req.user!.userId, publicKey });
+        });
+      } catch (err) {
+        console.error('Failed to broadcast public key update', err);
+      }
+    }
+
     res.json(user);
   } catch (error) {
     console.error(error);
