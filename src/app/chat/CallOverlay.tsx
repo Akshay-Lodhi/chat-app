@@ -701,8 +701,6 @@ export default function CallOverlay() {
   }, [activeChat, currentUser, remoteStreams, roomParticipants, invitedUserIds, getUserProfile, caller]);
 
   const gridParticipants = useMemo(() => {
-    // If no one is connected yet, we want to show everyone (for the ringing screen names).
-    // But for the grid itself (when isConnected is true), we ONLY show people who are actually connected (!isConnecting).
     return allCallParticipants.filter(p => !p.isConnecting);
   }, [allCallParticipants]);
 
@@ -710,6 +708,23 @@ export default function CallOverlay() {
     if (activeChat?.isGroup) return true;
     return allCallParticipants.length >= 2;
   }, [activeChat, allCallParticipants]);
+
+  const getGridContainerClass = (n: number) => {
+    if (n <= 1) return "grid-cols-1 grid-rows-1";
+    if (n === 2) return "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1";
+    if (n === 3) return "grid-cols-2 grid-rows-2";
+    if (n === 4) return "grid-cols-2 grid-rows-2";
+    if (n === 5) return "grid-cols-4 grid-rows-[2fr_1fr]";
+    if (n === 6) return "grid-cols-2 grid-rows-3 sm:grid-cols-3 sm:grid-rows-2";
+    if (n >= 7 && n <= 8) return "grid-cols-2 sm:grid-cols-4 auto-rows-fr";
+    return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 auto-rows-fr";
+  };
+
+  const getTileClass = (n: number, index: number) => {
+    if (n === 3 && index === 0) return "col-span-2 row-span-1";
+    if (n === 5 && index === 0) return "col-span-4 row-span-1";
+    return "col-span-1 row-span-1";
+  };
 
   if (!isCalling && !isReceivingCall) return null;
 
@@ -1089,15 +1104,16 @@ export default function CallOverlay() {
                   )}
 
                   <div className={cn(
-                    "w-full h-full grid gap-3 max-w-4xl mx-auto items-center justify-center",
-                    gridParticipants.length <= 2 && "grid-cols-1 sm:grid-cols-2 grid-rows-2 sm:grid-rows-1",
-                    (gridParticipants.length === 3 || gridParticipants.length === 4) && "grid-cols-2 grid-rows-2",
-                    gridParticipants.length > 4 && "grid-cols-2 sm:grid-cols-3 overflow-y-auto"
+                    "w-full h-full grid gap-3 max-w-4xl mx-auto items-center justify-center transition-all duration-500",
+                    getGridContainerClass(gridParticipants.length)
                   )}>
-                  {gridParticipants.map((item) => (
+                  {gridParticipants.map((item, index) => (
                     <div 
                       key={item.userId} 
-                      className="relative w-full h-full bg-surface rounded-2xl overflow-hidden border border-white/10 shadow-xl flex items-center justify-center min-h-[140px]"
+                      className={cn(
+                        "relative w-full h-full bg-surface rounded-2xl overflow-hidden border border-white/10 shadow-xl flex items-center justify-center min-h-[140px] transition-all duration-500",
+                        getTileClass(gridParticipants.length, index)
+                      )}
                     >
                       {callType === 'VIDEO' && item.stream ? (
                         <VideoPlayer stream={item.stream} avatar={item.avatar || ''} name={item.name || ''} isVideoOff={item.isVideoOff} />
