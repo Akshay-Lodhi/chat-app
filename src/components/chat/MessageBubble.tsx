@@ -34,6 +34,29 @@ import { ContextMenu } from "./ContextMenu";
 import { DeleteMessageModal } from "./DeleteMessageModal";
 import { EmojiPicker } from "./EmojiPicker";
 
+const renderMessageContent = (content: string) => {
+  if (!content) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = content.split(urlRegex);
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a 
+          key={index} 
+          href={part} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-emerald-400 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 const AudioPlayer = ({ src }: { src: string }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -658,13 +681,13 @@ export function MessageBubble({
         return (
           <div className="flex flex-col">
             <p
-              className={cn(
-                "text-sm whitespace-pre-wrap break-words leading-relaxed",
-                highlight && "bg-warning/30 text-warning px-1 rounded",
-              )}
-            >
-              {message.content}
-            </p>
+                className={cn(
+                  "text-sm whitespace-pre-wrap break-words leading-relaxed",
+                  highlight && "bg-warning/30 text-warning px-1 rounded",
+                )}
+              >
+                {renderMessageContent(message.content)}
+              </p>
             {message.metadata?.linkPreview && (
               <a 
                 href={message.metadata.linkPreview.url} 

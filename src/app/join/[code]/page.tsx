@@ -800,11 +800,11 @@ export default function InstantMeetingPage() {
       </div>
 
       {/* Main Video Tile Grid */}
-      <div className="flex-1 p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-center justify-center overflow-y-auto">
+      <div className="flex-1 p-2 sm:p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 place-content-start w-full max-w-7xl mx-auto overflow-y-auto">
         {/* Local Participant Tile */}
-        <div className={`relative bg-background rounded-2xl overflow-hidden shadow-xl transition-all ${
+        <div className={`relative bg-background rounded-2xl overflow-hidden shadow-xl transition-all w-full ${
           isScreenSharing 
-            ? 'col-span-full aspect-video h-[50vh] sm:h-[65vh] w-full border-2 border-emerald-500 bg-black' 
+            ? 'col-span-full aspect-video h-[50vh] sm:h-[65vh] border-2 border-emerald-500 bg-black' 
             : 'aspect-video border border-emerald-500/40'
         }`}>
           {isVideoOn ? (

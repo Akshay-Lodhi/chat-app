@@ -453,26 +453,28 @@ export default function CallOverlay() {
     if (socket && activeCallChatId) {
       const remainingRemoteCount = Object.keys(remoteStreams).length;
 
-      if (remainingRemoteCount >= 2) {
-        socket.emit('leave-call-room', { chatId: activeCallChatId });
-      } else {
-        const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 0) || Object.keys(roomParticipants).length > 2);
-        
-        const participantsInfo = allCallParticipants.map(p => ({
-          userId: p.userId,
-          name: p.name,
-          avatar: p.avatar,
-          status: p.stream ? 'JOINED' : 'INVITED'
-        }));
+      if (isInitiator) {
+        if (remainingRemoteCount >= 2) {
+          socket.emit('leave-call-room', { chatId: activeCallChatId });
+        } else {
+          const isMulti = Boolean((activeChat?.isGroup) || (Object.keys(remoteStreams).length > 1) || (invitedUserIds.length > 1) || Object.keys(roomParticipants).length > 2);
+          
+          const participantsInfo = allCallParticipants.map(p => ({
+            userId: p.userId,
+            name: p.name,
+            avatar: p.avatar,
+            status: p.stream ? 'JOINED' : 'INVITED'
+          }));
 
-        socket.emit('end-call', {
-          chatId: activeCallChatId,
-          duration: isReceivingCall && !isCalling ? -1 : elapsedSeconds,
-          type: callType,
-          isInitiator,
-          isGroup: isMulti,
-          participantsInfo
-        });
+          socket.emit('end-call', {
+            chatId: activeCallChatId,
+            duration: isReceivingCall && !isCalling ? -1 : elapsedSeconds,
+            type: callType,
+            isInitiator,
+            isGroup: isMulti,
+            participantsInfo
+          });
+        }
       }
 
       if (activeChat?.isGroup) {
@@ -537,7 +539,7 @@ export default function CallOverlay() {
               useCallStore.getState().invitedUserIds.forEach(id => allTargets.add(id));
               
               allTargets.forEach(id => {
-                if (id !== currentUser.id) createPeer(id, stream, true);
+                if (id !== currentUser.id && id !== 'nexus-ai-system') createPeer(id, stream, true);
               });
             }
           }
@@ -627,7 +629,7 @@ export default function CallOverlay() {
 
     // 1. Connected remote streams
     Object.entries(remoteStreams).forEach(([uId, stream]) => {
-      if (!addedIds.has(uId) && uId !== currentUser?.id) {
+      if (!addedIds.has(uId) && uId !== currentUser?.id && uId !== 'nexus-ai-system') {
         addedIds.add(uId);
         const prof = getUserProfile(uId);
         const pInfo = roomParticipants[uId];
@@ -645,44 +647,55 @@ export default function CallOverlay() {
 
     // 2. Authoritative server room participants (EXCLUDE ANY WITH STATUS === 'LEFT' or current user)
     Object.values(roomParticipants).forEach((pInfo) => {
-      if (!addedIds.has(pInfo.userId) && pInfo.userId !== currentUser?.id && pInfo.status !== 'LEFT') {
+      if (!addedIds.has(pInfo.userId) && pInfo.userId !== currentUser?.id && pInfo.userId !== 'nexus-ai-system' && pInfo.status !== 'LEFT') {
         addedIds.add(pInfo.userId);
         const prof = getUserProfile(pInfo.userId);
         list.push({
           userId: pInfo.userId,
-          name: prof.name,
-          avatar: prof.avatar,
+          name: pInfo.name || prof.name || 'Participant',
+          avatar: pInfo.avatar || prof.avatar,
           stream: null,
-          isConnecting: pInfo.status === 'INVITED' || pInfo.status === 'RINGING',
-          isMuted: pInfo.isMuted,
-          isVideoOff: pInfo.isVideoOff
+          isConnecting: pInfo.status !== 'CONNECTED',
+          isMuted: pInfo.isMuted || false,
+          isVideoOff: pInfo.isVideoOff || false
         });
       }
     });
 
-    // 3. Local invited user IDs
+    // 3. Pending invitations not yet tracked by server (fallback)
     invitedUserIds.forEach((uId) => {
-      if (!addedIds.has(uId) && uId !== currentUser?.id) {
-        const pStatus = roomParticipants[uId]?.status;
-        if (pStatus !== 'LEFT') {
-          addedIds.add(uId);
-          const prof = getUserProfile(uId);
-          list.push({
-            userId: uId,
-            name: prof.name,
-            avatar: prof.avatar,
-            stream: null,
-            isConnecting: true,
-            isMuted: false,
-            isVideoOff: false
-          });
-        }
+      if (!addedIds.has(uId) && uId !== currentUser?.id && uId !== 'nexus-ai-system') {
+        addedIds.add(uId);
+        const prof = getUserProfile(uId);
+        list.push({
+          userId: uId,
+          name: prof.name,
+          avatar: prof.avatar,
+          stream: null,
+          isConnecting: true
+        });
       }
     });
 
-    // 4. Initial 1-to-1 recipient fallback (if list empty and not active group chat)
+    // 4. Initial group participants (if ringing everyone in group)
+    if (activeChat) {
+      activeChat.participants.forEach((p: any) => {
+        if (!addedIds.has(p.userId) && p.userId !== currentUser?.id && p.userId !== 'nexus-ai-system') {
+          addedIds.add(p.userId);
+          list.push({
+            userId: p.userId,
+            name: p.user?.name || p.user?.phoneNumber || 'Participant',
+            avatar: p.user?.profilePicture || null,
+            stream: null,
+            isConnecting: true
+          });
+        }
+      });
+    }
+
+    // 5. Fallback 1-to-1 recipient
     if (list.length === 0 && !activeChat?.isGroup) {
-      const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id);
+      const other = activeChat?.participants?.find((p: any) => p.userId !== currentUser?.id && p.userId !== 'nexus-ai-system');
       if (other && !addedIds.has(other.userId)) {
         addedIds.add(other.userId);
         list.push({
@@ -1104,7 +1117,7 @@ export default function CallOverlay() {
                   )}
 
                   <div className={cn(
-                    "w-full h-full grid gap-3 max-w-4xl mx-auto items-center justify-center transition-all duration-500",
+                    "w-full h-full grid gap-3 max-w-7xl mx-auto items-center justify-center transition-all duration-500 px-2 sm:px-4",
                     getGridContainerClass(gridParticipants.length)
                   )}>
                   {gridParticipants.map((item, index) => (
@@ -1360,7 +1373,7 @@ export default function CallOverlay() {
                     <div className="space-y-2">
                       {chats.filter(c => !c.isGroup && c.id !== activeCallChatId).map(chat => {
                         const other = chat.participants?.find((p: any) => p.userId !== currentUser?.id);
-                        if (!other) return null;
+                        if (!other || other.userId === 'nexus-ai-system') return null;
                         const name = other.user?.name || other.user?.phoneNumber || 'Contact';
                         const targetId = other.userId;
                         const isInvited = invitedUserIds.includes(targetId) || roomParticipants[targetId];
