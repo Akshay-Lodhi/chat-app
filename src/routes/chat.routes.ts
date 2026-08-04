@@ -24,7 +24,8 @@ import {
   transcribeAudioController,
   summarizeChatController,
   getSmartRepliesController,
-  handleAiPromptController
+  handleAiPromptController,
+  translateMessageController
 } from '../controllers/chat.controller';
 
 const router = Router();
@@ -101,5 +102,8 @@ router.post('/smart-replies', requireAuth, getSmartRepliesController as any);
 
 // Private AI Writing Assistant Prompt
 router.post('/ai-prompt', requireAuth, handleAiPromptController as any);
+
+// Translate message
+router.post('/messages/translate', requireAuth, translateMessageController as any);
 
 export default router;

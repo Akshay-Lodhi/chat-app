@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { getIO } from '../socket';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { ChatService } from '../services/chat.service';
+import { redis } from '../lib/redis';
 import { transcribeVoiceNote, summarizeChatMessages, generateSmartReplies, generateAIResponse, generateAIPrivateDraft } from '../services/ai.service';
 
 export const getChats = async (req: AuthRequest, res: Response) => {
@@ -373,5 +374,64 @@ export const handleAiPromptController = async (req: AuthRequest, res: Response) 
   } catch (error: any) {
     console.error('Error handling AI prompt:', error);
     res.status(500).json({ error: error.message || 'Failed to generate AI response' });
+  }
+};
+
+export const translateMessageController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { message, targetLanguage } = req.body;
+    if (!message || !targetLanguage) {
+      return res.status(400).json({ error: 'Message and targetLanguage are required' });
+    }
+
+    const cacheKey = `translation:${Buffer.from(message).toString('base64')}:${targetLanguage}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.json({ translatedText: cached, fromCache: true });
+    }
+
+    // LibreTranslate URL (self-hosted or fallback)
+    const LIBRE_TRANSLATE_URL = process.env.LIBRE_TRANSLATE_URL || 'http://localhost:5000';
+    let translatedText = '';
+
+    try {
+      const response = await fetch(`${LIBRE_TRANSLATE_URL}/translate`, {
+        method: 'POST',
+        body: JSON.stringify({
+          q: message,
+          source: 'auto',
+          target: targetLanguage,
+          format: 'text',
+          api_key: ''
+        }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        translatedText = data.translatedText;
+      } else {
+        throw new Error('LibreTranslate error');
+      }
+    } catch (e) {
+      // Fallback to Google Translate free API if self-hosted libretranslate is not running locally
+      console.warn('LibreTranslate failed, falling back to Google Translate API...', e);
+      const resFallback = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLanguage}&dt=t&q=${encodeURIComponent(message)}`);
+      const dataFallback = await resFallback.json();
+      if (dataFallback && dataFallback[0] && dataFallback[0][0] && dataFallback[0][0][0]) {
+        translatedText = dataFallback[0][0][0];
+      }
+    }
+
+    if (!translatedText) {
+      return res.status(500).json({ error: 'Translation failed' });
+    }
+
+    // Cache for 24 hours
+    await redis.setex(cacheKey, 86400, translatedText);
+
+    res.json({ translatedText, fromCache: false });
+  } catch (error: any) {
+    console.error('Error translating message:', error);
+    res.status(500).json({ error: error.message || 'Failed to translate message' });
   }
 };
