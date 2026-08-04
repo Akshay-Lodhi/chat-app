@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
-import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed, BarChart2, Star, Pin, PinOff, Lock } from 'lucide-react';
+import { Search, LogOut, Check, CheckCheck, Video, Phone, Image as ImageIcon, Mic, MapPin, FileText, PhoneMissed, BarChart2, Star, Pin, PinOff, Lock, FileVideo } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 import { authClient } from '@/lib/auth';
 import StarredMessagesOverlay from './StarredMessagesOverlay';
+import RecordingsModal from './RecordingsModal';
 
 interface ChatSidebarProps {
   onProfileClick: () => void;
@@ -20,6 +21,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
   const [showStarredMessages, setShowStarredMessages] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chatId: string; isPinned: boolean } | null>(null);
   const [isCreatingAiChat, setIsCreatingAiChat] = useState(false);
+  const [showRecordings, setShowRecordings] = useState(false);
 
   // Close context menu on click outside
   React.useEffect(() => {
@@ -123,6 +125,13 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
               <path d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"></path>
             </svg>
+          </button>
+          <button 
+            className="p-2 text-text-secondary hover:text-text-primary transition-colors"
+            title="Recordings"
+            onClick={() => setShowRecordings(true)}
+          >
+            <FileVideo size={20} />
           </button>
           <button 
             className="p-2 text-text-secondary hover:text-text-primary transition-colors"
@@ -335,6 +344,10 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
       <StarredMessagesOverlay 
         isOpen={showStarredMessages} 
         onClose={() => setShowStarredMessages(false)} 
+      />
+      <RecordingsModal
+        isOpen={showRecordings}
+        onClose={() => setShowRecordings(false)}
       />
 
       {contextMenu && (

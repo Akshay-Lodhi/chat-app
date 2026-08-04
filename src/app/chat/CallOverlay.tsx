@@ -7,8 +7,10 @@ import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { 
   Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Maximize2, 
-  SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users, BellRing, Monitor
+  SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users, BellRing, Monitor,
+  Circle, Square
 } from 'lucide-react';
+import { useRecording } from '@/hooks/useRecording';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -114,6 +116,12 @@ export default function CallOverlay() {
   const storeInvitedUserIds = useCallStore(state => state.invitedUserIds);
   const [invitedUserIds, setInvitedUserIds] = useState<string[]>([]);
   const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  const { isRecording, startRecording, stopRecording } = useRecording({
+    localStream,
+    remoteStreams,
+    callType
+  });
 
   // Auto-hide controls timer
   useEffect(() => {
@@ -1278,6 +1286,19 @@ export default function CallOverlay() {
                     title="Add Contact"
                   >
                     <UserPlus size={22} />
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={cn(
+                      "w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-colors cursor-pointer shrink-0 shadow-lg",
+                      isRecording ? "bg-red-500 animate-pulse text-white" : "bg-white/10 hover:bg-white/20 text-white"
+                    )}
+                    title={isRecording ? "Stop Recording" : "Record Call"}
+                  >
+                    {isRecording ? <Square size={18} fill="currentColor" /> : <Circle size={22} />}
                   </motion.button>
 
                   <motion.button

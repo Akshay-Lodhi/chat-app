@@ -4,9 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Hand, MessageSquare,
-  Users, Copy, PhoneOff, Shield, Check, X, Sparkles, AlertCircle, Loader2, Volume2, Upload, Camera
+  Users, Copy, PhoneOff, Shield, Check, X, Sparkles, AlertCircle, Loader2, Volume2, Upload, Camera,
+  Circle, Square
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useRecording } from '@/hooks/useRecording';
 import { apiClient } from '@/lib/apiClient';
 import { getSocket } from '../../../lib/socket';
 import toast from 'react-hot-toast';
@@ -73,6 +75,23 @@ export default function InstantMeetingPage() {
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const remoteVideoRefs = useRef<Map<string, HTMLVideoElement | null>>(new Map());
+
+  // Derive remote streams map for useRecording hook
+  const [remoteStreamsMap, setRemoteStreamsMap] = useState<Record<string, MediaStream>>({});
+
+  useEffect(() => {
+    const map: Record<string, MediaStream> = {};
+    remoteStreamsRef.current.forEach((val, key) => {
+      map[key] = val;
+    });
+    setRemoteStreamsMap(map);
+  }, [activeRemoteStreams]);
+
+  const { isRecording, startRecording, stopRecording } = useRecording({
+    localStream: localStreamRef.current,
+    remoteStreams: remoteStreamsMap,
+    callType: 'VIDEO' // Assuming video for instant link meetings
+  });
 
   // Auto-sync name/avatar on mount
   useEffect(() => {
@@ -917,6 +936,16 @@ export default function InstantMeetingPage() {
           title="Share Screen"
         >
           {isScreenSharing ? <MonitorOff size={18} /> : <Monitor size={18} />}
+        </button>
+
+        <button
+          onClick={isRecording ? stopRecording : startRecording}
+          className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all shadow-lg ${
+            isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-surface hover:bg-white/15 text-white'
+          }`}
+          title={isRecording ? 'Stop Recording' : 'Record Meeting'}
+        >
+          {isRecording ? <Square size={18} fill="currentColor" /> : <Circle size={18} />}
         </button>
 
         <button

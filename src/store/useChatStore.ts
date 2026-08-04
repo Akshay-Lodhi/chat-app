@@ -1436,7 +1436,7 @@ export const useChatStore = create<ChatState>()(
 
   clearChat: async (chatId: string) => {
     try {
-      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/clear`, {
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/messages`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -1451,7 +1451,6 @@ export const useChatStore = create<ChatState>()(
       return false;
     } catch (err) {
       console.error('Error clearing chat:', err);
-      return false;
       return false;
     }
   }
