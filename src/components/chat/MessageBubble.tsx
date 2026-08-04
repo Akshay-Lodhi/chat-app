@@ -497,10 +497,11 @@ export function MessageBubble({
 
         if (isViewOnce) {
           if (isMine) {
-            // Sender cannot view the media again, but can see if it was opened
+            // Sender cannot view the media again, but can see if it was opened by someone else
+            const openedByRecipient = viewedBy.some((id: string) => id !== currentUser?.id);
             return (
               <div className="p-3 text-xs opacity-70 italic flex items-center">
-                <EyeOff className="w-4 h-4 mr-2" /> {viewedBy.length > 0 ? "Opened" : (message.type === "IMAGE" ? "Photo" : "Video")}
+                <EyeOff className="w-4 h-4 mr-2" /> {openedByRecipient ? "Opened" : (message.type === "IMAGE" ? "Photo" : "Video")}
               </div>
             );
           } else {
