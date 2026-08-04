@@ -8,13 +8,32 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { 
   Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Maximize2, 
   SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users, BellRing, Monitor,
-  Circle, Square, Wand2
+  Circle, Square, Wand2, Image as ImageIcon, Upload, Ban, Sparkles, Film, Ghost, Briefcase, Rocket
 } from 'lucide-react';
 import { useRecording } from '@/hooks/useRecording';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
-import { initBackgroundBlur, startBlurProcessing } from '@/lib/videoEffects';
+import { initBackgroundBlur, startVideoProcessing, VideoEffectConfig } from '@/lib/videoEffects';
+
+const BACKGROUND_PRESETS = [
+  { id: 'ai_office', name: 'Cyber Office', url: '/backgrounds/ai_office.png' },
+  { id: 'ai_space', name: 'Nebula Station', url: '/backgrounds/ai_space.png' },
+  { id: 'ai_forest', name: 'Magic Forest', url: '/backgrounds/ai_forest.png' },
+  { id: 'ai_synthwave', name: 'Retro Grid', url: '/backgrounds/ai_synthwave.png' },
+  { id: 'ai_cafe', name: 'Cozy Cafe', url: '/backgrounds/ai_cafe.png' },
+  { id: 'ai_beach', name: 'Sunset Beach', url: '/backgrounds/ai_beach.png' }
+];
+
+const FUNNY_EFFECTS_PRESETS = [
+  { id: 'sepia', name: 'Vintage', url: '/effects/fx_vintage.png' },
+  { id: 'grayscale', name: 'B&W', url: '/effects/fx_bw.png' },
+  { id: 'alien', name: 'Alien', url: '/effects/fx_alien.png' },
+  { id: 'neon', name: 'Neon', url: '/effects/fx_neon.png' },
+  { id: 'pixelate', name: '8-Bit', url: '/effects/fx_pixelate.png' },
+  { id: 'ghost', name: 'Ghost', url: '/effects/fx_ghost.png' },
+  { id: 'thermal', name: 'Thermal', url: '/effects/fx_thermal.png' }
+];
 
 const AudioPlayer = ({ stream }: { stream: MediaStream }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -111,7 +130,23 @@ export default function CallOverlay() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isPIP, setIsPIP] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
-  const [isBlurEnabled, setIsBlurEnabled] = useState(false);
+  const [videoEffect, setVideoEffect] = useState<VideoEffectConfig>({ type: 'none' });
+  const [showEffectsMenu, setShowEffectsMenu] = useState(false);
+  
+  const handleCustomBackground = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setVideoEffect({ type: 'image', value: event.target.result as string });
+          setShowEffectsMenu(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const stopBlurRef = useRef<(() => void) | null>(null);
   const rawStreamRef = useRef<MediaStream | null>(null);
 
@@ -628,7 +663,7 @@ export default function CallOverlay() {
   };
 
   useEffect(() => {
-    if (isBlurEnabled) {
+    if (videoEffect.type !== 'none') {
       initBackgroundBlur().then(() => {
         if (rawStreamRef.current) {
           const processedStreamCb = (processedStream: MediaStream) => {
@@ -648,8 +683,12 @@ export default function CallOverlay() {
             setLocalStream(processedStream);
             localStreamRef.current = processedStream;
           };
-
-          stopBlurRef.current = startBlurProcessing(rawStreamRef.current, processedStreamCb);
+          
+          if (stopBlurRef.current) {
+            stopBlurRef.current();
+            stopBlurRef.current = null;
+          }
+          stopBlurRef.current = startVideoProcessing(rawStreamRef.current, videoEffect, processedStreamCb);
         }
       });
     } else {
@@ -676,7 +715,7 @@ export default function CallOverlay() {
         }
       }
     }
-  }, [isBlurEnabled]);
+  }, [videoEffect]);
 
   const remoteStreamEntries = Object.entries(remoteStreams);
   const activeChat = chats.find(c => c.id === activeCallChatId);
@@ -1021,20 +1060,128 @@ export default function CallOverlay() {
                 </div>
 
                 {callType === 'VIDEO' && (
-                  <button 
-                    onClick={() => setIsBlurEnabled(!isBlurEnabled)}
-                    className={cn(
-                      "p-4 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 group relative",
-                      isBlurEnabled 
-                        ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" 
-                        : "bg-surface/50 text-white hover:bg-surface/70 backdrop-blur-md border border-white/5"
-                    )}
-                  >
-                    <Wand2 size={24} className={cn("transition-transform group-hover:scale-110", isBlurEnabled && "drop-shadow-md")} />
-                    <span className="absolute -top-10 scale-0 group-hover:scale-100 transition-transform bg-black/80 px-2 py-1 rounded text-xs whitespace-nowrap backdrop-blur-sm border border-white/10 shadow-xl">
-                      {isBlurEnabled ? 'Disable Blur' : 'Blur Background'}
-                    </span>
-                  </button>
+                  <div className="relative pointer-events-auto">
+                    <button 
+                      onClick={() => setShowEffectsMenu(!showEffectsMenu)}
+                      className={cn(
+                        "p-4 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 group relative pointer-events-auto",
+                        videoEffect.type !== 'none'
+                          ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30" 
+                          : "bg-surface/50 text-white hover:bg-surface/70 backdrop-blur-md border border-white/5"
+                      )}
+                    >
+                      <Wand2 size={24} className={cn("transition-transform group-hover:scale-110", videoEffect.type !== 'none' && "drop-shadow-md")} />
+                      <span className="absolute -top-10 scale-0 group-hover:scale-100 transition-transform bg-black/80 px-2 py-1 rounded text-xs whitespace-nowrap backdrop-blur-sm border border-white/10 shadow-xl">
+                        Video Effects
+                      </span>
+                    </button>
+                    
+                    <AnimatePresence>
+                      {showEffectsMenu && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute top-full mt-4 right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-[0_0_40px_rgba(0,0,0,0.5)] w-80 sm:w-96 max-w-[calc(100vw-2rem)] z-50 overflow-hidden pointer-events-auto origin-top-right sm:origin-top flex flex-col max-h-[60vh]"
+                        >
+                          <div className="overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar">
+                            {/* Backgrounds Section */}
+                            <div className="mb-4">
+                              <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 px-1">Virtual Backgrounds</div>
+                              <div className="grid grid-cols-4 gap-2">
+                                {/* None */}
+                                <button 
+                                  onClick={() => { setVideoEffect({ type: 'none' }); }}
+                                  className={cn("aspect-video rounded-lg flex flex-col items-center justify-center gap-1 transition-all border", videoEffect.type === 'none' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10')}
+                                >
+                                  <Ban size={18} />
+                                  <span className="text-[9px] font-medium">None</span>
+                                </button>
+                                
+                                {/* Blur */}
+                                <button 
+                                  onClick={() => { setVideoEffect({ type: 'blur' }); }}
+                                  className={cn("aspect-video rounded-lg flex flex-col items-center justify-center gap-1 transition-all border", videoEffect.type === 'blur' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10')}
+                                >
+                                  <Sparkles size={18} />
+                                  <span className="text-[9px] font-medium">Blur</span>
+                                </button>
+
+                                {/* Custom Upload */}
+                                <label className={cn("aspect-video rounded-lg flex flex-col items-center justify-center gap-1 transition-all border cursor-pointer", videoEffect.type === 'image' && videoEffect.value?.startsWith('data:') ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-dashed border-white/30 bg-white/5 text-white/60 hover:bg-white/10 hover:border-white/50')}>
+                                  <Upload size={18} />
+                                  <span className="text-[9px] font-medium">Upload</span>
+                                  <input type="file" accept="image/*" className="hidden" onChange={handleCustomBackground} />
+                                </label>
+
+                                {/* Image Presets */}
+                                {BACKGROUND_PRESETS.map((preset) => {
+                                  const isSelected = videoEffect.type === 'image' && videoEffect.value === preset.url;
+                                  return (
+                                    <button
+                                      key={preset.id}
+                                      onClick={() => { setVideoEffect({ type: 'image', value: preset.url }); }}
+                                      className={cn("aspect-video rounded-lg overflow-hidden relative group border-2 transition-all flex flex-col items-center justify-center bg-white/5", isSelected ? 'border-emerald-500' : 'border-transparent hover:border-white/30')}
+                                    >
+                                      <ImageIcon size={18} className="text-white/20 absolute" />
+                                      <img 
+                                        src={preset.url} 
+                                        alt={preset.name} 
+                                        className="w-full h-full object-cover relative z-10" 
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                                        <span className="text-[9px] text-white font-medium px-1 text-center leading-tight">{preset.name}</span>
+                                      </div>
+                                      {isSelected && (
+                                        <div className="absolute inset-0 border-2 border-emerald-500 rounded-lg pointer-events-none z-30" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Funny Effects Section */}
+                            <div>
+                              <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 px-1 mt-5 border-t border-white/10 pt-4">Filters & AI Effects</div>
+                              <div className="grid grid-cols-4 gap-2 pb-2">
+                                {FUNNY_EFFECTS_PRESETS.map((preset) => {
+                                  const isSelected = videoEffect.type === 'funny' && videoEffect.value === preset.id;
+                                  return (
+                                    <button
+                                      key={preset.id}
+                                      onClick={() => { setVideoEffect({ type: 'funny', value: preset.id }); }}
+                                      className={cn("aspect-video rounded-lg overflow-hidden relative group border-2 transition-all flex flex-col items-center justify-center bg-white/5", isSelected ? 'border-emerald-500' : 'border-transparent hover:border-white/30')}
+                                    >
+                                      <Sparkles size={18} className="text-white/20 absolute" />
+                                      <img 
+                                        src={preset.url} 
+                                        alt={preset.name} 
+                                        className="w-full h-full object-cover relative z-10" 
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                                        <span className="text-[9px] text-white font-medium px-1 text-center leading-tight">{preset.name}</span>
+                                      </div>
+                                      {isSelected && (
+                                        <div className="absolute inset-0 border-2 border-emerald-500 rounded-lg pointer-events-none z-30" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 )}
 
                 <button 
