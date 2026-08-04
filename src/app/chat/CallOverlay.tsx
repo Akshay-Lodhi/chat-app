@@ -8,12 +8,13 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { 
   Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Maximize2, 
   SwitchCamera, X, UserPlus, Lock, ChevronDown, MoreHorizontal, Users, BellRing, Monitor,
-  Circle, Square
+  Circle, Square, Wand2
 } from 'lucide-react';
 import { useRecording } from '@/hooks/useRecording';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { initBackgroundBlur, startBlurProcessing } from '@/lib/videoEffects';
 
 const AudioPlayer = ({ stream }: { stream: MediaStream }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -110,6 +111,11 @@ export default function CallOverlay() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isPIP, setIsPIP] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [isBlurEnabled, setIsBlurEnabled] = useState(false);
+  const stopBlurRef = useRef<(() => void) | null>(null);
+  const rawStreamRef = useRef<MediaStream | null>(null);
+
+  const localStreamRef = useRef<MediaStream | null>(null);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [showControls, setShowControls] = useState(true);
   
@@ -214,7 +220,6 @@ export default function CallOverlay() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isCalling, socket, elapsedSeconds]);
 
-  const localStreamRef = useRef<MediaStream | null>(null);
   const activeCallChatIdRef = useRef<string | null>(null);
   const callTypeRef = useRef<'AUDIO' | 'VIDEO' | null>(null);
   const peersRef = useRef<Record<string, Instance>>({});
@@ -511,6 +516,7 @@ export default function CallOverlay() {
         video: state.callType === 'VIDEO' ? { facingMode: 'user' } : false
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      rawStreamRef.current = stream;
       setLocalStream(stream);
       localStreamRef.current = stream;
       acceptCall();
@@ -539,6 +545,7 @@ export default function CallOverlay() {
             video: callType === 'VIDEO' ? { facingMode: 'user' } : false
           };
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          rawStreamRef.current = stream; // Store original raw stream
           setLocalStream(stream);
           localStreamRef.current = stream;
 
@@ -619,6 +626,57 @@ export default function CallOverlay() {
       console.error('Failed to switch camera', err);
     }
   };
+
+  useEffect(() => {
+    if (isBlurEnabled) {
+      initBackgroundBlur().then(() => {
+        if (rawStreamRef.current) {
+          const processedStreamCb = (processedStream: MediaStream) => {
+            const oldVideoTrack = localStreamRef.current?.getVideoTracks()[0];
+            const newVideoTrack = processedStream.getVideoTracks()[0];
+            
+            if (oldVideoTrack && newVideoTrack) {
+              Object.values(peersRef.current).forEach(peer => {
+                try {
+                  if (!peer.destroyed && peer.streams[0]) {
+                    peer.replaceTrack(oldVideoTrack, newVideoTrack, peer.streams[0]);
+                  }
+                } catch(e) {}
+              });
+            }
+
+            setLocalStream(processedStream);
+            localStreamRef.current = processedStream;
+          };
+
+          stopBlurRef.current = startBlurProcessing(rawStreamRef.current, processedStreamCb);
+        }
+      });
+    } else {
+      if (stopBlurRef.current) {
+        stopBlurRef.current();
+        stopBlurRef.current = null;
+        
+        if (rawStreamRef.current) {
+          const oldVideoTrack = localStreamRef.current?.getVideoTracks()[0];
+          const newVideoTrack = rawStreamRef.current.getVideoTracks()[0];
+
+          if (oldVideoTrack && newVideoTrack && oldVideoTrack !== newVideoTrack) {
+            Object.values(peersRef.current).forEach(peer => {
+              try {
+                if (!peer.destroyed && peer.streams[0]) {
+                  peer.replaceTrack(oldVideoTrack, newVideoTrack, peer.streams[0]);
+                }
+              } catch(e) {}
+            });
+          }
+
+          setLocalStream(rawStreamRef.current);
+          localStreamRef.current = rawStreamRef.current;
+        }
+      }
+    }
+  }, [isBlurEnabled]);
 
   const remoteStreamEntries = Object.entries(remoteStreams);
   const activeChat = chats.find(c => c.id === activeCallChatId);
@@ -961,6 +1019,23 @@ export default function CallOverlay() {
                     {isConnected ? timerDisplay : (isInitiator ? 'Calling...' : 'Ringing...')}
                   </span>
                 </div>
+
+                {callType === 'VIDEO' && (
+                  <button 
+                    onClick={() => setIsBlurEnabled(!isBlurEnabled)}
+                    className={cn(
+                      "p-4 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 group relative",
+                      isBlurEnabled 
+                        ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" 
+                        : "bg-surface/50 text-white hover:bg-surface/70 backdrop-blur-md border border-white/5"
+                    )}
+                  >
+                    <Wand2 size={24} className={cn("transition-transform group-hover:scale-110", isBlurEnabled && "drop-shadow-md")} />
+                    <span className="absolute -top-10 scale-0 group-hover:scale-100 transition-transform bg-black/80 px-2 py-1 rounded text-xs whitespace-nowrap backdrop-blur-sm border border-white/10 shadow-xl">
+                      {isBlurEnabled ? 'Disable Blur' : 'Blur Background'}
+                    </span>
+                  </button>
+                )}
 
                 <button 
                   onClick={() => setShowAddParticipant(true)} 

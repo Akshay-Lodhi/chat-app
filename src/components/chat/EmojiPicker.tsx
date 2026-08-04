@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, X } from 'lucide-react';
+import { Search, X, Smile, Image as ImageIcon } from 'lucide-react';
+import { GifPicker } from './GifPicker';
 
 import { cn } from '@/lib/utils';
 
@@ -8,6 +9,7 @@ interface EmojiPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectEmoji: (emoji: string) => void;
+  onSelectGif?: (url: string) => void;
   className?: string;
 }
 
@@ -39,7 +41,8 @@ const EMOJI_CATEGORIES = [
   }
 ];
 
-export function EmojiPicker({ isOpen, onClose, onSelectEmoji, className }: EmojiPickerProps) {
+export function EmojiPicker({ isOpen, onClose, onSelectEmoji, onSelectGif, className }: EmojiPickerProps) {
+  const [activeTab, setActiveTab] = useState<'emoji' | 'gif'>('emoji');
   const [activeCategory, setActiveCategory] = useState(0);
   const [search, setSearch] = useState('');
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -99,86 +102,112 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji, className }: Emoji
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         className={cn("z-40 w-80 md:w-96 bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col h-80", className)}
       >
-        {/* Search Header */}
-        <div className="p-2.5 border-b border-surface-border flex items-center bg-background">
-          <div className="flex-1 flex items-center bg-surface rounded-xl px-3 py-1.5 border border-surface-border/50">
-            <Search size={16} className="text-text-secondary mr-2" />
-            <input
-              type="text"
-              placeholder="Search emojis..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent border-none outline-none text-xs text-text-primary placeholder-[#8696a0] w-full"
-            />
-            {search && (
-              <button onClick={() => setSearch('')} className="text-text-secondary hover:text-text-primary">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
+        {activeTab === 'emoji' ? (
+          <>
+            {/* Search Header */}
+            <div className="p-2.5 border-b border-surface-border flex items-center bg-background">
+              <div className="flex-1 flex items-center bg-surface rounded-xl px-3 py-1.5 border border-surface-border/50">
+                <Search size={16} className="text-text-secondary mr-2" />
+                <input
+                  type="text"
+                  placeholder="Search emojis..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="bg-transparent border-none outline-none text-xs text-text-primary placeholder-[#8696a0] w-full"
+                />
+                {search && (
+                  <button onClick={() => setSearch('')} className="text-text-secondary hover:text-text-primary">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
 
-        {/* Category Tabs */}
-        {!search && (
-          <div className="flex border-b border-surface-border bg-background px-2 py-1 space-x-1">
-            {EMOJI_CATEGORIES.map((cat, idx) => (
-              <button
-                key={cat.name}
-                onClick={() => scrollToCategory(idx)}
-                className={`flex-1 py-1 text-base rounded-lg transition-colors flex items-center justify-center ${activeCategory === idx ? 'bg-surface-hover text-text-primary shadow-sm' : 'hover:bg-surface text-text-secondary'}`}
-                title={cat.name}
-              >
-                {cat.icon}
-              </button>
-            ))}
+            {/* Category Tabs */}
+            {!search && (
+              <div className="flex border-b border-surface-border bg-background px-2 py-1 space-x-1 shrink-0">
+                {EMOJI_CATEGORIES.map((cat, idx) => (
+                  <button
+                    key={cat.name}
+                    onClick={() => scrollToCategory(idx)}
+                    className={`flex-1 py-1 text-base rounded-lg transition-colors flex items-center justify-center ${activeCategory === idx ? 'bg-surface-hover text-text-primary shadow-sm' : 'hover:bg-surface text-text-secondary'}`}
+                    title={cat.name}
+                  >
+                    {cat.icon}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Emoji Grid */}
+            <div 
+              className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-surface-border relative"
+              onScroll={handleScroll}
+            >
+              {search.trim() ? (
+                <div className="grid grid-cols-7 gap-1.5">
+                  {EMOJI_CATEGORIES.flatMap(c => c.emojis)
+                    .filter(e => e.includes(search.trim()))
+                    .map((emoji, i) => (
+                    <button
+                      key={`${emoji}-${i}`}
+                      onClick={() => onSelectEmoji(emoji)}
+                      className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-surface-hover rounded-xl transition-transform hover:scale-125 active:scale-95"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col space-y-4">
+                  {EMOJI_CATEGORIES.map((category, catIdx) => (
+                    <div 
+                      key={category.name} 
+                      ref={(el) => { categoryRefs.current[catIdx] = el; }}
+                      className="scroll-mt-2"
+                    >
+                      <h4 className="text-xs font-semibold text-text-secondary uppercase mb-2 pl-1 sticky top-0 bg-surface/95 backdrop-blur-sm py-1 z-10">
+                        {category.name}
+                      </h4>
+                      <div className="grid grid-cols-7 gap-1.5">
+                        {category.emojis.map((emoji, i) => (
+                          <button
+                            key={`${category.name}-${emoji}-${i}`}
+                            onClick={() => onSelectEmoji(emoji)}
+                            className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-surface-hover rounded-xl transition-transform hover:scale-125 active:scale-95"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col min-h-0">
+            <GifPicker onSelect={(url) => {
+              if (onSelectGif) onSelectGif(url);
+            }} />
           </div>
         )}
 
-        {/* Emoji Grid */}
-        <div 
-          className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-surface-border relative"
-          onScroll={handleScroll}
-        >
-          {search.trim() ? (
-            <div className="grid grid-cols-7 gap-1.5">
-              {EMOJI_CATEGORIES.flatMap(c => c.emojis)
-                .filter(e => e.includes(search.trim()))
-                .map((emoji, i) => (
-                <button
-                  key={`${emoji}-${i}`}
-                  onClick={() => onSelectEmoji(emoji)}
-                  className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-surface-hover rounded-xl transition-transform hover:scale-125 active:scale-95"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col space-y-4">
-              {EMOJI_CATEGORIES.map((category, catIdx) => (
-                <div 
-                  key={category.name} 
-                  ref={(el) => { categoryRefs.current[catIdx] = el; }}
-                  className="scroll-mt-2"
-                >
-                  <h4 className="text-xs font-semibold text-text-secondary uppercase mb-2 pl-1 sticky top-0 bg-surface/95 backdrop-blur-sm py-1 z-10">
-                    {category.name}
-                  </h4>
-                  <div className="grid grid-cols-7 gap-1.5">
-                    {category.emojis.map((emoji, i) => (
-                      <button
-                        key={`${category.name}-${emoji}-${i}`}
-                        onClick={() => onSelectEmoji(emoji)}
-                        className="h-10 w-10 text-2xl flex items-center justify-center hover:bg-surface-hover rounded-xl transition-transform hover:scale-125 active:scale-95"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        {/* Media Picker Navigation Bar */}
+        <div className="flex bg-surface-hover/50 border-t border-surface-border p-1 shrink-0 h-10 items-center justify-center gap-4">
+          <button
+            onClick={() => setActiveTab('emoji')}
+            className={`p-2 rounded-full transition-colors flex items-center justify-center ${activeTab === 'emoji' ? 'text-emerald-500 bg-surface' : 'text-text-secondary hover:text-text-primary'}`}
+          >
+            <Smile size={20} />
+          </button>
+          <button
+            onClick={() => setActiveTab('gif')}
+            className={`p-2 rounded-full transition-colors flex items-center justify-center ${activeTab === 'gif' ? 'text-emerald-500 bg-surface' : 'text-text-secondary hover:text-text-primary'}`}
+          >
+            <ImageIcon size={20} />
+          </button>
         </div>
       </motion.div>
     </AnimatePresence>

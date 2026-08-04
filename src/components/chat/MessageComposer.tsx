@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { apiClient } from '@/lib/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EmojiPicker } from './EmojiPicker';
+import { GifPicker } from './GifPicker';
 import CreatePollModal from './CreatePollModal';
 import ScheduleMessageModal from './ScheduleMessageModal';
 import PendingScheduledModal from './PendingScheduledModal';
@@ -42,6 +43,7 @@ export function MessageComposer({
   }, [editingMessageId, editingMessage]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAiSuggest, setShowAiSuggest] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showPollModal, setShowPollModal] = useState(false);
@@ -93,7 +95,6 @@ export function MessageComposer({
   };
 
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
-  const [showAiSuggest, setShowAiSuggest] = useState(false);
   const lastFetchedMsgIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -369,6 +370,10 @@ export function MessageComposer({
         isOpen={showEmojiPicker} 
         onClose={() => setShowEmojiPicker(false)} 
         onSelectEmoji={(emoji) => setMessage(prev => prev + emoji)} 
+        onSelectGif={(url) => {
+          onSendMessage(url);
+          setShowEmojiPicker(false);
+        }}
         className="absolute bottom-[calc(100%+12px)] left-2"
       />
 
@@ -444,17 +449,20 @@ export function MessageComposer({
           /* WhatsApp-style Input Pill */
           <div className="flex-1 min-w-0 bg-surface rounded-full flex items-center px-2.5 py-1 shadow-md min-h-[44px] border border-transparent focus-within:border-primary/30 transition-all overflow-hidden">
             {/* Smile / Emoji */}
-            <button 
-              type="button" 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowEmojiPicker(!showEmojiPicker);
-              }}
-              className="p-1 text-text-secondary hover:text-[#aebac1] transition-colors shrink-0" 
-              title="Emoji"
-            >
-              <Smile size={22} />
-            </button>
+            <div className="flex items-center space-x-1">
+              <button 
+                type="button" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowEmojiPicker(!showEmojiPicker);
+                  setShowAttachMenu(false);
+                }}
+                className="p-1.5 hover:bg-black/10 rounded-full text-text-secondary hover:text-text-primary transition-colors shrink-0" 
+                title="Emojis & Media"
+              >
+                <Smile size={22} />
+              </button>
+            </div>
 
             {/* Private AI Writing Assistant */}
             <button 
