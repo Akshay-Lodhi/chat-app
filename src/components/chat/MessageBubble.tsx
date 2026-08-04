@@ -748,28 +748,31 @@ export function MessageBubble({
         return (
           <div className="flex flex-col">
             <div
-                className={cn(
-                  "text-sm whitespace-pre-wrap break-words leading-relaxed",
-                  highlight && "bg-warning/30 text-warning px-1 rounded",
-                )}
-              >
-                {renderMessageContent(message.content, onMediaClick)}
+              className={cn(
+                "text-[15px] whitespace-pre-wrap break-words leading-relaxed",
+                highlight && "bg-warning/30 text-warning px-1 rounded",
+              )}
+            >
+              {renderMessageContent(message.content, onMediaClick)}
+            </div>
+            
+            {isTranslating && (
+              <div className="mt-2 flex items-center gap-2 text-xs opacity-60 bg-black/5 dark:bg-white/5 rounded-lg p-2 w-fit">
+                <Loader2 size={12} className="animate-spin" /> 
+                <span>Translating...</span>
               </div>
-              {isTranslating && (
-                <div className="mt-2 text-xs opacity-70 flex items-center">
-                  <Loader2 size={12} className="animate-spin mr-1.5" /> Translating...
+            )}
+            
+            {translatedText && (
+              <div className="mt-2 bg-black/5 dark:bg-white/5 rounded-lg p-2.5 relative">
+                <div className="flex items-center text-[10px] font-semibold opacity-50 mb-1">
+                  <Globe size={10} className="mr-1" /> Translated
                 </div>
-              )}
-              {translatedText && (
-                <div className="mt-2 pt-2 border-t border-black/10">
-                  <div className="flex items-center text-[10px] uppercase font-bold tracking-wider opacity-60 mb-1">
-                    <Globe size={10} className="mr-1" /> Translated
-                  </div>
-                  <div className="text-sm whitespace-pre-wrap break-words leading-relaxed text-text-primary/90">
-                    {translatedText}
-                  </div>
+                <div className="text-[14px] whitespace-pre-wrap break-words leading-relaxed opacity-90">
+                  {renderMessageContent(translatedText, onMediaClick)}
                 </div>
-              )}
+              </div>
+            )}
             {message.metadata?.linkPreview && (
               <a 
                 href={message.metadata.linkPreview.url} 
