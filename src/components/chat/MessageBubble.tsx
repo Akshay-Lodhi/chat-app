@@ -865,10 +865,11 @@ export function MessageBubble({
               const el = document.getElementById(`msg-${message.replyToId}`);
               if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                el.animate([
-                  { backgroundColor: 'rgba(255, 255, 255, 0.4)', filter: 'brightness(1.2)' },
-                  { backgroundColor: 'transparent', filter: 'brightness(1)' }
-                ], { duration: 1500, easing: 'ease-out' });
+                el.classList.remove('reply-highlight');
+                // trigger reflow to restart animation
+                void el.offsetWidth;
+                el.classList.add('reply-highlight');
+                setTimeout(() => el.classList.remove('reply-highlight'), 1500);
               }
             }}
             className={cn(
