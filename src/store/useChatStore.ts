@@ -1261,8 +1261,9 @@ export const useChatStore = create<ChatState>()(
         // Only encrypt if ALL other participants have a public key
         const others = pKeys.filter(p => p.userId !== currentUserId);
         const canEncrypt = others.length > 0 && others.every(p => p.publicKey);
+        const isAiMentioned = Boolean(content && /@(ai|nexusai)\b/i.test(content));
         
-        if (canEncrypt) {
+        if (canEncrypt && !isAiMentioned) {
           const { createE2EEPayload } = require('@/lib/encryption');
           // Add ourselves to the list so we can decrypt our own messages on other devices if keys sync
           const encryptFor = [...others, { userId: currentUserId, publicKey: require('@/store/useAuthStore').useAuthStore.getState().publicKey }];
