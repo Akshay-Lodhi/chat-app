@@ -90,16 +90,15 @@ export default function RecordingsModal({ isOpen, onClose }: RecordingsModalProp
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-surface w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-white/10 flex flex-col max-h-[85vh]"
+          className="bg-surface w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-white/10 flex flex-col max-h-[85vh] relative"
         >
-          <div className="p-4 border-b border-white/10 flex justify-between items-center bg-surface/50">
-            <h2 className="text-xl font-semibold text-white">Your Call Recordings</h2>
-            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+          <div className="p-2 flex justify-end absolute top-0 right-0 z-10">
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors bg-black/20">
               <X size={20} className="text-white/70" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 pt-12">
             {playingRecording ? (
               <div className="mb-6 bg-black/40 rounded-xl p-4 border border-white/10 relative">
                 <button 

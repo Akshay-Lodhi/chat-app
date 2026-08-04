@@ -66,8 +66,8 @@ const VideoPlayer = ({ stream, isLocal = false, isVideoOff = false, avatar, name
 
   return (
     <>
-      <video ref={videoRef} autoPlay playsInline muted={isLocal} className={cn("w-full h-full object-cover", isVideoOff && "hidden")} />
-      {isVideoOff && (
+      <video ref={videoRef} autoPlay playsInline muted={isLocal} className={cn("w-full h-full object-cover", isVideoOff || !stream?.getVideoTracks()?.length ? "hidden" : "")} />
+      {(isVideoOff || !stream?.getVideoTracks()?.length) && (
         <div className="w-full h-full relative flex flex-col items-center justify-center bg-black overflow-hidden">
           {/* Dynamic Blurred Background for Empty State */}
           <div className="absolute inset-0 z-0 overflow-hidden">
@@ -126,12 +126,18 @@ export default function CallOverlay() {
   // Auto-hide controls timer
   useEffect(() => {
     const hasRemote = Object.keys(remoteStreams).length > 0;
+    
+    // Auto-start recording for the host when someone connects
+    if (hasRemote && isInitiator && !isRecording) {
+      startRecording();
+    }
+
     if (!showControls || !hasRemote) return;
     const timeout = setTimeout(() => {
       setShowControls(false);
     }, 5000);
     return () => clearTimeout(timeout);
-  }, [showControls, remoteStreams]);
+  }, [showControls, remoteStreams, isInitiator, isRecording, startRecording]);
 
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   const pendingIceCandidatesRef = useRef<Record<string, any[]>>({});
@@ -488,6 +494,9 @@ export default function CallOverlay() {
       if (activeChat?.isGroup) {
         socket.emit('group-call-leave', { chatId: activeCallChatId });
       }
+    }
+    if (isRecording) {
+      stopRecording();
     }
     stopRingtone();
     endCall();
@@ -1286,19 +1295,6 @@ export default function CallOverlay() {
                     title="Add Contact"
                   >
                     <UserPlus size={22} />
-                  </motion.button>
-
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={cn(
-                      "w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-colors cursor-pointer shrink-0 shadow-lg",
-                      isRecording ? "bg-red-500 animate-pulse text-white" : "bg-white/10 hover:bg-white/20 text-white"
-                    )}
-                    title={isRecording ? "Stop Recording" : "Record Call"}
-                  >
-                    {isRecording ? <Square size={18} fill="currentColor" /> : <Circle size={22} />}
                   </motion.button>
 
                   <motion.button

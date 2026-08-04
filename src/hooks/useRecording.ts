@@ -30,6 +30,7 @@ export function useRecording({ localStream, remoteStreams, callType }: UseRecord
       // Setup Audio Context for mixing
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = audioCtx;
+      audioCtx.resume();
       const destination = audioCtx.createMediaStreamDestination();
 
       const connectStreamToAudio = (stream: MediaStream) => {
