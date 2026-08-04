@@ -37,6 +37,31 @@ import { EmojiPicker } from "./EmojiPicker";
 import { LanguagePicker, LANGUAGES } from "./LanguagePicker";
 import { apiClient } from "@/lib/apiClient";
 
+const formatText = (text: string): React.ReactNode[] => {
+  const tokenRegex = /(```[\s\S]*?```|`[^`]+`|\*[^\*]+\*|_[^_]+_|~[^~]+~)/g;
+  const parts = text.split(tokenRegex);
+  
+  return parts.map((part, index) => {
+    if (!part) return null;
+    if (part.startsWith('```') && part.endsWith('```') && part.length >= 6) {
+      return <pre key={index} className="bg-black/10 dark:bg-white/10 p-2 rounded-md my-1 font-mono text-[13px] overflow-x-auto whitespace-pre-wrap"><code>{part.slice(3, -3)}</code></pre>;
+    }
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      return <code key={index} className="bg-black/10 dark:bg-white/10 px-1 py-0.5 rounded text-[13px] font-mono">{part.slice(1, -1)}</code>;
+    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+      return <strong key={index} className="font-bold">{part.slice(1, -1)}</strong>;
+    }
+    if (part.startsWith('_') && part.endsWith('_') && part.length >= 2) {
+      return <em key={index} className="italic">{part.slice(1, -1)}</em>;
+    }
+    if (part.startsWith('~') && part.endsWith('~') && part.length >= 2) {
+      return <del key={index} className="line-through">{part.slice(1, -1)}</del>;
+    }
+    return <span key={index}>{part}</span>;
+  });
+};
+
 const renderMessageContent = (content: string, onMediaClick?: (url: string, type: "IMAGE" | "VIDEO") => void) => {
   if (!content) return null;
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -82,7 +107,7 @@ const renderMessageContent = (content: string, onMediaClick?: (url: string, type
         </a>
       );
     }
-    return <span key={index}>{part}</span>;
+    return <span key={index}>{formatText(part)}</span>;
   });
 };
 
