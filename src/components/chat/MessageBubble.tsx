@@ -415,6 +415,22 @@ export function MessageBubble({
         );
       }
     }
+    if (msg.content && typeof msg.content === 'string' && msg.content.startsWith('{"isEncrypted":true')) {
+      const chatMsgs = useChatStore.getState().messages[message.chatId] || [];
+      const decryptedMsg = chatMsgs.find(m => m.id === msg.id);
+      if (decryptedMsg && decryptedMsg.content && !decryptedMsg.content.startsWith('{"isEncrypted":true')) {
+        const content = decryptedMsg.content;
+        const imageRegex = /\.(jpeg|jpg|gif|png|webp|bmp)($|\?)/i;
+        if (content.match(imageRegex)) return "📷 Photo/GIF";
+        return content;
+      }
+      return "🔒 Encrypted Message";
+    }
+    
+    if (typeof msg.content === 'string') {
+      const imageRegex = /\.(jpeg|jpg|gif|png|webp|bmp)($|\?)/i;
+      if (msg.content.match(imageRegex)) return "📷 Photo/GIF";
+    }
     return msg.content;
   };
 
@@ -844,8 +860,19 @@ export function MessageBubble({
         {/* Reply Context */}
         {message.replyToId && (
           <div
+            onClick={(e) => {
+              e.stopPropagation();
+              const el = document.getElementById(`msg-${message.replyToId}`);
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.animate([
+                  { backgroundColor: 'rgba(255, 255, 255, 0.4)', filter: 'brightness(1.2)' },
+                  { backgroundColor: 'transparent', filter: 'brightness(1)' }
+                ], { duration: 1500, easing: 'ease-out' });
+              }
+            }}
             className={cn(
-              "relative overflow-hidden rounded-r-xl rounded-l-md p-2.5 mb-2 text-xs flex flex-col border-l-[4px] transition-colors hover:bg-black/30",
+              "relative overflow-hidden rounded-r-xl rounded-l-md p-2.5 mb-2 text-xs flex flex-col border-l-[4px] transition-colors hover:bg-black/30 cursor-pointer",
               isMine
                 ? "bg-black/20 border-[#06cf9c]"
                 : "bg-black/20 border-[#00a884]",
