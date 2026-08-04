@@ -95,7 +95,7 @@ export function MessageList({ onReply, onMediaClick, searchQuery = '', onSendMes
                   message={msg} 
                   isMine={isMine} 
                   onReply={() => onReply(msg)}
-                  onMediaClick={() => onMediaClick(msg.mediaUrl || msg.content || '', msg.type as 'IMAGE' | 'VIDEO')}
+                  onMediaClick={(url?: string, type?: 'IMAGE' | 'VIDEO') => onMediaClick(url || msg.mediaUrl || msg.content || '', type || msg.type as 'IMAGE' | 'VIDEO')}
                   onForward={() => onForward?.(msg)}
                   onCallClick={(type: 'AUDIO' | 'VIDEO', callData?: any) => {
                     const isGroupLog = callData?.isGroup || activeChat?.isGroup;

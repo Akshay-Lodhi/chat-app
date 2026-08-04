@@ -34,12 +34,38 @@ import { ContextMenu } from "./ContextMenu";
 import { DeleteMessageModal } from "./DeleteMessageModal";
 import { EmojiPicker } from "./EmojiPicker";
 
-const renderMessageContent = (content: string) => {
+const renderMessageContent = (content: string, onMediaClick?: (url: string, type: "IMAGE" | "VIDEO") => void) => {
   if (!content) return null;
   const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const imageRegex = /\.(jpeg|jpg|gif|png|webp|bmp)($|\?)/i;
+
   const parts = content.split(urlRegex);
   return parts.map((part, index) => {
     if (part.match(urlRegex)) {
+      if (part.match(imageRegex)) {
+        return (
+          <div 
+            key={index} 
+            className="my-1.5 inline-block w-full cursor-pointer relative group"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMediaClick?.(part, "IMAGE");
+            }}
+          >
+            <img 
+              src={part} 
+              alt="Linked image" 
+              className="max-w-full sm:max-w-[250px] rounded-lg max-h-64 object-cover bg-black/10 border border-black/5" 
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
+              <span className="text-white text-xs font-medium bg-black/50 px-2 py-1 rounded">View</span>
+            </div>
+          </div>
+        );
+      }
       return (
         <a 
           key={index} 
@@ -53,7 +79,7 @@ const renderMessageContent = (content: string) => {
         </a>
       );
     }
-    return part;
+    return <span key={index}>{part}</span>;
   });
 };
 
@@ -680,14 +706,14 @@ export function MessageBubble({
       default:
         return (
           <div className="flex flex-col">
-            <p
+            <div
                 className={cn(
                   "text-sm whitespace-pre-wrap break-words leading-relaxed",
                   highlight && "bg-warning/30 text-warning px-1 rounded",
                 )}
               >
-                {renderMessageContent(message.content)}
-              </p>
+                {renderMessageContent(message.content, onMediaClick)}
+              </div>
             {message.metadata?.linkPreview && (
               <a 
                 href={message.metadata.linkPreview.url} 

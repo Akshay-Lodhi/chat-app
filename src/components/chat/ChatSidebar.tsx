@@ -303,6 +303,14 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                                   </>
                                 );
                               }
+                            if (lastMessage.type === 'TEXT' && typeof lastMessage.content === 'string') {
+                              const urlRegex = /(https?:\/\/[^\s]+)/g;
+                              const imageRegex = /\.(jpeg|jpg|gif|png|webp|bmp)($|\?)/i;
+                              
+                              if (lastMessage.content.match(urlRegex) && lastMessage.content.match(imageRegex)) {
+                                return <><ImageIcon size={14} className="mr-1 shrink-0" /> Photo</>;
+                              }
+                            }
                             return lastMessage.content;
                           })()}
                         </span>

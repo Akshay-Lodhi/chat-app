@@ -18,10 +18,10 @@ export default function MediaViewer({ url, type, onClose }: MediaViewerProps) {
     <Lightbox
       open={true}
       close={onClose}
-      plugins={[Zoom, Video, Download]}
+      plugins={type === 'VIDEO' ? [Zoom, Video, Download] : [Zoom, Download]}
       slides={
         type === 'IMAGE'
-          ? [{ src: url }]
+          ? [{ type: "image", src: url }]
           : [{
               type: "video",
               width: 1280,
@@ -35,7 +35,6 @@ export default function MediaViewer({ url, type, onClose }: MediaViewerProps) {
               ],
             }]
       }
-      carousel={{ finite: true }}
       render={{
         buttonPrev: () => null,
         buttonNext: () => null,
