@@ -22,7 +22,9 @@ import {
   ChevronDown,
   MoreVertical,
   Plus,
-  Globe
+  Globe,
+  Camera,
+  EyeOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useDragControls, AnimatePresence } from "framer-motion";
@@ -37,7 +39,7 @@ import { EmojiPicker } from "./EmojiPicker";
 import { LanguagePicker, LANGUAGES } from "./LanguagePicker";
 import { apiClient } from "@/lib/apiClient";
 
-const formatText = (text: string): React.ReactNode[] => {
+export const formatText = (text: string): React.ReactNode[] => {
   const tokenRegex = /(```[\s\S]*?```|`[^`]+`|\*[^\*]+\*|_[^_]+_|~[^~]+~)/g;
   const parts = text.split(tokenRegex);
   
@@ -482,40 +484,83 @@ export function MessageBubble({
 
     switch (message.type) {
       case "IMAGE":
-        return (
-          <div
-            className="relative group cursor-pointer"
-            onClick={() =>
-              onMediaClick?.(message.mediaUrl || message.content || "", "IMAGE")
-            }
-          >
-            <img
-              src={message.mediaUrl || message.content || undefined}
-              alt="Image"
-              className="rounded-lg max-w-[250px] md:max-w-xs object-cover"
-            />
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs">View</span>
+      case "VIDEO": {
+        let meta = message.metadata;
+        if (typeof meta === 'string') {
+          try {
+            meta = JSON.parse(meta);
+          } catch(e) {}
+        }
+        const isViewOnce = meta?.viewOnce;
+        const viewedBy = meta?.viewedBy || [];
+        const hasViewed = viewedBy.includes(currentUser?.id);
+
+        if (isViewOnce) {
+          if (hasViewed) {
+            return (
+              <div className="p-3 text-xs opacity-70 italic flex items-center">
+                <EyeOff className="w-4 h-4 mr-2" /> Opened
+              </div>
+            );
+          } else {
+            return (
+              <div 
+                className="cursor-pointer p-4 rounded-xl border border-white/10 bg-black/20 flex flex-col items-center min-w-[120px]"
+                onClick={() => {
+                  onMediaClick?.(message.mediaUrl || message.content || "", message.type as "IMAGE" | "VIDEO");
+                  useChatStore.getState().markViewOnceOpened(message.chatId, message.id);
+                }}
+              >
+                <div className="bg-orange-500/20 text-orange-400 p-3 rounded-full mb-2">
+                  <EyeOff size={24} />
+                </div>
+                <span className="font-semibold text-sm">View {message.type === 'IMAGE' ? 'Photo' : 'Video'}</span>
+                <span className="text-[10px] uppercase tracking-wider opacity-70 mt-1 flex items-center">
+                  <div className="w-3 h-3 rounded-full border border-current flex items-center justify-center mr-1 text-[8px] font-bold">1</div>
+                  View Once
+                </span>
+              </div>
+            );
+          }
+        }
+
+        if (message.type === "IMAGE") {
+          return (
+            <div
+              className="relative group cursor-pointer"
+              onClick={() =>
+                onMediaClick?.(message.mediaUrl || message.content || "", "IMAGE")
+              }
+            >
+              <img
+                src={message.mediaUrl || message.content || undefined}
+                alt="Image"
+                className="rounded-lg max-w-[250px] md:max-w-xs object-cover"
+              />
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                <span className="text-white text-xs">View</span>
+              </div>
             </div>
-          </div>
-        );
-      case "VIDEO":
-        return (
-          <div
-            className="relative group cursor-pointer"
-            onClick={() =>
-              onMediaClick?.(message.mediaUrl || message.content || "", "VIDEO")
-            }
-          >
-            <video
-              src={message.mediaUrl || message.content || undefined}
-              className="rounded-lg max-w-[250px] md:max-w-xs object-cover"
-            />
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg">
-              <Play className="text-white w-10 h-10 opacity-80" />
+          );
+        } else {
+          return (
+            <div
+              className="relative group cursor-pointer"
+              onClick={() =>
+                onMediaClick?.(message.mediaUrl || message.content || "", "VIDEO")
+              }
+            >
+              <video
+                src={message.mediaUrl || message.content || undefined}
+                className="rounded-lg max-w-[250px] md:max-w-xs object-cover"
+              />
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg">
+                <Play className="text-white w-10 h-10 opacity-80" />
+              </div>
             </div>
-          </div>
-        );
+          );
+        }
+      }
       case "AUDIO": {
         const transcription = message.metadata?.transcription;
         return (
