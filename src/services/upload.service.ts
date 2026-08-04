@@ -9,7 +9,7 @@ cloudinary.config({
 });
 
 export class UploadService {
-  static async uploadFile(filePath: string, mimetype: string) {
+  static async uploadFile(filePath: string, mimetype: string, folderName: string = 'whatsapp-clone') {
     // Determine resource type based on mime type
     let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
     if (mimetype.startsWith('video/')) {
@@ -20,7 +20,7 @@ export class UploadService {
 
     try {
       const result = await cloudinary.uploader.upload(filePath, {
-        folder: 'whatsapp-clone',
+        folder: folderName,
         resource_type: resourceType
       });
 

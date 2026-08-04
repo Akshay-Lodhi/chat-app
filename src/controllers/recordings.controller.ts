@@ -38,7 +38,7 @@ export class RecordingsController {
       }
 
       // Upload to Cloudinary using UploadService
-      const uploadResult = await UploadService.uploadFile(file.path, file.mimetype);
+      const uploadResult = await UploadService.uploadFile(file.path, file.mimetype, 'whatsapp-clone-recordings');
 
       // Save to database
       const recording = await prisma.callRecording.create({
