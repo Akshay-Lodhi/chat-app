@@ -24,7 +24,8 @@ import {
   Plus,
   Globe,
   Camera,
-  EyeOff
+  EyeOff,
+  Image as ImageIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useDragControls, AnimatePresence } from "framer-motion";
@@ -499,17 +500,35 @@ export function MessageBubble({
           if (isMine) {
             // Sender cannot view the media again, but can see if it was opened by someone else
             const openedByRecipient = viewedBy.some((id: string) => id !== currentUser?.id);
+            
+            if (openedByRecipient) {
+              return (
+                <div className="flex items-center gap-3 p-1.5 pr-4 bg-black/5 dark:bg-white/5 rounded-full border border-white/5 w-fit">
+                  <div className="p-2 rounded-full">
+                    <EyeOff className="w-4 h-4 opacity-50" />
+                  </div>
+                  <span className="text-[13px] italic opacity-60 font-medium">Opened {message.type === "IMAGE" ? "Photo" : "Video"}</span>
+                </div>
+              );
+            }
+            
             return (
-              <div className="p-3 text-xs opacity-70 italic flex items-center">
-                <EyeOff className="w-4 h-4 mr-2" /> {openedByRecipient ? "Opened" : (message.type === "IMAGE" ? "Photo" : "Video")}
+              <div className="flex items-center gap-3 p-1.5 pr-4 bg-black/10 dark:bg-white/5 rounded-full border border-white/5 w-fit">
+                <div className="bg-black/10 dark:bg-white/10 p-2 rounded-full">
+                  {message.type === "IMAGE" ? <ImageIcon className="w-4 h-4 opacity-90" /> : <Video className="w-4 h-4 opacity-90" />}
+                </div>
+                <span className="text-[13px] font-medium opacity-90">{message.type === "IMAGE" ? "Photo" : "Video"}</span>
               </div>
             );
           } else {
             // Recipient view
             if (hasViewed) {
               return (
-                <div className="p-3 text-xs opacity-70 italic flex items-center">
-                  <EyeOff className="w-4 h-4 mr-2" /> Opened
+                <div className="flex items-center gap-3 p-1.5 pr-4 bg-black/5 dark:bg-white/5 rounded-full border border-white/5 w-fit">
+                  <div className="p-2 rounded-full">
+                    <EyeOff className="w-4 h-4 opacity-50" />
+                  </div>
+                  <span className="text-[13px] italic opacity-60 font-medium">Opened {message.type === "IMAGE" ? "Photo" : "Video"}</span>
                 </div>
               );
             } else {
