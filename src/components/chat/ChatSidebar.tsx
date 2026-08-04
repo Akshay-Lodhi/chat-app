@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 import { authClient } from '@/lib/auth';
+import { formatText } from './MessageBubble';
 import StarredMessagesOverlay from './StarredMessagesOverlay';
 import RecordingsModal from './RecordingsModal';
 
@@ -311,7 +312,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                                 return <><ImageIcon size={14} className="mr-1 shrink-0" /> Photo</>;
                               }
                             }
-                            return lastMessage.content;
+                            return <>{formatText(lastMessage.content || '')}</>;
                           })()}
                         </span>
                       </div>
