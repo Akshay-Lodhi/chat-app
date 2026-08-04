@@ -34,6 +34,7 @@ import { getCallDetailsPayload } from "@/lib/callUtils";
 import { ContextMenu } from "./ContextMenu";
 import { DeleteMessageModal } from "./DeleteMessageModal";
 import { EmojiPicker } from "./EmojiPicker";
+import { LanguagePicker, LANGUAGES } from "./LanguagePicker";
 import { apiClient } from "@/lib/apiClient";
 
 const renderMessageContent = (content: string, onMediaClick?: (url: string, type: "IMAGE" | "VIDEO") => void) => {
@@ -247,10 +248,19 @@ export function MessageBubble({
   const [showReactionDetails, setShowReactionDetails] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [emojiPickerDirection, setEmojiPickerDirection] = useState<'down' | 'up'>('down');
+  const [languagePickerDirection, setLanguagePickerDirection] = useState<'down' | 'up'>('down');
+
+  const isImageOnly = message.type === 'TEXT' && 
+                      message.content && 
+                      message.content.match(/(https?:\/\/[^\s]+)/) && 
+                      message.content.match(/\.(jpeg|jpg|gif|png|webp|bmp)($|\?)/i) && 
+                      message.content.trim().split(/\s+/).length === 1;
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [translatedLanguage, setTranslatedLanguage] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
 
   const handleTranslate = async (targetLanguage: string) => {
@@ -265,6 +275,7 @@ export function MessageBubble({
       const data = await res.json();
       if (data && data.translatedText) {
         setTranslatedText(data.translatedText);
+        setTranslatedLanguage(targetLanguage);
       }
     } catch (err) {
       console.error('Failed to translate message:', err);
@@ -766,7 +777,7 @@ export function MessageBubble({
             {translatedText && (
               <div className="mt-2 bg-black/5 dark:bg-white/5 rounded-lg p-2.5 relative">
                 <div className="flex items-center text-[10px] font-semibold opacity-50 mb-1">
-                  <Globe size={10} className="mr-1" /> Translated
+                  Translated to {LANGUAGES.find(l => l.code === translatedLanguage)?.name || translatedLanguage}
                 </div>
                 <div className="text-[14px] whitespace-pre-wrap break-words leading-relaxed opacity-90">
                   {renderMessageContent(translatedText, onMediaClick)}
@@ -958,6 +969,29 @@ export function MessageBubble({
           {message.isPinned && <span title="Pinned message"><Pin size={11} className="mr-0.5 fill-current text-amber-400 rotate-45" /></span>}
           {message.isStarred && <Star size={11} className="mr-0.5 fill-current" />}
           {message.isEdited && <span className="italic mr-0.5">(Edited)</span>}
+          {message.type === 'TEXT' && !isImageOnly && (
+            <div 
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                const rect = e.currentTarget.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                setLanguagePickerDirection(spaceBelow > 350 ? 'down' : 'up');
+                setShowLanguagePicker(!showLanguagePicker); 
+              }}
+              className="mr-1 hover:text-emerald-400 transition-colors relative cursor-pointer outline-none"
+              title="Translate"
+            >
+              <Globe size={11} className={cn(isTranslating && "animate-spin")} />
+              <LanguagePicker
+                isOpen={showLanguagePicker}
+                onClose={() => setShowLanguagePicker(false)}
+                onSelectLanguage={(lang) => { handleTranslate(lang); setShowLanguagePicker(false); }}
+                positionClass={languagePickerDirection === 'down' ? "top-full mt-2 right-0" : "bottom-full mb-2 right-0"}
+              />
+            </div>
+          )}
           <span>{msgTime}</span>
           {isMine && message.type !== "CALL_LOG" && (
             <span>

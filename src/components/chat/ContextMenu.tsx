@@ -126,6 +126,7 @@ export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onC
                   <CornerUpRight size={16} className="mr-3 text-text-secondary" />
                   Forward
                 </button>
+                {/* 
                 {onTranslate && (
                   <button
                     onClick={(e) => { 
@@ -141,6 +142,7 @@ export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onC
                     <span className="text-text-secondary text-xs">▶</span>
                   </button>
                 )}
+                */}
                 <button
                   onClick={() => { onCopy(); onClose(); }}
                   className="w-full flex items-center px-4 py-3 hover:bg-white/5 transition-colors text-text-primary text-sm text-left"
