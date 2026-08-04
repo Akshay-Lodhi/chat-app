@@ -496,31 +496,41 @@ export function MessageBubble({
         const hasViewed = viewedBy.includes(currentUser?.id);
 
         if (isViewOnce) {
-          if (hasViewed) {
+          if (isMine) {
+            // Sender cannot view the media again, but can see if it was opened
             return (
               <div className="p-3 text-xs opacity-70 italic flex items-center">
-                <EyeOff className="w-4 h-4 mr-2" /> Opened
+                <EyeOff className="w-4 h-4 mr-2" /> {viewedBy.length > 0 ? "Opened" : (message.type === "IMAGE" ? "Photo" : "Video")}
               </div>
             );
           } else {
-            return (
-              <div 
-                className="cursor-pointer p-4 rounded-xl border border-white/10 bg-black/20 flex flex-col items-center min-w-[120px]"
-                onClick={() => {
-                  onMediaClick?.(message.mediaUrl || message.content || "", message.type as "IMAGE" | "VIDEO");
-                  useChatStore.getState().markViewOnceOpened(message.chatId, message.id);
-                }}
-              >
-                <div className="bg-orange-500/20 text-orange-400 p-3 rounded-full mb-2">
-                  <EyeOff size={24} />
+            // Recipient view
+            if (hasViewed) {
+              return (
+                <div className="p-3 text-xs opacity-70 italic flex items-center">
+                  <EyeOff className="w-4 h-4 mr-2" /> Opened
                 </div>
-                <span className="font-semibold text-sm">View {message.type === 'IMAGE' ? 'Photo' : 'Video'}</span>
-                <span className="text-[10px] uppercase tracking-wider opacity-70 mt-1 flex items-center">
-                  <div className="w-3 h-3 rounded-full border border-current flex items-center justify-center mr-1 text-[8px] font-bold">1</div>
-                  View Once
-                </span>
-              </div>
-            );
+              );
+            } else {
+              return (
+                <div 
+                  className="cursor-pointer p-4 rounded-xl border border-white/10 bg-black/20 flex flex-col items-center min-w-[120px]"
+                  onClick={() => {
+                    onMediaClick?.(message.mediaUrl || message.content || "", message.type as "IMAGE" | "VIDEO");
+                    useChatStore.getState().markViewOnceOpened(message.chatId, message.id);
+                  }}
+                >
+                  <div className="bg-orange-500/20 text-orange-400 p-3 rounded-full mb-2">
+                    <EyeOff size={24} />
+                  </div>
+                  <span className="font-semibold text-sm">View {message.type === 'IMAGE' ? 'Photo' : 'Video'}</span>
+                  <span className="text-[10px] uppercase tracking-wider opacity-70 mt-1 flex items-center">
+                    <div className="w-3 h-3 rounded-full border border-current flex items-center justify-center mr-1 text-[8px] font-bold">1</div>
+                    View Once
+                  </span>
+                </div>
+              );
+            }
           }
         }
 
