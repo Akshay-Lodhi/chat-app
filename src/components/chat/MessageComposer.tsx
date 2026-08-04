@@ -11,6 +11,8 @@ import CreatePollModal from './CreatePollModal';
 import ScheduleMessageModal from './ScheduleMessageModal';
 import PendingScheduledModal from './PendingScheduledModal';
 import AIAssistantModal from './AIAssistantModal';
+import { AudioEffectsPreview } from './AudioEffectsPreview';
+import { ScribbleModal } from './ScribbleModal';
 
 interface MessageComposerProps {
   onSendMessage: (text: string) => void;
@@ -50,6 +52,8 @@ export function MessageComposer({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showPendingScheduledModal, setShowPendingScheduledModal] = useState(false);
   const [showAiAssistantModal, setShowAiAssistantModal] = useState(false);
+  const [showScribbleModal, setShowScribbleModal] = useState(false);
+  const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
@@ -191,7 +195,7 @@ export function MessageComposer({
       
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        onSendVoice(audioBlob);
+        setRecordedAudioBlob(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
       
@@ -239,6 +243,21 @@ export function MessageComposer({
     return (
       <div className="bg-transparent px-4 py-4 relative shrink-0 z-20 flex justify-center text-text-secondary text-sm">
         You have blocked this contact.
+      </div>
+    );
+  }
+
+  if (recordedAudioBlob) {
+    return (
+      <div className="p-2 w-full max-w-md mx-auto">
+        <AudioEffectsPreview 
+          blob={recordedAudioBlob} 
+          onSend={(blob) => {
+            onSendVoice(blob);
+            setRecordedAudioBlob(null);
+          }} 
+          onCancel={() => setRecordedAudioBlob(null)} 
+        />
       </div>
     );
   }
@@ -347,6 +366,15 @@ export function MessageComposer({
             >
               <div className="bg-yellow-500/20 text-yellow-400 p-2.5 rounded-full"><BarChart2 size={20} /></div>
               <span className="text-sm font-medium">Poll</span>
+            </button>
+            <button 
+              onClick={() => { setShowScribbleModal(true); setShowAttachMenu(false); }}
+              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+            >
+              <div className="bg-pink-500/20 text-pink-400 p-2.5 rounded-full">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              </div>
+              <span className="text-sm font-medium">Scribble</span>
             </button>
             <button 
               onClick={() => { setShowScheduleModal(true); setShowAttachMenu(false); }}
@@ -569,6 +597,13 @@ export function MessageComposer({
             onUseDraft={(draftText) => setMessage(draftText)}
             onSendMessage={(sendText) => onSendMessage(sendText)}
             onClose={() => setShowAiAssistantModal(false)}
+          />
+        )}
+        {showScribbleModal && (
+          <ScribbleModal
+            isOpen={showScribbleModal}
+            onClose={() => setShowScribbleModal(false)}
+            onSend={(file) => onSendMedia(file)}
           />
         )}
       </AnimatePresence>

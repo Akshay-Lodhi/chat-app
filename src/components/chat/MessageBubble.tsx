@@ -21,7 +21,8 @@ import {
   Pin,
   ChevronDown,
   MoreVertical,
-  Plus
+  Plus,
+  Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useDragControls, AnimatePresence } from "framer-motion";
@@ -33,6 +34,7 @@ import { getCallDetailsPayload } from "@/lib/callUtils";
 import { ContextMenu } from "./ContextMenu";
 import { DeleteMessageModal } from "./DeleteMessageModal";
 import { EmojiPicker } from "./EmojiPicker";
+import { apiClient } from "@/lib/apiClient";
 
 const renderMessageContent = (content: string, onMediaClick?: (url: string, type: "IMAGE" | "VIDEO") => void) => {
   if (!content) return null;
@@ -247,6 +249,29 @@ export function MessageBubble({
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
   const [emojiPickerDirection, setEmojiPickerDirection] = useState<'down' | 'up'>('down');
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const handleTranslate = async (targetLanguage: string) => {
+    if (!message.content || message.type !== 'TEXT') return;
+    try {
+      setIsTranslating(true);
+      const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/messages/translate`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message.content, targetLanguage })
+      });
+      const data = await res.json();
+      if (data && data.translatedText) {
+        setTranslatedText(data.translatedText);
+      }
+    } catch (err) {
+      console.error('Failed to translate message:', err);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const handleContextMenu = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -714,6 +739,21 @@ export function MessageBubble({
               >
                 {renderMessageContent(message.content, onMediaClick)}
               </div>
+              {isTranslating && (
+                <div className="mt-2 text-xs opacity-70 flex items-center">
+                  <Loader2 size={12} className="animate-spin mr-1.5" /> Translating...
+                </div>
+              )}
+              {translatedText && (
+                <div className="mt-2 pt-2 border-t border-black/10">
+                  <div className="flex items-center text-[10px] uppercase font-bold tracking-wider opacity-60 mb-1">
+                    <Globe size={10} className="mr-1" /> Translated
+                  </div>
+                  <div className="text-sm whitespace-pre-wrap break-words leading-relaxed text-text-primary/90">
+                    {translatedText}
+                  </div>
+                </div>
+              )}
             {message.metadata?.linkPreview && (
               <a 
                 href={message.metadata.linkPreview.url} 
@@ -995,8 +1035,10 @@ export function MessageBubble({
           position={menuPosition}
           onReply={() => onReply?.()}
           onForward={() => {
+            setShowContextMenu(false);
             onForward?.();
           }}
+          onTranslate={message.type === 'TEXT' ? handleTranslate : undefined}
           onCopy={() => {
             if (message.content) navigator.clipboard.writeText(message.content);
           }}
