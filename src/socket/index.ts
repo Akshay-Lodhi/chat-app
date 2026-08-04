@@ -334,27 +334,7 @@ export function setupSocket(server: HttpServer) {
       }
     });
 
-    socket.on('view-once-opened', async ({ messageId, chatId }) => {
-      try {
-        const msg = await prisma.message.findUnique({ where: { id: messageId } });
-        if (!msg || !msg.metadata) return;
-        
-        const metadata: any = msg.metadata;
-        if (metadata.viewOnce && Array.isArray(metadata.viewedBy) && !metadata.viewedBy.includes(userId)) {
-          metadata.viewedBy.push(userId);
-          
-          const updatedMsg = await prisma.message.update({
-            where: { id: messageId },
-            data: { metadata },
-            include: { replyTo: true, sender: true }
-          });
-          
-          chatNamespace.to(chatId).emit('message-updated', updatedMsg);
-        }
-      } catch (err) {
-        console.error('Failed to open view-once message', err);
-      }
-    });
+
 
     socket.on('message-delivered', async ({ messageId, chatId }) => {
       try {
@@ -836,6 +816,32 @@ export function setupSocket(server: HttpServer) {
         }
       } catch (err) {
         console.error('Error voting on poll:', err);
+      }
+    });
+
+    socket.on('view-once-opened', async ({ messageId, chatId }) => {
+      try {
+        const msg = await prisma.message.findUnique({ where: { id: messageId } });
+        if (!msg || !msg.metadata) return;
+        
+        let metadata: any = msg.metadata;
+        if (typeof metadata === 'string') {
+          try { metadata = JSON.parse(metadata); } catch(e) {}
+        }
+        
+        if (metadata.viewOnce && Array.isArray(metadata.viewedBy) && !metadata.viewedBy.includes(userId)) {
+          metadata.viewedBy.push(userId);
+          
+          const updatedMsg = await prisma.message.update({
+            where: { id: messageId },
+            data: { metadata },
+            include: { replyTo: true, sender: true }
+          });
+          
+          chatNamespace.to(chatId).emit('message-updated', updatedMsg);
+        }
+      } catch (err) {
+        console.error('Error handling view once:', err);
       }
     });
 
