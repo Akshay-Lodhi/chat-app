@@ -42,6 +42,7 @@ model User {
   storyLikes         StoryLike[]
   starredMessages    StarredMessage[]
   meetingsHosted     Meeting[]         @relation("MeetingHost")
+  callRecordings     CallRecording[]
 }
 
 model Session {
@@ -350,4 +351,15 @@ model Meeting {
   endedAt          DateTime?
 
   host             User      @relation("MeetingHost", fields: [hostId], references: [id], onDelete: Cascade)
+}
+
+model CallRecording {
+  id        String   @id @default(uuid())
+  userId    String
+  url       String
+  type      CallType // AUDIO or VIDEO
+  duration  Int?     // in seconds
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

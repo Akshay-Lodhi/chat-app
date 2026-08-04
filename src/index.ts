@@ -13,6 +13,7 @@ import chatRoutes from './routes/chat.routes';
 import liveRoutes from './routes/live.routes';
 import storyRoutes from './routes/story.routes';
 import meetingRoutes from './routes/meeting.routes';
+import recordingsRoutes from './routes/recordings.route';
 
 dotenv.config();
 
@@ -53,6 +54,7 @@ app.use('/api/live', liveRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/recordings', recordingsRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
