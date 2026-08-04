@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2, Calendar, Clock, Sparkles, Bot } from 'lucide-react';
+import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2, Calendar, Clock, Sparkles, Bot, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -16,7 +16,7 @@ import { ScribbleModal } from './ScribbleModal';
 
 interface MessageComposerProps {
   onSendMessage: (text: string) => void;
-  onSendMedia: (file: File) => void;
+  onSendMedia: (file: File, isViewOnce?: boolean) => void;
   onSendLocation: () => void;
   onSendVoice: (blob: Blob) => void;
   replyingTo: any | null;
@@ -56,6 +56,7 @@ export function MessageComposer({
   const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const viewOnceFileInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
@@ -177,8 +178,18 @@ export function MessageComposer({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      onSendMedia(file);
+      onSendMedia(file, false);
       setShowAttachMenu(false);
+      e.target.value = ''; // Reset
+    }
+  };
+
+  const handleViewOnceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onSendMedia(file, true);
+      setShowAttachMenu(false);
+      e.target.value = ''; // Reset
     }
   };
 
@@ -272,6 +283,7 @@ export function MessageComposer({
       }}
     >
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+      <input type="file" ref={viewOnceFileInputRef} className="hidden" accept="image/*,video/*" onChange={handleViewOnceFileChange} />
 
       {/* Edit/Reply Context */}
       <AnimatePresence>
@@ -352,6 +364,13 @@ export function MessageComposer({
             >
               <div className="bg-blue-500/20 text-blue-400 p-2.5 rounded-full"><Paperclip size={20} /></div>
               <span className="text-sm font-medium">Document & Media</span>
+            </button>
+            <button 
+              onClick={() => viewOnceFileInputRef.current?.click()}
+              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+            >
+              <div className="bg-orange-500/20 text-orange-400 p-2.5 rounded-full"><EyeOff size={20} /></div>
+              <span className="text-sm font-medium">View Once Media</span>
             </button>
             <button 
               onClick={() => { onSendLocation(); setShowAttachMenu(false); }}

@@ -96,6 +96,7 @@ interface ChatState {
   incrementUnreadCount: (chatId: string) => void;
   sendMessage: (chatId: string, content: string, type?: string, mediaUrl?: string | null, replyToId?: string | null, metadata?: any) => void;
   deleteMessage: (chatId: string, messageId: string, deleteFor?: 'everyone' | 'me') => Promise<boolean>;
+  markViewOnceOpened: (chatId: string, messageId: string) => void;
   clearChat: (chatId: string) => Promise<boolean>;
   sendTypingStatus: (chatId: string, isTyping: boolean) => void;
   editMessage: (chatId: string, messageId: string, content: string) => void;
@@ -1381,6 +1382,13 @@ export const useChatStore = create<ChatState>()(
     } catch (err) {
       console.error('Error reporting user:', err);
       return false;
+    }
+  },
+
+  markViewOnceOpened: (chatId: string, messageId: string) => {
+    const { socket } = get();
+    if (socket && socket.connected) {
+      socket.emit('view-once-opened', { chatId, messageId });
     }
   },
 

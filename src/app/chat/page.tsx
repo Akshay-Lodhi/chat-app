@@ -158,7 +158,7 @@ export default function ChatPage() {
     setReplyingTo(null);
   };
 
-  const handleSendMedia = async (file: File) => {
+  const handleSendMedia = async (file: File, isViewOnce: boolean = false) => {
     if (!activeChatId) return;
     const formData = new FormData();
     formData.append('file', file);
@@ -168,7 +168,8 @@ export default function ChatPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        sendMessage(activeChatId, '', data.type, data.url, replyingTo?.id || null);
+        const metadata = isViewOnce ? { viewOnce: true, viewedBy: [] } : null;
+        sendMessage(activeChatId, '', data.type, data.url, replyingTo?.id || null, metadata);
         setReplyingTo(null);
       }
     } catch (err) {
