@@ -417,8 +417,8 @@ export const translateMessageController = async (req: AuthRequest, res: Response
       console.warn('LibreTranslate failed, falling back to Google Translate API...', e);
       const resFallback = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLanguage}&dt=t&q=${encodeURIComponent(message)}`);
       const dataFallback = await resFallback.json();
-      if (dataFallback && dataFallback[0] && dataFallback[0][0] && dataFallback[0][0][0]) {
-        translatedText = dataFallback[0][0][0];
+      if (dataFallback && dataFallback[0]) {
+        translatedText = dataFallback[0].map((chunk: any) => chunk[0]).join('');
       }
     }
 
