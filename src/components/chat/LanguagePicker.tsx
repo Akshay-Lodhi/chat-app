@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Globe } from 'lucide-react';
 
@@ -24,17 +25,30 @@ export const LANGUAGES = [
   { code: 'ko', name: 'Korean', nativeName: '한국어', color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20 hover:bg-teal-500 hover:text-white dark:hover:text-white' },
 ];
 
-export function LanguagePicker({ isOpen, onClose, onSelectLanguage, positionClass = "bottom-full mb-2 right-0" }: LanguagePickerProps) {
-  if (!isOpen) return null;
+export function LanguagePicker({ isOpen, onClose, onSelectLanguage, positionClass }: LanguagePickerProps) {
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
+
+  const content = (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 5 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 5 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[1000] bg-black/20"
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
         transition={{ type: "spring", duration: 0.3 }}
-        className={`absolute z-[100] bg-surface/90 backdrop-blur-xl border border-surface-border rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-3 w-64 ${positionClass}`}
+        className={`fixed z-[1001] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface/95 backdrop-blur-xl border border-surface-border rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-3 w-[280px] max-w-[90vw]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-3 px-1">
@@ -69,4 +83,6 @@ export function LanguagePicker({ isOpen, onClose, onSelectLanguage, positionClas
       </motion.div>
     </AnimatePresence>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : null;
 }

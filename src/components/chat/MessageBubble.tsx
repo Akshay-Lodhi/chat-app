@@ -1088,7 +1088,6 @@ export function MessageBubble({
                 isOpen={showLanguagePicker}
                 onClose={() => setShowLanguagePicker(false)}
                 onSelectLanguage={(lang) => { handleTranslate(lang); setShowLanguagePicker(false); }}
-                positionClass={languagePickerDirection === 'down' ? "top-full mt-2 right-0" : "bottom-full mb-2 right-0"}
               />
             </div>
           )}
