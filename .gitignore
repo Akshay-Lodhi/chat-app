@@ -2,3 +2,9 @@ node_modules/
 .env
 dist/
 /generated/prisma
+
+node_modules_*/
+.npm-cache/
+logs/
+.pnpm-store/
+*.bak

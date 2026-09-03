@@ -101,3 +101,44 @@ export const getBlockedUsers = async (req: AuthRequest, res: Response): Promise<
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
+export const uploadPublicKey = async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const { publicKey } = req.body;
+    if (!publicKey) return res.status(400).json({ error: 'Public key is required' });
+
+    await UserService.updateProfile(req.user!.userId, { publicKey });
+    
+    // Broadcast key update to active chats
+    try {
+      const userChats = await prisma.chatParticipant.findMany({
+        where: { userId: req.user!.userId },
+        select: { chatId: true }
+      });
+      const io = getIO().of('/chat');
+      userChats.forEach(c => {
+        io.to(c.chatId).emit('user-updated', { userId: req.user!.userId, publicKey });
+      });
+    } catch (err) {
+      console.error('Failed to broadcast public key update', err);
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Upload key error', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const getPublicKey = async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const { userId } = req.params;
+    const user = await UserService.getUserById(userId as string);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    return res.json({ publicKey: user.publicKey });
+  } catch (error) {
+    console.error('Get key error', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};

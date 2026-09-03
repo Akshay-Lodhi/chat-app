@@ -43,7 +43,34 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(compression());
 
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { errorHandler } from './middlewares/error.middleware';
+import { logger } from './lib/logger';
 import uploadRoutes from './routes/upload.routes';
+
+// Apply rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // Limit each IP to 500 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+// Apply Helmet for security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Required for loading media across domains
+}));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  if (req.path !== '/health') {
+    logger.info(`Incoming Request: ${req.method} ${req.url}`);
+  }
+  next();
+});
 
 app.use("/api/auth", toNodeHandler(auth));
 // We will phase out the old authRoutes slowly
@@ -59,6 +86,9 @@ app.use('/api/recordings', recordingsRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// Global error handler middleware
+app.use(errorHandler);
 
 setupSocket(server);
 

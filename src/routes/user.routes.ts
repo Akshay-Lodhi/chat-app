@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getMe, updateProfile, getContacts, getBlockedUsers, blockUser, unblockUser, reportUser } from '../controllers/user.controller';
+import { getMe, updateProfile, getContacts, getBlockedUsers, blockUser, unblockUser, reportUser, uploadPublicKey, getPublicKey } from '../controllers/user.controller';
 
 const router = Router();
 
@@ -18,5 +18,9 @@ router.get('/blocked', requireAuth, getBlockedUsers as any);
 router.post('/block/:id', requireAuth, blockUser as any);
 router.delete('/block/:id', requireAuth, unblockUser as any);
 router.post('/report/:id', requireAuth, reportUser as any);
+
+// E2EE Key endpoints
+router.post('/keys/upload', requireAuth, uploadPublicKey as any);
+router.get('/keys/:userId', requireAuth, getPublicKey as any);
 
 export default router;
