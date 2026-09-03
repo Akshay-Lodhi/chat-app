@@ -463,7 +463,7 @@ export function MessageBubble({
         if (content.match(imageRegex)) return "📷 Photo/GIF";
         return content;
       }
-      return "🔒 Encrypted Message";
+      return "🔒 Waiting for message. This may take a while.";
     }
     
     if (typeof msg.content === 'string') {

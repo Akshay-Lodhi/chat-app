@@ -298,10 +298,7 @@ export function ChatSidebar({ onProfileClick, onNewChatClick }: ChatSidebarProps
                             }
                             if (lastMessage.isEncrypted && lastMessage.type === 'TEXT' && typeof lastMessage.content === 'string' && lastMessage.content.startsWith('{"isEncrypted"')) {
                                 return (
-                                  <>
-                                    <Lock size={14} className="mr-1 shrink-0" /> 
-                                    <span className="truncate">Encrypted message</span>
-                                  </>
+                                    <span className="truncate">Waiting for message...</span>
                                 );
                               }
                             if (lastMessage.type === 'TEXT' && typeof lastMessage.content === 'string') {

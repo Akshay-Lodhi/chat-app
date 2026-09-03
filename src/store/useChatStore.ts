@@ -509,13 +509,13 @@ export const useChatStore = create<ChatState>()(
               if (decrypted) {
                 message.content = decrypted;
               } else {
-                message.content = "🔒 [Message could not be decrypted]";
+                message.content = "🔒 Waiting for message. This may take a while.";
               }
             } else {
-               message.content = "🔒 [Encrypted Message - Unknown Sender Key]";
+               message.content = "🔒 Waiting for message. This may take a while.";
             }
           } else {
-            message.content = "🔒 [Encrypted Message - Keys not ready]";
+            message.content = "🔒 Waiting for message. This may take a while.";
           }
         } catch (e) {
           console.error("E2EE Decryption error", e);
@@ -875,15 +875,15 @@ export const useChatStore = create<ChatState>()(
                       const payload = JSON.parse(m.content);
                       const decrypted = decryptE2EEPayload(payload, myUserId, myPriv, senderPub);
                       if (decrypted) m.content = decrypted;
-                      else m.content = "🔒 [Message could not be decrypted]";
+                      else m.content = "🔒 Waiting for message. This may take a while.";
                     } catch (e) {
                        m.content = "🔒 [Message corrupted]";
                     }
                   } else {
-                     m.content = "🔒 [Encrypted Message - Unknown Sender Key]";
+                     m.content = "🔒 Waiting for message. This may take a while.";
                   }
                 } else if (m.isEncrypted) {
-                  m.content = "🔒 [Encrypted Message - Keys not ready]";
+                  m.content = "🔒 Waiting for message. This may take a while.";
                 }
               }
               return c;
@@ -945,15 +945,15 @@ export const useChatStore = create<ChatState>()(
                       const payload = JSON.parse(m.content);
                       const decrypted = decryptE2EEPayload(payload, myUserId, myPriv, senderPub);
                       if (decrypted) m.content = decrypted;
-                      else m.content = "🔒 [Message could not be decrypted]";
+                      else m.content = "🔒 Waiting for message. This may take a while.";
                     } catch (e) {
                        m.content = "🔒 [Message corrupted]";
                     }
                   } else {
-                     m.content = "🔒 [Encrypted Message - Unknown Sender Key]";
+                     m.content = "🔒 Waiting for message. This may take a while.";
                   }
                 } else {
-                  m.content = "🔒 [Encrypted Message - Keys not ready]";
+                  m.content = "🔒 Waiting for message. This may take a while.";
                 }
               }
               return m;
