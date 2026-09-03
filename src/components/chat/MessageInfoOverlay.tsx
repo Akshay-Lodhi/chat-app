@@ -73,7 +73,7 @@ export function MessageInfoOverlay() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-0 m-auto w-[90%] md:w-[400px] h-fit max-h-[80vh] bg-surface z-[10000] flex flex-col shadow-2xl rounded-2xl border border-surface-border overflow-hidden"
+            className="fixed inset-0 m-auto w-[90%] md:w-[400px] h-fit max-h-[80vh] bg-background z-[10000] flex flex-col shadow-2xl rounded-2xl border border-surface-border overflow-hidden"
           >
             {/* Header */}
             <div className="h-14 flex items-center px-4 border-b border-surface-border bg-surface shrink-0">

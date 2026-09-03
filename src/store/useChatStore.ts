@@ -360,8 +360,19 @@ export const useChatStore = create<ChatState>()(
   },
 
   summarizeChat: async (chatId) => {
+    const messages = get().messages[chatId] || [];
+    const recentMessages = messages
+      .filter(m => m.type !== 'SYSTEM' && !m.deletedForEveryone)
+      .slice(-50)
+      .map(m => ({
+        sender: { name: m.sender?.name || 'User' },
+        content: m.content
+      }));
+
     const res = await apiClient(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/chats/${chatId}/summarize`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: recentMessages }),
       credentials: 'include'
     });
     if (!res.ok) {

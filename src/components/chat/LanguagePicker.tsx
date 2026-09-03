@@ -37,6 +37,7 @@ export function LanguagePicker({ isOpen, onClose, onSelectLanguage, positionClas
   const content = (
     <AnimatePresence>
       <motion.div
+        key="backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -44,11 +45,12 @@ export function LanguagePicker({ isOpen, onClose, onSelectLanguage, positionClas
         onClick={(e) => { e.stopPropagation(); onClose(); }}
       />
       <motion.div
+        key="modal"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
         transition={{ type: "spring", duration: 0.3 }}
-        className={`fixed z-[1001] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface/95 backdrop-blur-xl border border-surface-border rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-3 w-[280px] max-w-[90vw]`}
+        className={`fixed z-[1001] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-surface-border rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-3 w-[280px] max-w-[90vw]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-3 px-1">

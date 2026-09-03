@@ -100,7 +100,7 @@ export function EmojiPicker({ isOpen, onClose, onSelectEmoji, onSelectGif, class
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className={cn("z-40 w-80 md:w-96 bg-surface border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col h-80", className)}
+        className={cn("z-40 w-80 md:w-96 bg-background border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col h-80", className)}
       >
         {activeTab === 'emoji' ? (
           <>

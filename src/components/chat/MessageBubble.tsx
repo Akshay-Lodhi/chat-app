@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   CheckCheck,
@@ -1127,7 +1128,7 @@ export function MessageBubble({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 10 }}
                 className={cn(
-                  "absolute top-[-50px] z-50 flex items-center bg-surface border border-surface-border shadow-xl rounded-full px-3 py-2 space-x-3",
+                  "absolute top-[-50px] z-50 flex items-center bg-background border border-surface-border shadow-xl rounded-full px-3 py-2 space-x-3",
                   isMine ? "right-0" : "left-0",
                 )}
               >
@@ -1161,13 +1162,10 @@ export function MessageBubble({
                     <Plus size={18} />
                   </button>
 
-                  {showFullEmojiPicker && (
+                  {showFullEmojiPicker && typeof document !== 'undefined' && createPortal(
                     <div className={cn(
-                      "fixed md:absolute z-[60]",
-                      "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-                      "md:left-auto md:top-auto md:translate-x-0 md:translate-y-0",
-                      isMine ? "md:right-0" : "md:left-0",
-                      emojiPickerDirection === 'down' ? "md:top-10" : "md:bottom-10"
+                      "fixed z-[9999]",
+                      "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                     )}>
                       <EmojiPicker
                         isOpen={showFullEmojiPicker}
@@ -1178,7 +1176,8 @@ export function MessageBubble({
                           setShowReactions(false);
                         }}
                       />
-                    </div>
+                    </div>,
+                    document.body
                   )}
                 </div>
 
