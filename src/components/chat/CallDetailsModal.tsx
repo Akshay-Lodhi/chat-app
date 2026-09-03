@@ -213,7 +213,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                 onClose();
                 onReCall?.('AUDIO');
               }}
-              className="flex-1 py-3 rounded-full bg-[#005c4b] hover:bg-[#005c4b]/80 text-[#25D366] font-bold text-xs flex items-center justify-center space-x-2 transition-all border border-[#25D366]/30 cursor-pointer shadow-sm active:scale-95"
+              className="flex-1 py-3 rounded-full bg-[#005c4b] hover:bg-[#005c4b]/80 text-blue-400 font-bold text-xs flex items-center justify-center space-x-2 transition-all border border-blue-500/30 cursor-pointer shadow-sm active:scale-95"
             >
               <Phone size={16} />
               <span>Voice Call Back</span>
@@ -225,7 +225,7 @@ export function CallDetailsModal({ isOpen, onClose, callData, createdAt, onReCal
                 onClose();
                 onReCall?.('VIDEO');
               }}
-              className="flex-1 py-3 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold text-xs flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer active:scale-95"
+              className="flex-1 py-3 rounded-full nexus-gradient hover:bg-[#20bd5a] text-black font-extrabold text-xs flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer active:scale-95"
             >
               <Video size={16} />
               <span>Video Call Back</span>

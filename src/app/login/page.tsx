@@ -61,10 +61,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-background overflow-hidden flex items-center justify-center p-4 font-sans text-text-primary selection:bg-primary/30">
-      {/* Background gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-accent/20 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+    <div className="relative min-h-screen bg-gradient-to-br from-chat-bg to-surface overflow-hidden flex items-center justify-center p-4 font-sans text-text-primary selection:bg-primary/30">
+      {/* Premium Background Effects */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.1),transparent_50%)]" />
+      <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
+      
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/20 blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/20 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
       
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -72,18 +75,19 @@ export default function LoginPage() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="glass rounded-3xl p-8 shadow-2xl">
-          <div className="flex flex-col items-center mb-10">
+        <div className="bg-surface-hover/30 backdrop-blur-xl border border-white/5 rounded-[2rem] p-8 shadow-2xl">
+          <div className="flex flex-col items-center mb-10 relative">
             <motion.div 
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 mb-6 bg-gradient-to-tr from-primary to-accent rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20"
+              className="w-24 h-24 mb-6 relative flex items-center justify-center"
             >
-              <img src="/logo.svg" alt="Logo" className="w-12 h-12 object-contain filter invert opacity-90" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 to-purple-500/20 rounded-full blur-xl animate-pulse" />
+              <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain relative z-10 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
             </motion.div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 mb-3 tracking-tight">NexusChat</h1>
-            <p className="text-text-secondary text-sm text-center font-medium">
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 mb-3 tracking-tight">NexusChat</h1>
+            <p className="text-text-secondary text-sm text-center font-light">
               {step === 'PHONE' ? 'Sign in to sync your messages' : 'Verify your identity'}
             </p>
           </div>

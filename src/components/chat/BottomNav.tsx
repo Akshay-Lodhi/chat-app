@@ -45,7 +45,10 @@ export function BottomNav({
   ];
 
   return (
-    <div className="w-full shrink-0 z-40 px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom,24px))] bg-surface/80 backdrop-blur-3xl border-t border-surface-border/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
+    <div 
+      className="w-full shrink-0 z-40 px-4 pt-3 bg-surface/80 backdrop-blur-3xl border-t border-surface-border/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]"
+      style={{ paddingBottom: 'max(32px, env(safe-area-inset-bottom))' }}
+    >
       <div className="flex items-center justify-around max-w-md mx-auto relative bg-surface-hover/30 p-1.5 rounded-2xl border border-surface-border/20">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -57,14 +60,14 @@ export function BottomNav({
               onClick={() => onTabChange(tab.id)}
               className={cn(
                 "relative flex-1 flex flex-col items-center justify-center py-2 transition-all duration-300 group outline-none rounded-xl",
-                isActive ? "text-primary" : "text-text-secondary hover:text-text-primary"
+                isActive ? "text-blue-400" : "text-text-secondary hover:text-text-primary"
               )}
             >
               {/* Sliding Active Background Pill */}
               {isActive && (
                 <motion.div
                   layoutId="activeTabGlow"
-                  className="absolute inset-0 bg-primary/10 rounded-xl shadow-inner border border-primary/20"
+                  className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-xl shadow-inner border border-purple-500/20"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
@@ -81,8 +84,8 @@ export function BottomNav({
                   {/* Badge indicator */}
                   {tab.badge && (
                     <span className={cn(
-                      "absolute -top-1.5 -right-3 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border border-background",
-                      tab.isLiveBadge ? "bg-danger text-white animate-pulse" : "bg-primary text-white"
+                      "absolute -top-1.5 -right-3 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(236,72,153,0.5)] border border-background",
+                      tab.isLiveBadge ? "nexus-gradient text-white animate-pulse" : "bg-blue-500 text-white"
                     )}>
                       {tab.badge}
                     </span>
@@ -92,7 +95,7 @@ export function BottomNav({
                 {/* Label */}
                 <span className={cn(
                   "text-[10px] mt-1 tracking-wide transition-colors",
-                  isActive ? "text-primary font-bold" : "text-text-tertiary font-medium"
+                  isActive ? "text-transparent bg-clip-text nexus-gradient font-bold" : "text-text-tertiary font-medium"
                 )}>
                   {tab.label}
                 </span>

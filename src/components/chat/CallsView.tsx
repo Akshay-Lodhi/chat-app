@@ -262,7 +262,7 @@ export function CallsView() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#25D366] text-black font-extrabold text-xs px-4 py-2 rounded-full shadow-lg border border-black/10 flex items-center space-x-2"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 nexus-gradient text-black font-extrabold text-xs px-4 py-2 rounded-full shadow-lg border border-black/10 flex items-center space-x-2"
           >
             <Check size={14} strokeWidth={3} />
             <span>Call history cleared successfully</span>
@@ -408,7 +408,7 @@ export function CallsView() {
                           .map((pUser: any, i: number) => (
                             <div
                               key={i}
-                              className="w-full h-full bg-[#005c4b] text-[#25D366] text-[9px] font-bold flex items-center justify-center overflow-hidden"
+                              className="w-full h-full bg-[#005c4b] text-blue-400 text-[9px] font-bold flex items-center justify-center overflow-hidden"
                             >
                               {pUser?.profilePicture ? (
                                 <img
@@ -431,14 +431,14 @@ export function CallsView() {
                         className="w-12 h-12 rounded-full object-cover border border-surface-border/50 shadow-sm hover:scale-105 transition-transform"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-[#005c4b] text-[#25D366] font-bold text-base flex items-center justify-center shadow-sm hover:scale-105 transition-transform">
+                      <div className="w-12 h-12 rounded-full bg-[#005c4b] text-blue-400 font-bold text-base flex items-center justify-center shadow-sm hover:scale-105 transition-transform">
                         {name.substring(0, 2).toUpperCase()}
                       </div>
                     )}
 
                     {/* Group Badge Tag */}
                     {isGroup && (
-                      <div className="absolute -bottom-1 -right-1 bg-[#25D366] text-black text-[9px] font-extrabold px-1 py-0.2 rounded-full border border-black shadow-sm">
+                      <div className="absolute -bottom-1 -right-1 nexus-gradient text-black text-[9px] font-extrabold px-1 py-0.2 rounded-full border border-black shadow-sm">
                         GRP
                       </div>
                     )}
@@ -457,7 +457,7 @@ export function CallsView() {
                           size={15}
                           className={cn(
                             "shrink-0",
-                            isUnanswered ? "text-amber-400" : "text-[#25D366]",
+                            isUnanswered ? "text-amber-400" : "text-blue-400",
                           )}
                         />
                       ) : isUnanswered ? (
@@ -468,7 +468,7 @@ export function CallsView() {
                       ) : (
                         <ArrowDownLeft
                           size={15}
-                          className="text-[#25D366] shrink-0"
+                          className="text-blue-400 shrink-0"
                         />
                       )}
                       <span
@@ -520,13 +520,13 @@ export function CallsView() {
                         initiateCall(isVideo ? "VIDEO" : "AUDIO", call.chatId, targetUserIds as string[], initialProfiles);
                       }
                     }}
-                    className="text-[#25D366] hover:opacity-80 transition-opacity p-1"
+                    className="text-blue-400 hover:opacity-80 transition-opacity p-1"
                     title={isVideo ? "Start Video Call" : "Start Voice Call"}
                   >
                     {isVideo ? (
-                      <Video size={20} className="text-[#25D366]" />
+                      <Video size={20} className="text-blue-400" />
                     ) : (
-                      <Phone size={20} className="text-[#25D366]" />
+                      <Phone size={20} className="text-blue-400" />
                     )}
                   </button>
                 </div>

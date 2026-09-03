@@ -1,10 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
     <linearGradient id="nexusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00A884" />
-      <stop offset="100%" stop-color="#005C4B" />
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#ec4899" />
     </linearGradient>
+    <linearGradient id="nexusRing" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#f472b6" stop-opacity="0.8"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
   </defs>
-  <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#nexusGrad)" />
-  <path d="M7 17V7h2.5l3.5 6V7h2.5v10h-2.5l-3.5-6v6H7z" fill="#FFFFFF" />
+  
+  <rect x="5" y="5" width="90" height="90" rx="28" fill="url(#nexusGrad)" filter="url(#glow)"/>
+  <rect x="5" y="5" width="90" height="90" rx="28" fill="rgba(0,0,0,0.1)"/>
+  
+  <circle cx="50" cy="50" r="28" fill="none" stroke="url(#nexusRing)" stroke-width="6" stroke-dasharray="120 40" stroke-linecap="round" />
+  
+  <path d="M40 35 L40 65 L60 45" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <path d="M40 55 L60 35 L60 65" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
 </svg>

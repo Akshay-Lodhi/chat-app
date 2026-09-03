@@ -451,9 +451,14 @@ export const useChatStore = create<ChatState>()(
       // Process offline queue
       const queue = get().offlineQueue;
       if (queue && queue.length > 0) {
+        set({ offlineQueue: [] }); // clear first to avoid infinite loops if it reconnects rapidly
+        
         queue.forEach(payload => {
-          socket.emit('send-message', payload, (response: any) => {
-            if (response && response.message) {
+          socket.timeout(5000).emit('send-message', payload, (err: any, response: any) => {
+            if (err) {
+              // Timeout again! Re-add to queue
+              set(state => ({ offlineQueue: [...(state.offlineQueue || []), payload] }));
+            } else if (response && response.message) {
               const updatedMsg = { ...response.message, tempId: payload.tempId };
               
               if (updatedMsg.isEncrypted && updatedMsg.type === 'TEXT') {
@@ -474,7 +479,6 @@ export const useChatStore = create<ChatState>()(
             }
           });
         });
-        set({ offlineQueue: [] });
       }
     });
 
@@ -848,6 +852,24 @@ export const useChatStore = create<ChatState>()(
       set((state) => ({
         chats: state.chats.map(c => c.id === chat.id ? chat : c)
       }));
+    });
+
+    socket.on('user-updated', ({ userId, publicKey }) => {
+      set((state) => {
+        return {
+          chats: state.chats.map(chat => {
+            const hasParticipant = chat.participants?.some((p: any) => p.userId === userId);
+            if (!hasParticipant) return chat;
+            
+            return {
+              ...chat,
+              participants: chat.participants.map((p: any) => 
+                p.userId === userId ? { ...p, user: { ...p.user, publicKey } } : p
+              )
+            };
+          })
+        };
+      });
     });
 
     socket.on('chat-deleted', ({ chatId }) => {
@@ -1370,8 +1392,13 @@ export const useChatStore = create<ChatState>()(
     };
 
     if (socket && socket.connected) {
-      socket.emit('send-message', payload, (response: any) => {
-        if (response && response.message) {
+      // Use socket.timeout to detect silent network drops
+      socket.timeout(5000).emit('send-message', payload, (err: any, response: any) => {
+        if (err) {
+          // Timeout occurred, assume offline
+          console.log("Socket emit timed out. Pushing to offline queue.", err);
+          set(state => ({ offlineQueue: [...(state.offlineQueue || []), payload] }));
+        } else if (response && response.message) {
           const updatedMsg = { ...response.message, tempId: tempId };
           
           // CRITICAL FIX: The server sends back the encrypted ciphertext in `response.message.content`.

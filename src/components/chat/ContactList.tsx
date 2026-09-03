@@ -194,7 +194,7 @@ export function ContactList({ isOpen, onClose, isAddingMembers = false }: Contac
                     <div className="relative mr-4 shrink-0">
                       <Avatar src={contact.profilePicture} fallback={contact.name || contact.phoneNumber} size="lg" />
                       {isOnline && (
-                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#25D366] rounded-full border-2 border-surface z-10" />
+                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 nexus-gradient rounded-full border-2 border-surface z-10" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">

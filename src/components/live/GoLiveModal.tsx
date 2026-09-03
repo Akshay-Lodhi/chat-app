@@ -86,7 +86,7 @@ export function GoLiveModal({ isOpen, onClose }: GoLiveModalProps) {
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-surface-border bg-surface-hover/50">
             <div className="flex items-center space-x-2">
-              <div className="p-2 rounded-full bg-[#25D366]/20 text-[#25D366]">
+              <div className="p-2 rounded-full nexus-gradient/20 text-blue-400">
                 <Radio size={20} className="animate-pulse" />
               </div>
               <h2 className="text-xl font-bold text-text-primary">Go Live</h2>
@@ -128,7 +128,7 @@ export function GoLiveModal({ isOpen, onClose }: GoLiveModalProps) {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="What is your live stream about?"
-                  className="w-full bg-chat-bg border border-surface-border text-text-primary pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:border-[#25D366] transition-colors text-sm"
+                  className="w-full bg-chat-bg border border-surface-border text-text-primary pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:border-blue-500 transition-colors text-sm"
                 />
                 {title && (
                   <button
@@ -155,7 +155,7 @@ export function GoLiveModal({ isOpen, onClose }: GoLiveModalProps) {
                     onClick={() => setCategory(cat)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       category === cat 
-                        ? 'bg-[#25D366] text-black font-bold shadow-[0_0_12px_rgba(37,211,102,0.4)]' 
+                        ? 'nexus-gradient text-black font-bold shadow-[0_0_12px_rgba(59,130,246,0.4)]' 
                         : 'bg-surface-hover text-text-secondary hover:text-text-primary border border-surface-border'
                     }`}
                   >
@@ -169,7 +169,7 @@ export function GoLiveModal({ isOpen, onClose }: GoLiveModalProps) {
             <button
               type="submit"
               disabled={isStarting || !title.trim()}
-              className="w-full py-3.5 bg-gradient-to-r from-[#25D366] to-[#1EBE5D] text-black font-extrabold text-base rounded-2xl shadow-lg hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+              className="w-full py-3.5 nexus-gradient text-black font-extrabold text-base rounded-2xl shadow-lg hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
             >
               <Radio size={20} />
               <span>{isStarting ? 'Starting Broadcast...' : 'Start Live Broadcast'}</span>

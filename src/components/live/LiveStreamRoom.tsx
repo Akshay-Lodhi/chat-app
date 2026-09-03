@@ -479,7 +479,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
                 <Avatar 
                   src={currentStream.streamerPfp} 
                   fallback={currentStream.streamerUsername} 
-                  className="w-28 h-28 border-4 border-[#25D366] shadow-[0_0_30px_rgba(37,211,102,0.4)] animate-pulse"
+                  className="w-28 h-28 border-4 border-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.4)] animate-pulse"
                 />
                 <span className="absolute bottom-0 right-0 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full border-2 border-black">
                   LIVE
@@ -507,7 +507,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-[#25D366] text-black font-semibold text-xs px-4 py-2 rounded-full shadow-lg flex items-center space-x-2"
+            className="absolute top-20 left-1/2 -translate-x-1/2 z-50 nexus-gradient text-black font-semibold text-xs px-4 py-2 rounded-full shadow-lg flex items-center space-x-2"
           >
             <Check size={16} />
             <span>Live stream link copied to clipboard!</span>
@@ -554,7 +554,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
                 "ml-2 px-3.5 py-1.5 rounded-full text-xs font-black transition-all active:scale-95 shrink-0",
                 isFollowing 
                   ? "bg-white/10 text-white/60 border border-white/10" 
-                  : "bg-[#25D366] text-black shadow-[0_0_12px_rgba(37,211,102,0.3)] hover:scale-105"
+                  : "nexus-gradient text-black shadow-[0_0_12px_rgba(59,130,246,0.3)] hover:scale-105"
               )}
             >
               {isFollowing ? "Following" : "Follow"}
@@ -606,23 +606,31 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
       {/* ==================================================== */}
       <div className="absolute right-4 bottom-24 z-20 pointer-events-none w-16 h-64 flex flex-col justify-end items-center overflow-hidden">
         <AnimatePresence>
-          {reactions.map((react) => (
-            <motion.div
-              key={react.id}
-              initial={{ opacity: 1, y: 30, scale: 0.6, x: (Math.random() - 0.5) * 30 }}
-              animate={{ 
-                opacity: [1, 1, 0], 
-                y: -240, 
-                scale: [0.6, 1.2, 0.9],
-                x: [(Math.random() - 0.5) * 20, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20]
-              }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 2.2, ease: 'easeOut' }}
-              className="absolute text-3xl filter drop-shadow-[0_0_10px_rgba(255,0,80,0.6)]"
-            >
-              {react.emoji}
-            </motion.div>
-          ))}
+          {reactions.map((react) => {
+            const hue = (react.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) * 137) % 360;
+            return (
+              <motion.div
+                key={react.id}
+                initial={{ opacity: 1, y: 30, scale: 0.6, x: (Math.random() - 0.5) * 30 }}
+                animate={{ 
+                  opacity: [1, 1, 0], 
+                  y: -240, 
+                  scale: [0.6, 1.2, 0.9],
+                  x: [(Math.random() - 0.5) * 20, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20]
+                }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 2.2, ease: 'easeOut' }}
+                className="absolute text-3xl"
+                style={{
+                  filter: react.emoji === '❤️' || react.emoji === '💖' 
+                    ? `hue-rotate(${hue}deg) drop-shadow(0 0 10px rgba(255,0,80,0.6))`
+                    : 'drop-shadow(0 0 10px rgba(255,255,255,0.4))'
+                }}
+              >
+                {react.emoji}
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
 
@@ -640,7 +648,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
               className={cn(
                 "flex items-start space-x-2.5 max-w-[88%]",
                 comment.isPinned 
-                  ? "bg-black/60 border border-[#25D366]/40 p-2.5 rounded-2xl backdrop-blur-md shadow-lg" 
+                  ? "bg-black/60 border border-blue-500/40 p-2.5 rounded-2xl backdrop-blur-md shadow-lg" 
                   : (comment as any).isGift
                     ? "bg-gradient-to-r from-yellow-500/30 to-amber-500/30 border border-yellow-500/40 px-3.5 py-2 rounded-2xl backdrop-blur-md shadow-[0_0_15px_rgba(234,179,8,0.2)]"
                     : (comment as any).isFollow
@@ -659,8 +667,8 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
                     {comment.username}
                   </span>
                   {comment.isPinned && (
-                    <span className="text-[10px] text-[#25D366] font-bold flex items-center space-x-0.5">
-                      <Pin size={10} className="fill-[#25D366]" />
+                    <span className="text-[10px] text-blue-400 font-bold flex items-center space-x-0.5">
+                      <Pin size={10} className="fill-blue-400" />
                       <span>PINNED</span>
                     </span>
                   )}
@@ -704,7 +712,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             </div>
 
             <div className="text-xs text-white/70 font-mono flex items-center space-x-1">
-              <Radio size={14} className="text-[#25D366] animate-pulse" />
+              <Radio size={14} className="text-blue-400 animate-pulse" />
               <span>Broadcasting Live</span>
             </div>
           </div>
@@ -726,7 +734,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             {inputText.trim() && (
               <button 
                 type="submit"
-                className="absolute right-3.5 text-[#25D366] font-bold text-xs hover:opacity-80 transition-opacity"
+                className="absolute right-3.5 text-blue-400 font-bold text-xs hover:opacity-80 transition-opacity"
               >
                 Send
               </button>
@@ -781,7 +789,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
                 <button 
                   type="button"
                   onClick={() => setShowGiftMenu(prev => !prev)}
-                  className={cn("hover:opacity-80 transition-transform active:scale-125 cursor-pointer", showGiftMenu ? "text-[#25D366]" : "text-white")}
+                  className={cn("hover:opacity-80 transition-transform active:scale-125 cursor-pointer", showGiftMenu ? "text-blue-400" : "text-white")}
                   title="Send Gift"
                 >
                   <Gift size={26} />
@@ -848,7 +856,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
             >
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <h3 className="text-white font-bold text-base flex items-center space-x-2">
-                  <Eye size={18} className="text-[#25D366]" />
+                  <Eye size={18} className="text-blue-400" />
                   <span>Live Viewers ({activeViewers.length})</span>
                 </h3>
                 <button 
@@ -887,7 +895,7 @@ export function LiveStreamRoom({ stream, onClose }: LiveStreamRoomProps) {
                               onClick={() => isMuted ? unmuteUser(viewer.id) : muteUser(viewer.id)}
                               className={cn(
                                 "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all",
-                                isMuted ? "bg-emerald-500/20 text-[#25D366] border border-emerald-500/30" : "bg-white/5 text-white/80 hover:bg-white/10 border border-white/10"
+                                isMuted ? "bg-emerald-500/20 text-blue-400 border border-emerald-500/30" : "bg-white/5 text-white/80 hover:bg-white/10 border border-white/10"
                               )}
                             >
                               {isMuted ? 'Unmute' : 'Mute'}

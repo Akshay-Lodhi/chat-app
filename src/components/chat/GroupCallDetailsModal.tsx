@@ -97,7 +97,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
           {/* Header Bar */}
           <div className="flex items-center justify-between p-4 border-b border-surface-border/40 bg-background shrink-0">
             <div className="flex items-center space-x-2">
-              <Users size={18} className="text-[#25D366]" />
+              <Users size={18} className="text-blue-400" />
               <h3 className="font-extrabold text-base text-text-primary">Group Call Info</h3>
             </div>
 
@@ -116,15 +116,15 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
               {/* Avatar / Image */}
               <div className="relative mb-3">
                 {groupPfp ? (
-                  <img src={groupPfp} alt={groupName} className="w-20 h-20 rounded-full object-cover border-2 border-[#25D366]/40 shadow-md" />
+                  <img src={groupPfp} alt={groupName} className="w-20 h-20 rounded-full object-cover border-2 border-blue-500/40 shadow-md" />
                 ) : (
-                  <div className="w-20 h-20 rounded-full bg-[#005c4b] border-2 border-[#25D366]/40 flex items-center justify-center text-[#25D366] text-xl font-bold shadow-md">
+                  <div className="w-20 h-20 rounded-full bg-[#005c4b] border-2 border-blue-500/40 flex items-center justify-center text-blue-400 text-xl font-bold shadow-md">
                     <Users size={36} />
                   </div>
                 )}
                 <div className={cn(
                   "absolute -bottom-1 -right-1 p-2 rounded-full border-2 border-[#1f2c34]",
-                  call.isUnanswered ? "bg-red-500/20 text-red-500" : "bg-[#25D366]/20 text-[#25D366]"
+                  call.isUnanswered ? "bg-red-500/20 text-red-500" : "nexus-gradient/20 text-blue-400"
                 )}>
                   {isVideo ? <Video size={16} /> : <Phone size={16} />}
                 </div>
@@ -142,7 +142,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                   "px-3 py-1 rounded-full text-xs font-bold border flex items-center space-x-1",
                   call.isUnanswered 
                     ? "bg-red-500/10 text-red-400 border-red-500/30"
-                    : "bg-[#25D366]/10 text-[#25D366] border-[#25D366]/30"
+                    : "nexus-gradient/10 text-blue-400 border-blue-500/30"
                 )}>
                   {call.isOutgoing ? (
                     <ArrowUpRight size={13} className="mr-1" />
@@ -154,7 +154,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
 
                 {call.duration && call.duration > 0 ? (
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-background text-text-primary border border-surface-border/60 flex items-center space-x-1">
-                    <Clock size={12} className="text-[#25D366] mr-1" />
+                    <Clock size={12} className="text-blue-400 mr-1" />
                     <span>Duration: {Math.floor(call.duration / 60)}m {call.duration % 60}s</span>
                   </span>
                 ) : null}
@@ -166,7 +166,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
               {/* Joined Section */}
               {joinedUsers.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#25D366] mb-2 flex items-center space-x-1.5">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-blue-400 mb-2 flex items-center space-x-1.5">
                     <CheckCircle2 size={14} />
                     <span>Joined Call ({joinedUsers.length})</span>
                   </h4>
@@ -178,7 +178,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                           {u.profilePicture ? (
                             <img src={u.profilePicture} alt="" className="w-9 h-9 rounded-full object-cover" />
                           ) : (
-                            <div className="w-9 h-9 rounded-full bg-[#005c4b] text-[#25D366] font-bold text-xs flex items-center justify-center border border-[#25D366]/30">
+                            <div className="w-9 h-9 rounded-full bg-[#005c4b] text-blue-400 font-bold text-xs flex items-center justify-center border border-blue-500/30">
                               {(u.name || 'U').substring(0, 2).toUpperCase()}
                             </div>
                           )}
@@ -189,7 +189,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                             <p className="text-[10px] text-text-tertiary">{u.statusLabel}</p>
                           </div>
                         </div>
-                        <span className="text-[10px] bg-[#25D366]/20 text-[#25D366] px-2.5 py-0.5 rounded-full font-bold">
+                        <span className="text-[10px] nexus-gradient/20 text-blue-400 px-2.5 py-0.5 rounded-full font-bold">
                           Connected
                         </span>
                       </div>
@@ -244,7 +244,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                   initiateCall('AUDIO', call.chatId, [call.otherUser.id]);
                 }
               }}
-              className="flex-1 py-3 rounded-full bg-[#005c4b] hover:bg-[#005c4b]/80 text-[#25D366] font-bold text-xs flex items-center justify-center space-x-2 transition-all border border-[#25D366]/30 cursor-pointer shadow-sm active:scale-95"
+              className="flex-1 py-3 rounded-full bg-[#005c4b] hover:bg-[#005c4b]/80 text-blue-400 font-bold text-xs flex items-center justify-center space-x-2 transition-all border border-blue-500/30 cursor-pointer shadow-sm active:scale-95"
             >
               <Phone size={16} />
               <span>Voice Call Back</span>
@@ -257,7 +257,7 @@ export function GroupCallDetailsModal({ isOpen, onClose, call }: GroupCallDetail
                   initiateCall('VIDEO', call.chatId, [call.otherUser.id]);
                 }
               }}
-              className="flex-1 py-3 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold text-xs flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer active:scale-95"
+              className="flex-1 py-3 rounded-full nexus-gradient hover:bg-[#20bd5a] text-black font-extrabold text-xs flex items-center justify-center space-x-2 transition-all shadow-md cursor-pointer active:scale-95"
             >
               <Video size={16} />
               <span>Video Call Back</span>

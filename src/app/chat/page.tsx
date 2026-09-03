@@ -8,7 +8,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { authClient } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'framer-motion';
-import { Pin } from 'lucide-react';
+import { Pin, Lock } from 'lucide-react';
 
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ContactList } from '@/components/chat/ContactList';
@@ -92,11 +92,12 @@ export default function ChatPage() {
         const targetScrollTop = parentScrollable.scrollTop + (elRect.top - parentRect.top) - (parentScrollable.clientHeight / 2) + (elRect.height / 2);
         parentScrollable.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
       }
-
-      el.classList.add('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/40', 'transition-all', 'duration-300');
+    }
+    if (el) {
+      el.classList.add('ring-2', 'ring-purple-500', 'bg-purple-500/20', 'transition-all', 'duration-300');
       setTimeout(() => {
-        el.classList.remove('ring-2', 'ring-[#25D366]', 'bg-[#25D366]/40', 'transition-all', 'duration-300');
-      }, 2500);
+        el.classList.remove('ring-2', 'ring-purple-500', 'bg-purple-500/20', 'transition-all', 'duration-300');
+      }, 2000);
     }
   };
 
@@ -329,22 +330,17 @@ export default function ChatPage() {
             />
 
             {pinnedMessage && (
-              <div 
-                className="bg-[#182229]/95 backdrop-blur border-b border-surface-border px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-surface transition-colors shrink-0 select-none active:scale-[0.99]"
+               <div className="bg-surface/90 backdrop-blur-md px-4 py-2 flex items-center justify-between border-b border-surface-border shadow-sm cursor-pointer hover:bg-surface transition-colors"
                 onClick={() => scrollToPinnedMessage(pinnedMessage.id)}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  scrollToPinnedMessage(pinnedMessage.id);
-                }}
               >
-                <Pin size={16} className="text-[#25D366] mr-3 shrink-0 rotate-45" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-[#25D366] mb-0.5">Pinned Message</p>
-                  <p className="text-sm text-text-primary truncate">
-                    {pinnedMessage.content || (pinnedMessage.type === 'IMAGE' ? 'Photo' : 'Media')}
+                <Pin size={16} className="text-purple-400 mr-3 shrink-0 rotate-45" />
+                <div className="flex-1 truncate">
+                  <p className="text-xs font-semibold text-purple-400 mb-0.5">Pinned Message</p>
+                  <p className="text-sm text-text-primary truncate font-medium">
+                    {messages[activeChatId]?.find((m: any) => m.id === pinnedMessage.id)?.content || 'Pinned message'}
                   </p>
                 </div>
-                <span className="text-xs text-[#25D366] font-semibold shrink-0 ml-2">Tap to view</span>
+                <span className="text-xs text-purple-400 font-semibold shrink-0 ml-2">Tap to view</span>
               </div>
             )}
 
@@ -369,15 +365,26 @@ export default function ChatPage() {
             />
           </div>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center">
-            <div className="max-w-md text-center flex flex-col items-center space-y-6 opacity-70">
-              <div className="w-32 h-32 flex items-center justify-center">
-                <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain drop-shadow-2xl" />
+          <div className="flex flex-1 flex-col items-center justify-center relative bg-gradient-to-b from-chat-bg to-surface overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.1),transparent_50%)]" />
+            <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
+            
+            <div className="max-w-md text-center flex flex-col items-center z-10 p-8 rounded-3xl bg-surface-hover/30 backdrop-blur-xl border border-white/5 shadow-2xl">
+              <div className="w-32 h-32 flex items-center justify-center mb-8 relative">
+                <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 to-purple-500/20 rounded-full blur-2xl animate-pulse" />
+                <img src="/logo.svg" alt="NexusChat" className="w-full h-full object-contain relative z-10 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
               </div>
-              <h1 className="text-3xl font-light tracking-tight text-text-primary">NexusChat Web</h1>
-              <p className="text-text-secondary leading-relaxed">
-                Send and receive messages seamlessly across your devices.
+              <h1 className="text-4xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 mb-4">
+                NexusChat Web
+              </h1>
+              <p className="text-text-secondary text-lg leading-relaxed font-light">
+                Experience seamless, end-to-end encrypted messaging across all your devices.
               </p>
+              
+              <div className="mt-10 flex items-center space-x-2 text-sm text-text-tertiary">
+                <Lock size={14} />
+                <span>End-to-End Encrypted</span>
+              </div>
             </div>
           </div>
         )}
@@ -408,22 +415,17 @@ export default function ChatPage() {
           />
 
           {pinnedMessage && (
-            <div 
-              className="bg-[#182229]/95 backdrop-blur border-b border-surface-border px-4 py-2 flex items-center shadow-md z-10 cursor-pointer hover:bg-surface transition-colors shrink-0 select-none active:scale-[0.99]"
+            <div className="bg-surface/90 backdrop-blur-md px-4 py-2 flex items-center justify-between border-b border-surface-border shadow-sm cursor-pointer hover:bg-surface transition-colors mt-14"
               onClick={() => scrollToPinnedMessage(pinnedMessage.id)}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                scrollToPinnedMessage(pinnedMessage.id);
-              }}
             >
-              <Pin size={16} className="text-[#25D366] mr-3 shrink-0 rotate-45" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#25D366] mb-0.5">Pinned Message</p>
-                <p className="text-sm text-text-primary truncate">
-                  {pinnedMessage.content || (pinnedMessage.type === 'IMAGE' ? 'Photo' : 'Media')}
+              <Pin size={16} className="text-purple-400 mr-3 shrink-0 rotate-45" />
+              <div className="flex-1 truncate">
+                <p className="text-xs font-semibold text-purple-400 mb-0.5">Pinned Message</p>
+                <p className="text-sm text-text-primary truncate font-medium">
+                  {messages[activeChatId]?.find((m: any) => m.id === pinnedMessage.id)?.content || 'Pinned message'}
                 </p>
               </div>
-              <span className="text-xs text-[#25D366] font-semibold shrink-0 ml-2">Tap to view</span>
+              <span className="text-xs text-purple-400 font-semibold shrink-0 ml-2">Tap to view</span>
             </div>
           )}
 

@@ -277,7 +277,7 @@ export const StoryViewerModal = ({ storyGroup, onClose }: StoryViewerModalProps)
           >
             <div className="p-4 border-b border-surface-border/50 flex items-center justify-between sticky top-0 bg-surface/90 backdrop-blur-md z-10">
               <div className="flex items-center gap-3">
-                <Eye size={20} className="text-[#25D366]" />
+                <Eye size={20} className="text-blue-400" />
                 <h3 className="text-lg font-bold">Viewed by {currentStory.views?.length || 0}</h3>
               </div>
               <button 
@@ -304,7 +304,7 @@ export const StoryViewerModal = ({ storyGroup, onClose }: StoryViewerModalProps)
                           {v.profilePicture ? (
                             <img src={v.profilePicture} alt={v.name} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xl font-bold bg-gradient-to-br from-[#25D366]/20 to-[#128C7E]/20 text-[#25D366]">
+                            <div className="w-full h-full flex items-center justify-center text-xl font-bold bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-blue-400">
                               {v.name?.[0]?.toUpperCase()}
                             </div>
                           )}

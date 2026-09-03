@@ -279,7 +279,7 @@ export function MessageComposer({
       style={{
         paddingLeft: 'max(12px, env(safe-area-inset-left))',
         paddingRight: 'max(12px, env(safe-area-inset-right))',
-        paddingBottom: 'max(20px, env(safe-area-inset-bottom))'
+        paddingBottom: 'max(32px, env(safe-area-inset-bottom))'
       }}
     >
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />

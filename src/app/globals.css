@@ -80,8 +80,8 @@ body {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -100,6 +100,16 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Premium Nexus Gradients */
+.nexus-gradient {
+  background-image: linear-gradient(to right, #3b82f6, #a855f7, #ec4899);
+}
+.text-nexus-gradient {
+  background-image: linear-gradient(to right, #60a5fa, #c084fc, #f472b6);
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 /* Glassmorphism utilities */

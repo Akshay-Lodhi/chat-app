@@ -30,11 +30,11 @@ export function InAppNotificationToast() {
 
   const getMediaPreview = () => {
     if (type === 'IMAGE') return <><ImageIcon size={14} className="mr-1 text-blue-400 shrink-0 inline" /> Photo</>;
-    if (type === 'VIDEO') return <><Video size={14} className="mr-1 text-[#25D366] shrink-0 inline" /> Video</>;
+    if (type === 'VIDEO') return <><Video size={14} className="mr-1 text-blue-400 shrink-0 inline" /> Video</>;
     if (type === 'AUDIO') return <><Mic size={14} className="mr-1 text-amber-400 shrink-0 inline" /> Voice message</>;
     if (type === 'LOCATION') return <><MapPin size={14} className="mr-1 text-red-400 shrink-0 inline" /> Location</>;
     if (type === 'DOCUMENT') return <><FileText size={14} className="mr-1 text-indigo-400 shrink-0 inline" /> Document</>;
-    if (type === 'CALL_LOG') return <><Phone size={14} className="mr-1 text-[#25D366] shrink-0 inline" /> Call</>;
+    if (type === 'CALL_LOG') return <><Phone size={14} className="mr-1 text-blue-400 shrink-0 inline" /> Call</>;
     return text || 'New message';
   };
 
@@ -46,7 +46,7 @@ export function InAppNotificationToast() {
         exit={{ opacity: 0, y: -50, scale: 0.95 }}
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
         onClick={handleClick}
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] w-[92%] max-w-md bg-surface/95 border border-[#25D366]/40 backdrop-blur-xl rounded-2xl p-3.5 shadow-2xl cursor-pointer hover:bg-surface-hover transition-colors select-none text-text-primary"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] w-[92%] max-w-md bg-surface/95 border border-blue-500/40 backdrop-blur-xl rounded-2xl p-3.5 shadow-2xl cursor-pointer hover:bg-surface-hover transition-colors select-none text-text-primary"
       >
         <div className="flex items-center space-x-3 min-w-0">
           {/* Sender / Group Avatar */}
@@ -54,12 +54,12 @@ export function InAppNotificationToast() {
             {senderPfp ? (
               <img src={senderPfp} alt={senderName} className="w-11 h-11 rounded-full object-cover border border-surface-border/60 shadow-md" />
             ) : (
-              <div className="w-11 h-11 rounded-full bg-[#005c4b] text-[#25D366] font-bold text-sm flex items-center justify-center border border-[#25D366]/30 shadow-md">
+              <div className="w-11 h-11 rounded-full bg-[#005c4b] text-blue-400 font-bold text-sm flex items-center justify-center border border-blue-500/30 shadow-md">
                 {(senderName || 'U').substring(0, 2).toUpperCase()}
               </div>
             )}
 
-            <div className="absolute -bottom-0.5 -right-0.5 bg-[#25D366] text-black p-1 rounded-full shadow-sm">
+            <div className="absolute -bottom-0.5 -right-0.5 nexus-gradient text-black p-1 rounded-full shadow-sm">
               <MessageSquare size={10} strokeWidth={3} />
             </div>
           </div>
@@ -70,12 +70,12 @@ export function InAppNotificationToast() {
               <h4 className="font-extrabold text-sm text-text-primary truncate flex items-center space-x-1.5">
                 <span>{isGroup ? groupName : senderName}</span>
                 {isGroup && (
-                  <span className="text-[10px] bg-[#005c4b]/80 text-[#25D366] px-1.5 py-0.2 rounded-md font-medium border border-[#25D366]/30">
+                  <span className="text-[10px] bg-[#005c4b]/80 text-blue-400 px-1.5 py-0.2 rounded-md font-medium border border-blue-500/30">
                     Group
                   </span>
                 )}
               </h4>
-              <span className="text-[10px] text-[#25D366] font-semibold">Just now</span>
+              <span className="text-[10px] text-blue-400 font-semibold">Just now</span>
             </div>
 
             <p className="text-xs text-text-secondary truncate mt-0.5 flex items-center">
