@@ -327,22 +327,29 @@ export const transcribeVoiceNote = async (messageId: string): Promise<string> =>
   return text;
 };
 
-export const summarizeChatMessages = async (chatId: string, limit = 50) => {
+export const summarizeChatMessages = async (chatId: string, limit = 50, clientMessages?: any[]) => {
   const chat = await prisma.chat.findUnique({
     where: { id: chatId },
     select: { name: true, isGroup: true }
   });
 
-  const messages = await prisma.message.findMany({
-    where: {
-      chatId,
-      type: { not: 'SYSTEM' as any },
-      deletedForEveryone: false
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    include: { sender: { select: { name: true } } }
-  });
+  let messages = clientMessages || [];
+  
+  if (!clientMessages || clientMessages.length === 0) {
+    messages = await prisma.message.findMany({
+      where: {
+        chatId,
+        type: { not: 'SYSTEM' as any },
+        deletedForEveryone: false
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: { sender: { select: { name: true } } }
+    });
+  } else {
+    // Trim clientMessages to the requested limit just in case
+    messages = messages.slice(0, limit);
+  }
 
   if (messages.length === 0) {
     return {

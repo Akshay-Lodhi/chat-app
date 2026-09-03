@@ -345,7 +345,8 @@ export const summarizeChatController = async (req: AuthRequest, res: Response) =
   try {
     const chatId = req.params.chatId as string;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-    const summary = await summarizeChatMessages(chatId, limit);
+    const clientMessages = req.body.messages;
+    const summary = await summarizeChatMessages(chatId, limit, clientMessages);
     res.json(summary);
   } catch (error: any) {
     console.error('Error summarizing chat:', error);
@@ -414,11 +415,27 @@ export const translateMessageController = async (req: AuthRequest, res: Response
       }
     } catch (e) {
       // Fallback to Google Translate free API if self-hosted libretranslate is not running locally
-      console.warn('LibreTranslate failed, falling back to Google Translate API...', e);
-      const resFallback = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLanguage}&dt=t&q=${encodeURIComponent(message)}`);
-      const dataFallback = await resFallback.json();
-      if (dataFallback && dataFallback[0]) {
-        translatedText = dataFallback[0].map((chunk: any) => chunk[0]).join('');
+      console.warn('LibreTranslate failed, falling back to Google Translate API...');
+      try {
+        const resFallback = await fetch(
+          `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLanguage}&dt=t&q=${encodeURIComponent(message)}`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+            }
+          }
+        );
+        const textFallback = await resFallback.text();
+        try {
+          const dataFallback = JSON.parse(textFallback);
+          if (dataFallback && dataFallback[0]) {
+            translatedText = dataFallback[0].map((chunk: any) => chunk[0]).join('');
+          }
+        } catch (e) {
+          console.error('Failed to parse Google Translate response:', textFallback.substring(0, 200));
+        }
+      } catch (e: any) {
+        console.error('Google Translate API fetch failed:', e);
       }
     }
 
