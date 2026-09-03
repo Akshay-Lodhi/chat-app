@@ -533,7 +533,7 @@ export const useChatStore = create<ChatState>()(
           if (myPriv && myUserId) {
             const payload = JSON.parse(message.content);
             const { decryptE2EEPayload } = require('@/lib/encryption');
-            const senderPub = message.sender?.publicKey;
+            const senderPub = (message.senderId === myUserId ? authState.publicKey : null) || message.sender?.publicKey || get().chats.find((c: any) => c.id === message.chatId)?.participants?.find((p: any) => p.userId === message.senderId)?.user?.publicKey;
             
             if (senderPub) {
               const decrypted = decryptE2EEPayload(payload, myUserId, myPriv, senderPub);
@@ -603,7 +603,7 @@ export const useChatStore = create<ChatState>()(
             const myUserId = authState.user?.id;
             
             // Try to get sender public key from the message, or fallback to chat participants
-            let senderPub = updatedMessage.sender?.publicKey;
+            let senderPub = (updatedMessage.senderId === myUserId ? authState.publicKey : null) || updatedMessage.sender?.publicKey || get().chats.find((c: any) => c.id === updatedMessage.chatId)?.participants?.find((p: any) => p.userId === updatedMessage.senderId)?.user?.publicKey;
             if (!senderPub) {
               const chat = get().chats.find(c => c.id === updatedMessage.chatId);
               const participant = chat?.participants?.find(p => p.userId === updatedMessage.senderId);
@@ -1006,7 +1006,7 @@ export const useChatStore = create<ChatState>()(
 
               if (m.isEncrypted && m.content && m.type === 'TEXT') {
                 if (myPriv && myUserId) {
-                  const senderPub = m.sender?.publicKey;
+                  const senderPub = (m.senderId === myUserId ? authState.publicKey : null) || m.sender?.publicKey || get().chats.find((c: any) => c.id === chatId)?.participants?.find((p: any) => p.userId === m.senderId)?.user?.publicKey;
                   if (senderPub) {
                     try {
                       const payload = JSON.parse(m.content);
@@ -1545,3 +1545,5 @@ export const useChatStore = create<ChatState>()(
     offlineQueue: state.offlineQueue
   }),
 }));
+
+

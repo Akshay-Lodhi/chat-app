@@ -386,7 +386,7 @@ export default function ChatPage() {
       {/* Mobile Active Chat View (overlay on mobile when activeChatId is set) */}
       {activeChatId && (
         <div 
-          className={cn("md:hidden fixed inset-0 z-50 flex flex-col overflow-hidden transition-colors duration-300", getWallpaperClass(activeWallpaper.wallpaper))}
+          className={cn("md:hidden fixed top-0 left-0 right-0 h-[100dvh] z-50 flex flex-col overflow-hidden transition-colors duration-300", getWallpaperClass(activeWallpaper.wallpaper))}
           style={activeWallpaper.wallpaper === 'custom' && activeWallpaper.customUrl ? { backgroundImage: `url(${activeWallpaper.customUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
         >
           <ChatHeader 
