@@ -278,8 +278,7 @@ export function MessageComposer({
       className="bg-surface/70 backdrop-blur-2xl py-3 px-3 sm:px-4 relative shrink-0 z-20 w-full box-border border-t border-surface-border/50 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] transition-colors"
       style={{
         paddingLeft: 'max(12px, env(safe-area-inset-left))',
-        paddingRight: 'max(12px, env(safe-area-inset-right))',
-        paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)'
+        paddingRight: 'max(12px, env(safe-area-inset-right))'
       }}
     >
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />

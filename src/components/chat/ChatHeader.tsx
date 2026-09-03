@@ -83,6 +83,20 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
     };
   }, [isMessageSearchOpen, onSearchChange, setIsMessageSearchOpen]);
 
+  useEffect(() => {
+    const handleMenuClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleMenuClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleMenuClickOutside);
+    };
+  }, [menuOpen]);
+
   const toggleMenu = (e: React.MouseEvent) => {
     setMenuOpen(!menuOpen);
   };
@@ -215,17 +229,12 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
             <AnimatePresence>
               {menuOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-[9998]" 
-                    onMouseDown={(e) => { e.stopPropagation(); setMenuOpen(false); }}
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
-                  />
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-                    className="absolute top-12 right-0 w-56 bg-surface/90 backdrop-blur-xl border border-surface-border/50 rounded-2xl shadow-2xl py-2 z-[9999] overflow-hidden"
+                    className="absolute top-12 right-0 w-56 bg-background border border-surface-border/50 rounded-2xl shadow-2xl py-2 z-[9999] overflow-hidden"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                   >

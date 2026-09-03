@@ -103,7 +103,7 @@ export function ContactList({ isOpen, onClose, isAddingMembers = false }: Contac
           animate={{ x: 0 }}
           exit={{ x: '-100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="absolute top-0 left-0 w-full md:w-[30%] md:min-w-[350px] max-w-full md:max-w-[450px] h-full bg-surface z-[10000] flex flex-col shadow-2xl border-r border-surface-border"
+          className="absolute top-0 left-0 w-full md:w-[30%] md:min-w-[350px] max-w-full md:max-w-[450px] h-full bg-background z-[10000] flex flex-col shadow-2xl border-r border-surface-border"
         >
           {/* Header */}
           <div className="h-24 bg-surface-hover flex items-end px-4 pb-4 shrink-0">

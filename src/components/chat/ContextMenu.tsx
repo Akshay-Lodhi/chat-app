@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply, CornerUpRight, Copy, Trash2, X, Star, StarOff, Pin, PinOff, Info, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,11 @@ interface ContextMenuProps {
 
 export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onCopy, onEdit, onStar, isStarred, onPin, isPinned, onInfo, onDelete, canDelete, onTranslate }: ContextMenuProps) {
   const [showLanguages, setShowLanguages] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Use a fallback position if it's somehow not available but isOpen is true
   const menuPos = position || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
@@ -32,14 +38,16 @@ export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onC
   
   // Determine vertical positioning based on available space
   const menuHeight = 400; // Approximate max height of the menu
-  const spaceBelow = window.innerHeight - menuPos.y;
+  const spaceBelow = typeof window !== 'undefined' ? window.innerHeight - menuPos.y : 0;
   const isSpaceBelow = spaceBelow >= menuHeight;
   
   const verticalStyle = isSpaceBelow 
     ? { top: menuPos.y }
-    : { bottom: Math.max(20, window.innerHeight - menuPos.y) };
+    : { bottom: Math.max(20, typeof window !== 'undefined' ? window.innerHeight - menuPos.y : 0) };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -63,7 +71,7 @@ export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onC
               left: Math.max(10, adjustedX),
               ...verticalStyle
             }}
-            className="z-50 w-48 bg-surface border border-surface-border rounded-xl shadow-xl overflow-hidden py-1"
+            className="z-50 w-48 bg-background border border-surface-border rounded-xl shadow-xl overflow-hidden py-1"
           >
             {!showLanguages ? (
               <>
@@ -212,6 +220,7 @@ export function ContextMenu({ isOpen, onClose, position, onReply, onForward, onC
 
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
