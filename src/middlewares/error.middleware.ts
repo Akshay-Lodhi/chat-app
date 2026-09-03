@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/AppError';
+// @ts-ignore
 import { logger } from '../lib/logger';
 
 export const errorHandler = (
