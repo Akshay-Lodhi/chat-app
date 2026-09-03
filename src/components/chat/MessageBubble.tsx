@@ -1100,6 +1100,8 @@ export function MessageBubble({
                 <CheckCheck size={14} className="text-[#53bdeb]" />
               ) : (message.status || "SENT") === "DELIVERED" ? (
                 <CheckCheck size={14} className="text-text-secondary" />
+              ) : (message.status || "SENT") === "PENDING" ? (
+                <Clock size={11} className="text-text-secondary opacity-70" />
               ) : (
                 <Check size={14} className="text-text-secondary" />
               )}

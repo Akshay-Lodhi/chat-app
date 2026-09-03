@@ -62,6 +62,7 @@ export interface Message {
 
 interface ChatState {
   socket: Socket | null;
+  offlineQueue: any[];
   chats: Chat[];
   notificationToast: {
     id: string;
@@ -149,7 +150,8 @@ export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
       socket: null,
-  chats: [],
+      offlineQueue: [],
+      chats: [],
   activeChatId: null,
   activeTab: 'chats',
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -445,6 +447,35 @@ export const useChatStore = create<ChatState>()(
 
     socket.on('connect', () => {
       set({ isConnecting: false });
+
+      // Process offline queue
+      const queue = get().offlineQueue;
+      if (queue && queue.length > 0) {
+        queue.forEach(payload => {
+          socket.emit('send-message', payload, (response: any) => {
+            if (response && response.message) {
+              const updatedMsg = { ...response.message, tempId: payload.tempId };
+              
+              if (updatedMsg.isEncrypted && updatedMsg.type === 'TEXT') {
+                 const existingMsg = get().messages[payload.chatId]?.find(m => m.id === payload.tempId || m.tempId === payload.tempId);
+                 if (existingMsg) {
+                   updatedMsg.content = existingMsg.content;
+                 }
+              }
+              
+              set((state) => ({
+                messages: {
+                  ...state.messages,
+                  [payload.chatId]: (state.messages[payload.chatId] || []).map(m => 
+                    (m.id === payload.tempId || m.tempId === payload.tempId || m.id === response.message.id) ? updatedMsg : m
+                  )
+                }
+              }));
+            }
+          });
+        });
+        set({ offlineQueue: [] });
+      }
     });
 
     socket.on('initial-online-users', ({ onlineUserIds }: { onlineUserIds: string[] }) => {
@@ -1240,68 +1271,70 @@ export const useChatStore = create<ChatState>()(
 
   sendMessage: (chatId, content, type = 'TEXT', mediaUrl = null, replyToId = null, metadata = null) => {
     const { socket } = get();
+    // Optimistic update
+    let replyToObj = null;
+    if (replyToId) {
+      const msgs = get().messages[chatId] || [];
+      replyToObj = msgs.find(m => m.id === replyToId) || null;
+    }
+
+    const tempId = `temp_${Date.now()}`;
+    const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id || 'me';
+    let finalContent = content;
+    let isEncrypted = false;
+    
+    const currentPriv = require('@/store/useAuthStore').useAuthStore.getState().privateKey;
+    const chat = get().chats.find(c => c.id === chatId);
+    const participants = chat?.participants || [];
+    
+    if (currentPriv && type === 'TEXT' && content) {
+      const pKeys = participants.map(p => ({ userId: p.user?.id || p.userId, publicKey: p.user?.publicKey || '' }));
+      // Only encrypt if ALL other participants have a public key
+      const others = pKeys.filter(p => p.userId !== currentUserId);
+      const canEncrypt = others.length > 0 && others.every(p => p.publicKey);
+      const isAiMentioned = Boolean(content && /@(ai|nexusai)\b/i.test(content));
+      
+      if (canEncrypt && !isAiMentioned) {
+        const { createE2EEPayload } = require('@/lib/encryption');
+        // Add ourselves to the list so we can decrypt our own messages on other devices if keys sync
+        const encryptFor = [...others, { userId: currentUserId, publicKey: require('@/store/useAuthStore').useAuthStore.getState().publicKey }];
+        const payload = createE2EEPayload(content, encryptFor, currentPriv);
+        finalContent = JSON.stringify(payload);
+        isEncrypted = true;
+      }
+    }
+
+    const newMessage: Message = {
+      id: tempId,
+      tempId: tempId,
+      chatId,
+      senderId: currentUserId,
+      content: content, // UI shows plaintext immediately
+      type: type as any,
+      mediaUrl: mediaUrl,
+      replyToId,
+      replyTo: replyToObj,
+      createdAt: new Date().toISOString(),
+      status: 'PENDING',
+      metadata,
+      isEncrypted
+    };
+    
+    get().addMessage(chatId, newMessage);
+    
+    const payload = {
+      chatId,
+      content: finalContent, // Sending ciphertext to server
+      type,
+      mediaUrl,
+      replyToId,
+      tempId,
+      metadata,
+      isEncrypted
+    };
+
     if (socket && socket.connected) {
-      // Optimistic update
-      let replyToObj = null;
-      if (replyToId) {
-        const msgs = get().messages[chatId] || [];
-        replyToObj = msgs.find(m => m.id === replyToId) || null;
-      }
-
-      const tempId = `temp_${Date.now()}`;
-      const currentUserId = require('@/store/useAuthStore').useAuthStore.getState().user?.id || 'me';
-      let finalContent = content;
-      let isEncrypted = false;
-      
-      const currentPriv = require('@/store/useAuthStore').useAuthStore.getState().privateKey;
-      const chat = get().chats.find(c => c.id === chatId);
-      const participants = chat?.participants || [];
-      
-      if (currentPriv && type === 'TEXT' && content) {
-        const pKeys = participants.map(p => ({ userId: p.user?.id || p.userId, publicKey: p.user?.publicKey || '' }));
-        // Only encrypt if ALL other participants have a public key
-        const others = pKeys.filter(p => p.userId !== currentUserId);
-        const canEncrypt = others.length > 0 && others.every(p => p.publicKey);
-        const isAiMentioned = Boolean(content && /@(ai|nexusai)\b/i.test(content));
-        
-        if (canEncrypt && !isAiMentioned) {
-          const { createE2EEPayload } = require('@/lib/encryption');
-          // Add ourselves to the list so we can decrypt our own messages on other devices if keys sync
-          const encryptFor = [...others, { userId: currentUserId, publicKey: require('@/store/useAuthStore').useAuthStore.getState().publicKey }];
-          const payload = createE2EEPayload(content, encryptFor, currentPriv);
-          finalContent = JSON.stringify(payload);
-          isEncrypted = true;
-        }
-      }
-
-      const newMessage: Message = {
-        id: tempId,
-        tempId: tempId,
-        chatId,
-        senderId: currentUserId,
-        content: content, // UI shows plaintext immediately
-        type: type as any,
-        mediaUrl: mediaUrl,
-        replyToId,
-        replyTo: replyToObj,
-        createdAt: new Date().toISOString(),
-        status: 'PENDING',
-        metadata,
-        isEncrypted
-      };
-      
-      get().addMessage(chatId, newMessage);
-      
-      socket.emit('send-message', {
-        chatId,
-        content: finalContent, // Sending ciphertext to server
-        type,
-        mediaUrl,
-        replyToId,
-        tempId,
-        metadata,
-        isEncrypted
-      }, (response: any) => {
+      socket.emit('send-message', payload, (response: any) => {
         if (response && response.message) {
           const updatedMsg = { ...response.message, tempId: tempId };
           
@@ -1321,6 +1354,8 @@ export const useChatStore = create<ChatState>()(
           }));
         }
       });
+    } else {
+      set(state => ({ offlineQueue: [...(state.offlineQueue || []), payload] }));
     }
   },
 
@@ -1470,6 +1505,7 @@ export const useChatStore = create<ChatState>()(
     chats: state.chats,
     messages: state.messages,
     calls: state.calls,
-    starredMessages: state.starredMessages
+    starredMessages: state.starredMessages,
+    offlineQueue: state.offlineQueue
   }),
 }));
