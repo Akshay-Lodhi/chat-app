@@ -47,7 +47,7 @@ export function BottomNav({
   return (
     <div 
       className="w-full shrink-0 z-40 px-4 pt-3 bg-surface/80 backdrop-blur-3xl border-t border-surface-border/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]"
-      style={{ paddingBottom: 'max(32px, env(safe-area-inset-bottom))' }}
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
     >
       <div className="flex items-center justify-around max-w-md mx-auto relative bg-surface-hover/30 p-1.5 rounded-2xl border border-surface-border/20">
         {tabs.map((tab) => {
