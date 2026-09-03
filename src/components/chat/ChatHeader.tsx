@@ -134,7 +134,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
   return (
     <div className="flex flex-col shrink-0 relative z-50">
       <div 
-        className="h-16 bg-surface-hover flex items-center justify-between py-2 border-b border-surface-border shrink-0 shadow-sm relative z-50"
+        className="h-[72px] bg-surface/70 backdrop-blur-2xl flex items-center justify-between py-2 border-b border-surface-border/50 shrink-0 shadow-sm relative z-50 transition-colors"
         style={{
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'max(16px, env(safe-area-inset-right))'
@@ -148,61 +148,68 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
             onClose={() => setShowDisappearingModal(false)}
           />
         )}
-        <div className="flex items-center flex-1 min-w-0">
-          <button onClick={onBack} className="md:hidden mr-2 p-2 -ml-2 text-text-secondary hover:text-text-primary transition-colors">
-            <ArrowLeft size={24} />
+        <div className="flex items-center flex-1 min-w-0 h-full">
+          <button onClick={onBack} className="md:hidden mr-3 p-2 -ml-2 text-text-secondary hover:text-primary transition-colors bg-surface-hover/50 rounded-full">
+            <ArrowLeft size={20} />
           </button>
           
           <div 
-            className="flex items-center min-w-0 cursor-pointer group" 
+            className="flex items-center min-w-0 cursor-pointer group h-full py-1 px-2 -ml-2 rounded-xl hover:bg-surface-hover/50 transition-colors" 
             onClick={onGroupInfoClick}
           >
-            <Avatar src={chatImage} fallback={chatName?.charAt(0) || undefined} size="md" className="mr-3 shadow-sm group-hover:opacity-80 transition-opacity" />
-            <div className="flex flex-col overflow-hidden mr-4">
+            <div className="relative mr-3 shrink-0">
+              <Avatar src={chatImage} fallback={chatName?.charAt(0) || undefined} size="md" className="shadow-sm group-hover:scale-105 transition-transform duration-300" />
+              {isOnline && (
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-success rounded-full border-2 border-background z-10 animate-pulse shadow-sm" />
+              )}
+            </div>
+            
+            <div className="flex flex-col overflow-hidden justify-center h-full">
               <div className="flex items-center gap-1.5 min-w-0">
-                <h2 className="text-base font-medium text-text-primary truncate">{chatName}</h2>
+                <h2 className="text-base font-semibold text-text-primary truncate">{chatName}</h2>
                 {activeChat?.disappearingTimer && activeChat.disappearingTimer > 0 ? (
-                  <span title="Disappearing messages active" className="text-emerald-500 flex items-center shrink-0">
+                  <span title="Disappearing messages active" className="text-primary flex items-center shrink-0">
                     <Clock size={14} />
                   </span>
                 ) : null}
               </div>
               {typingStatus?.isTyping ? (
-                <span className="text-sm text-primary animate-pulse font-medium">typing...</span>
+                <span className="text-xs text-primary animate-pulse font-medium tracking-wide">typing...</span>
               ) : isOnline ? (
-                <span className="text-xs text-success font-medium">online</span>
+                <span className="text-[11px] text-text-secondary font-medium uppercase tracking-wide">online</span>
               ) : activeChat.isGroup ? (
-                <span className="text-xs text-text-secondary truncate">
+                <span className="text-[12px] text-text-tertiary truncate">
                   {activeChat.participants.map((p: any) => p.user?.name?.split(' ')[0] || p.user?.phoneNumber).join(', ')}
                 </span>
-              ) : null}
+              ) : (
+                <span className="text-[11px] text-text-tertiary font-medium uppercase tracking-wide">offline</span>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 text-text-secondary">
+        <div className="flex items-center space-x-1.5 text-text-secondary">
           {chatName !== 'Nexus AI' && (
             <>
-              <Button variant="ghost" size="icon" onClick={() => startCall('VIDEO')} title="Video Call">
+              <button onClick={() => startCall('VIDEO')} title="Video Call" className="p-2.5 rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
                 <Video size={20} />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => startCall('AUDIO')} title="Voice Call">
+              </button>
+              <button onClick={() => startCall('AUDIO')} title="Voice Call" className="p-2.5 rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
                 <Phone size={20} />
-              </Button>
-              <div className="w-px h-6 bg-surface-border mx-1"></div>
+              </button>
+              <div className="w-px h-6 bg-surface-border/50 mx-1"></div>
             </>
           )}
 
           {/* ⋮ Three Dot Menu */}
           <div className="relative" ref={menuRef}>
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={toggleMenu}
               title="More options"
+              className="p-2.5 rounded-full hover:bg-surface-hover transition-colors"
             >
               <MoreVertical size={20} />
-            </Button>
+            </button>
             
             {/* Three Dot Menu Dropdown */}
             <AnimatePresence>
@@ -214,11 +221,11 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                     onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
                   />
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-                    className="absolute top-12 right-0 w-52 bg-surface border border-surface-border rounded-2xl shadow-2xl py-2 z-[9999]"
+                    className="absolute top-12 right-0 w-56 bg-surface/90 backdrop-blur-xl border border-surface-border/50 rounded-2xl shadow-2xl py-2 z-[9999] overflow-hidden"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -231,10 +238,10 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                         setMenuOpen(false);
                         handleCreateInstantMeeting();
                       }}
-                      className="w-full flex items-center space-x-3 px-4 py-3 text-emerald-400 hover:bg-emerald-500/10 transition-colors text-sm font-semibold border-b border-white/5"
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-primary hover:bg-primary/10 transition-colors text-sm font-semibold border-b border-surface-border/30"
                     >
-                      <Sparkles size={16} className="text-emerald-400" />
-                      <span>Instant Meeting Link (🔗)</span>
+                      <Sparkles size={16} className="text-primary" />
+                      <span>Instant Meeting Link</span>
                     </button>
 
                     {/* Search */}
@@ -247,7 +254,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                         if (onSearchClick) onSearchClick();
                         setMenuOpen(false);
                       }}
-                      className="w-full flex items-center space-x-3 px-4 py-3 text-text-primary hover:bg-white/5 transition-colors text-sm"
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-text-primary hover:bg-surface-hover transition-colors text-sm font-medium"
                     >
                       <Search size={16} className="text-text-secondary" />
                       <span>Search Messages</span>
@@ -262,9 +269,9 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                         setShowAISummaryModal(true);
                         setMenuOpen(false);
                       }}
-                      className="w-full flex items-center space-x-3 px-4 py-3 text-purple-400 hover:bg-purple-500/10 transition-colors text-sm font-medium"
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-accent hover:bg-accent/10 transition-colors text-sm font-medium"
                     >
-                      <Sparkles size={16} className="text-purple-400" />
+                      <Sparkles size={16} className="text-accent" />
                       <span>AI Summarize Chat</span>
                     </button>
 
@@ -277,13 +284,13 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                         setShowDisappearingModal(true);
                         setMenuOpen(false);
                       }}
-                      className="w-full flex items-center space-x-3 px-4 py-3 text-text-primary hover:bg-white/5 transition-colors text-sm"
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-text-primary hover:bg-surface-hover transition-colors text-sm font-medium"
                     >
-                      <Clock size={16} className="text-emerald-500" />
+                      <Clock size={16} className="text-success" />
                       <span>Disappearing Messages</span>
                     </button>
 
-                    <div className="h-px bg-surface-border mx-3" />
+                    <div className="h-px bg-surface-border/50 mx-3 my-1" />
 
                     {/* Clear Chat */}
                     <button
@@ -294,7 +301,7 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                         setShowClearConfirm(true);
                         setMenuOpen(false);
                       }}
-                      className="w-full flex items-center space-x-3 px-4 py-3 text-danger hover:bg-danger/10 transition-colors text-sm"
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-danger hover:bg-danger/10 transition-colors text-sm font-medium"
                     >
                       <Trash2 size={16} />
                       <span>Clear Chat</span>
@@ -311,28 +318,29 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
           {selectedMessageIds.length > 0 && (
             <motion.div 
               key="selection-toolbar"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#00A884] flex items-center justify-between px-4 z-[9999] text-white"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="absolute inset-0 bg-primary flex items-center justify-between px-4 z-[9999] text-white shadow-lg"
             >
               <div className="flex items-center space-x-4">
-                <button onClick={clearMessageSelection} className="p-2 -ml-2 hover:bg-black/10 rounded-full transition-colors">
-                  <ArrowLeft size={24} />
+                <button onClick={clearMessageSelection} className="p-2 -ml-2 hover:bg-black/20 rounded-full transition-colors">
+                  <ArrowLeft size={20} />
                 </button>
-                <span className="text-lg font-medium">{selectedMessageIds.length}</span>
+                <span className="text-base font-semibold">{selectedMessageIds.length} Selected</span>
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 {selectedMessageIds.length === 1 && (
                   <button 
                     onClick={() => {
                       toast.error('Reply coming soon');
                       clearMessageSelection();
                     }}
-                    className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                    className="p-2.5 hover:bg-black/20 rounded-full transition-colors"
+                    title="Reply"
                   >
-                    <CornerUpLeft size={24} />
+                    <CornerUpLeft size={20} />
                   </button>
                 )}
                 
@@ -348,9 +356,10 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                       clearMessageSelection();
                     }
                   }}
-                  className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                  className="p-2.5 hover:bg-black/20 rounded-full transition-colors"
+                  title="Copy"
                 >
-                  <Copy size={24} />
+                  <Copy size={20} />
                 </button>
 
                 <button 
@@ -361,18 +370,20 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                       onForward(selectedMsgs);
                     }
                   }}
-                  className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                  className="p-2.5 hover:bg-black/20 rounded-full transition-colors"
+                  title="Forward"
                 >
-                  <Forward size={24} />
+                  <Forward size={20} />
                 </button>
 
                 <button 
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('open-bulk-delete'));
                   }}
-                  className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                  className="p-2.5 hover:bg-black/20 rounded-full transition-colors"
+                  title="Delete"
                 >
-                  <Trash2 size={24} />
+                  <Trash2 size={20} />
                 </button>
               </div>
             </motion.div>
@@ -383,19 +394,19 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
       {/* Ongoing Call Join Banner */}
       {activeCallInChat && !isCalling && (activeChat?.isGroup ? activeCallInChat.activeCount > 0 : activeCallInChat.activeCount > 1) && (
         <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#00a884] text-white px-4 py-2 flex items-center justify-between shadow-md relative z-10"
+          initial={{ opacity: 0, y: -20, height: 0 }}
+          animate={{ opacity: 1, y: 0, height: 'auto' }}
+          className="bg-primary text-white px-4 py-2 flex items-center justify-between shadow-md relative z-10"
         >
           <div className="flex items-center space-x-2">
             <div className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
-            <span className="text-xs font-semibold uppercase tracking-wider">
+            <span className="text-xs font-bold uppercase tracking-wider">
               Ongoing {activeCallInChat.callType === 'VIDEO' ? 'Video' : 'Voice'} Call • {activeCallInChat.activeCount} connected
             </span>
           </div>
           <button
             onClick={() => joinOngoingCall(activeChat.id, activeCallInChat.callType)}
-            className="bg-white text-[#00a884] hover:bg-white/90 font-semibold px-3 py-1 rounded-full text-xs transition-transform active:scale-95 shadow cursor-pointer"
+            className="bg-white text-primary hover:bg-white/90 font-bold px-4 py-1.5 rounded-full text-xs transition-transform active:scale-95 shadow cursor-pointer"
           >
             Join Call
           </button>
@@ -411,18 +422,18 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[9998] bg-black/10"
+                className="fixed inset-0 z-[9998] bg-black/20 backdrop-blur-sm"
                 onClick={() => {
                   setIsMessageSearchOpen(false);
                   if (onSearchChange) onSearchChange('');
                 }}
               />
               <motion.div 
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: '100%', opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -20, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="fixed top-0 right-0 h-16 w-full md:w-[calc(100%-20rem)] lg:w-[calc(100%-24rem)] bg-surface-hover flex items-center px-4 overflow-hidden z-[9999] shadow-md border-b border-surface-border"
+                className="fixed top-4 right-4 left-4 md:left-auto md:w-96 bg-surface/90 backdrop-blur-xl flex items-center px-4 py-3 rounded-2xl z-[9999] shadow-2xl border border-surface-border/50"
                 ref={searchContainerRef}
               >
                 <button 
@@ -430,16 +441,16 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                     setIsMessageSearchOpen(false);
                     if (onSearchChange) onSearchChange('');
                   }}
-                  className="mr-3 text-text-secondary hover:text-text-primary"
+                  className="mr-3 text-text-secondary hover:text-text-primary bg-surface-hover/50 p-2 rounded-full transition-colors"
                 >
-                  <ArrowLeft size={20} />
+                  <ArrowLeft size={18} />
                 </button>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
-                  placeholder="Search messages..."
-                  className="flex-1 bg-surface border border-surface-border text-text-primary rounded-full px-4 py-1.5 focus:outline-none focus:border-primary text-sm transition-colors"
+                  placeholder="Search in chat..."
+                  className="flex-1 bg-surface-hover/50 border border-surface-border/50 text-text-primary rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm transition-all placeholder:text-text-tertiary"
                   autoFocus
                 />
               </motion.div>
@@ -458,45 +469,46 @@ export function ChatHeader({ onBack, onSearchClick, onGroupInfoClick, searchQuer
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                className="fixed inset-0 bg-black/60 backdrop-blur-md"
                 onClick={() => setShowClearConfirm(false)}
               />
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="bg-surface border border-surface-border rounded-2xl shadow-2xl p-6 w-full max-w-sm z-50 relative"
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="bg-surface/90 backdrop-blur-2xl border border-surface-border/50 rounded-3xl shadow-2xl p-6 w-full max-w-sm z-50 relative overflow-hidden"
               >
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="p-2.5 rounded-full bg-danger/20">
-                    <AlertTriangle size={20} className="text-danger" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-danger/80" />
+                <div className="flex items-center space-x-4 mb-4 mt-2">
+                  <div className="p-3 rounded-2xl bg-danger/10 border border-danger/20 shadow-inner">
+                    <AlertTriangle size={24} className="text-danger" />
                   </div>
                   <div>
-                    <h3 className="text-text-primary font-semibold text-base">Clear Chat</h3>
-                    <p className="text-text-secondary text-xs">This cannot be undone</p>
+                    <h3 className="text-text-primary font-bold text-lg">Clear Chat</h3>
+                    <p className="text-text-tertiary text-xs font-medium uppercase tracking-wide mt-1">Irreversible action</p>
                   </div>
                 </div>
-                <p className="text-text-secondary text-sm mb-6">
-                  All messages in this chat will be permanently deleted for everyone. Are you sure?
+                <p className="text-text-secondary text-sm mb-8 leading-relaxed">
+                  Are you sure you want to delete this chat? All messages will be permanently erased for everyone.
                 </p>
                 <div className="flex items-center justify-end space-x-3">
                   <button
                     onClick={() => setShowClearConfirm(false)}
-                    className="px-4 py-2 rounded-xl text-sm text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors cursor-pointer"
+                    className="px-5 py-2.5 rounded-xl text-sm font-semibold text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleClearChat}
                     disabled={clearing}
-                    className="px-5 py-2 rounded-xl text-sm font-semibold bg-danger hover:bg-danger/90 text-white transition-colors cursor-pointer disabled:opacity-60 flex items-center space-x-1.5"
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-danger hover:bg-danger/90 text-white transition-all cursor-pointer disabled:opacity-60 flex items-center space-x-2 shadow-lg shadow-danger/20"
                   >
                     {clearing ? (
                       <span>Clearing...</span>
                     ) : (
                       <>
-                        <Trash2 size={14} />
-                        <span>Clear All</span>
+                        <Trash2 size={16} />
+                        <span>Clear Chat</span>
                       </>
                     )}
                   </button>

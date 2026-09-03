@@ -798,7 +798,7 @@ export function MessageBubble({
                         <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                           <div className={cn(
                             "w-[18px] h-[18px] rounded-full border shrink-0 flex items-center justify-center transition-colors",
-                            hasVoted ? "border-[#00a884] bg-[#00a884]" : "border-text-secondary"
+                            hasVoted ? "border-primary bg-primary" : "border-text-secondary"
                           )}>
                             {hasVoted && <Check size={12} className="text-white" strokeWidth={3} />}
                           </div>
@@ -829,7 +829,7 @@ export function MessageBubble({
                       <div className="w-full pl-7 pr-1 mt-1">
                         <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden">
                           <div 
-                            className={cn("h-full transition-all duration-300 rounded-full", hasVoted ? "bg-[#00a884]" : "bg-[#00a884]/60")}
+                            className={cn("h-full transition-all duration-300 rounded-full", hasVoted ? "bg-primary" : "bg-primary/60")}
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -842,7 +842,7 @@ export function MessageBubble({
               <div className="mt-4 pt-3 border-t border-black/10 flex justify-center">
                 <button 
                   onClick={(e) => { e.stopPropagation(); setShowPollDetails(true); }}
-                  className="text-[#00a884] text-[15px] font-medium hover:underline px-4 py-1"
+                  className="text-primary text-[15px] font-bold hover:underline px-4 py-1"
                 >
                   View votes
                 </button>
@@ -936,15 +936,15 @@ export function MessageBubble({
       <div
         id={`msg-${message.id}`}
         className={cn(
-          "relative rounded-2xl px-3 py-1.5 flex flex-col shadow-sm cursor-pointer transition-all duration-200",
+          "relative px-4 py-2 flex flex-col shadow-sm cursor-pointer transition-all duration-200 backdrop-blur-md border",
           fullWidth
             ? "max-w-[95%] md:max-w-full"
             : "max-w-[75%] md:max-w-[65%]",
           isMine
-            ? "bg-bubble-out text-text-primary rounded-br-sm"
-            : "bg-bubble-in text-text-primary rounded-bl-sm",
+            ? "bg-primary/20 border-primary/30 text-text-primary rounded-2xl rounded-tr-sm self-end"
+            : "bg-surface-hover/60 border-surface-border/50 text-text-primary rounded-2xl rounded-tl-sm self-start",
           selectedMessageIds.includes(message.id) &&
-            "bg-[#00A884]/20 ring-2 ring-[#00A884] opacity-90 text-text-primary",
+            "bg-primary/40 ring-2 ring-primary opacity-90",
           message.replyToId && "pt-2",
           message.reactions &&
             Object.keys(message.reactions).length > 0 &&
@@ -988,17 +988,17 @@ export function MessageBubble({
               }
             }}
             className={cn(
-              "relative overflow-hidden rounded-r-xl rounded-l-md p-2.5 mb-2 text-xs flex flex-col border-l-[4px] transition-colors hover:bg-black/30 cursor-pointer",
+              "relative overflow-hidden rounded-r-xl rounded-l-md p-2.5 mb-2 text-xs flex flex-col border-l-[4px] transition-colors hover:bg-black/30 cursor-pointer shadow-sm",
               isMine
-                ? "bg-black/20 border-[#06cf9c]"
-                : "bg-black/20 border-[#00a884]",
+                ? "bg-black/10 border-white text-text-primary backdrop-blur-md"
+                : "bg-black/20 border-primary text-text-primary backdrop-blur-md",
             )}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent pointer-events-none" />
             <span
               className={cn(
-                "font-semibold text-[11px] mb-1 relative z-10",
-                isMine ? "text-[#06cf9c]" : "text-[#00a884]",
+                "font-bold text-[12px] mb-1 relative z-10",
+                isMine ? "text-primary" : "text-primary",
               )}
             >
               {message.replyTo?.senderId === message.senderId
@@ -1020,17 +1020,17 @@ export function MessageBubble({
         {message.type === 'STORY_REPLY' && message.metadata && (
           <div
             className={cn(
-              "relative overflow-hidden rounded-r-xl rounded-l-md p-2 mb-2 text-xs flex flex-col border-l-[4px] transition-colors",
+              "relative overflow-hidden rounded-r-xl rounded-l-md p-2 mb-2 text-xs flex flex-col border-l-[4px] transition-colors shadow-sm",
               isMine
-                ? "bg-black/20 border-[#06cf9c]"
-                : "bg-black/20 border-[#00a884]",
+                ? "bg-black/10 border-white text-text-primary backdrop-blur-md"
+                : "bg-black/20 border-primary text-text-primary backdrop-blur-md",
             )}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent pointer-events-none" />
             <span
               className={cn(
-                "font-semibold text-[11px] mb-1 relative z-10 flex items-center justify-between",
-                isMine ? "text-[#06cf9c]" : "text-[#00a884]",
+                "font-bold text-[12px] mb-1 relative z-10 flex items-center justify-between",
+                isMine ? "text-primary" : "text-primary",
               )}
             >
               <span>{isMine ? "You" : message.sender?.name || "User"} replied to {isMine ? "a" : "your"} {message.metadata.storyType === 'VIDEO' ? 'video' : message.metadata.storyType === 'IMAGE' ? 'photo' : 'status'}</span>
@@ -1097,7 +1097,7 @@ export function MessageBubble({
           {isMine && message.type !== "CALL_LOG" && (
             <span>
               {(message.status || "SENT") === "READ" ? (
-                <CheckCheck size={14} className="text-[#53bdeb]" />
+                <CheckCheck size={14} className="text-accent" />
               ) : (message.status || "SENT") === "DELIVERED" ? (
                 <CheckCheck size={14} className="text-text-secondary" />
               ) : (message.status || "SENT") === "PENDING" ? (

@@ -595,6 +595,40 @@ export const useChatStore = create<ChatState>()(
     });
 
     socket.on('message-updated', (updatedMessage: Message) => {
+      if (updatedMessage.isEncrypted && updatedMessage.content && updatedMessage.type === 'TEXT') {
+        if (typeof updatedMessage.content === 'string' && updatedMessage.content.startsWith('{"isEncrypted"')) {
+          try {
+            const authState = require('@/store/useAuthStore').useAuthStore.getState();
+            const myPriv = authState.privateKey;
+            const myUserId = authState.user?.id;
+            
+            // Try to get sender public key from the message, or fallback to chat participants
+            let senderPub = updatedMessage.sender?.publicKey;
+            if (!senderPub) {
+              const chat = get().chats.find(c => c.id === updatedMessage.chatId);
+              const participant = chat?.participants?.find(p => p.userId === updatedMessage.senderId);
+              senderPub = participant?.user?.publicKey;
+            }
+            
+            if (myPriv && myUserId && senderPub) {
+              const { decryptE2EEPayload } = require('@/lib/encryption');
+              const payload = JSON.parse(updatedMessage.content);
+              const decrypted = decryptE2EEPayload(payload, myUserId, myPriv, senderPub);
+              if (decrypted) {
+                updatedMessage.content = decrypted;
+              } else {
+                updatedMessage.content = "🔒 Waiting for message. This may take a while.";
+              }
+            } else {
+              updatedMessage.content = "🔒 Waiting for message. This may take a while.";
+            }
+          } catch (e) {
+            console.error("Message Update E2EE Decryption error", e);
+            updatedMessage.content = "🔒 [Message corrupted]";
+          }
+        }
+      }
+
       set((state) => {
         const chatId = updatedMessage.chatId;
         if (!state.messages[chatId]) return state;
@@ -602,7 +636,9 @@ export const useChatStore = create<ChatState>()(
         const newMessages = [...state.messages[chatId]];
         const idx = newMessages.findIndex(m => m.id === updatedMessage.id);
         if (idx !== -1) {
-          newMessages[idx] = updatedMessage;
+          // Important: preserve some local state if needed, but here we just replace
+          // If we want to preserve local status (like 'PENDING'), we shouldn't blindly overwrite
+          newMessages[idx] = { ...newMessages[idx], ...updatedMessage };
           return {
             messages: {
               ...state.messages,

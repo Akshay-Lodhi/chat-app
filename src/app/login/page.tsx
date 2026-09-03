@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../../store/useAuthStore';
 import { authClient } from '../../lib/auth';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, Phone, ShieldCheck, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -49,7 +51,6 @@ export default function LoginPage() {
         setError(error.message || 'Invalid OTP');
       } else if (data) {
         setAuth('better-auth-session', data.user as any);
-        // Force full page reload to /chat so Better Auth initializes session with fresh cookies
         window.location.href = '/chat';
       }
     } catch (err) {
@@ -60,86 +61,127 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 font-sans text-text-primary">
-      <div className="w-full max-w-md bg-[#202C33] rounded-lg shadow-2xl p-8 transform transition-all">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-24 h-24 mb-4 flex items-center justify-center">
-            <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain" />
+    <div className="relative min-h-screen bg-background overflow-hidden flex items-center justify-center p-4 font-sans text-text-primary selection:bg-primary/30">
+      {/* Background gradients */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-accent/20 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+      
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-md relative z-10"
+      >
+        <div className="glass rounded-3xl p-8 shadow-2xl">
+          <div className="flex flex-col items-center mb-10">
+            <motion.div 
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="w-20 h-20 mb-6 bg-gradient-to-tr from-primary to-accent rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20"
+            >
+              <img src="/logo.svg" alt="Logo" className="w-12 h-12 object-contain filter invert opacity-90" />
+            </motion.div>
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 mb-3 tracking-tight">NexusChat</h1>
+            <p className="text-text-secondary text-sm text-center font-medium">
+              {step === 'PHONE' ? 'Sign in to sync your messages' : 'Verify your identity'}
+            </p>
           </div>
-          <h1 className="text-2xl font-light text-white mb-2">NexusChat</h1>
-          <p className="text-text-secondary text-sm text-center">
-            {step === 'PHONE' ? 'Enter your phone number to continue' : 'Enter the OTP sent to your phone'}
-          </p>
+
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="bg-danger/10 border border-danger/20 text-danger p-4 rounded-xl mb-6 text-sm text-center flex items-center justify-center gap-2"
+              >
+                <ShieldCheck size={16} /> {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait">
+            {step === 'PHONE' ? (
+              <motion.form 
+                key="phone-form"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                onSubmit={handleRequestOtp} 
+                className="space-y-6"
+              >
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-tertiary group-focus-within:text-primary transition-colors">
+                    <Phone size={18} />
+                  </div>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="w-full bg-surface/50 text-text-primary border border-surface-border focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none pl-12 pr-4 py-4 rounded-xl transition-all placeholder:text-text-tertiary"
+                    placeholder="Enter phone number"
+                    autoFocus
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!phoneNumber || isLoading}
+                  className="w-full bg-primary text-white font-medium py-4 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 group shadow-lg shadow-primary/20"
+                >
+                  {isLoading ? (
+                    <Loader2 className="animate-spin" size={20} />
+                  ) : (
+                    <>Continue <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>
+                  )}
+                </button>
+              </motion.form>
+            ) : (
+              <motion.form 
+                key="otp-form"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                onSubmit={handleVerifyOtp} 
+                className="space-y-6"
+              >
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="w-full bg-surface/50 text-text-primary border border-surface-border focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none px-4 py-4 rounded-xl transition-all placeholder:text-text-tertiary text-center tracking-[1em] font-mono text-2xl"
+                    placeholder="----"
+                    maxLength={4}
+                    autoFocus
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={otp.length !== 4 || isLoading}
+                  className="w-full bg-primary text-white font-medium py-4 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 shadow-lg shadow-primary/20"
+                >
+                  {isLoading ? (
+                    <Loader2 className="animate-spin" size={20} />
+                  ) : (
+                    <>Verify & Login <ShieldCheck size={18} /></>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep('PHONE')}
+                  className="w-full bg-transparent text-text-secondary font-medium py-3 rounded-xl hover:bg-surface transition-colors text-sm"
+                >
+                  Change phone number
+                </button>
+              </motion.form>
+            )}
+          </AnimatePresence>
         </div>
-
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded mb-6 text-sm text-center">
-            {error}
-          </div>
-        )}
-
-        {step === 'PHONE' ? (
-          <form onSubmit={handleRequestOtp} className="space-y-6">
-            <div>
-              <label className="block text-text-secondary text-xs font-semibold mb-2 uppercase tracking-wider">Phone Number</label>
-              <input
-                type="text"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full bg-[#2A3942] text-text-primary border-b-2 border-[#00A884] focus:outline-none focus:border-[#00A884] px-4 py-3 rounded-t transition-colors placeholder-[#8696A0]"
-                placeholder="+1 234 567 8900"
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!phoneNumber || isLoading}
-              className="w-full bg-[#00A884] text-[#111B21] font-bold py-3 px-4 rounded hover:bg-[#00BFA5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wide text-sm flex justify-center items-center"
-            >
-              {isLoading ? (
-                <svg className="animate-spin h-5 w-5 text-[#111B21]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : 'Next'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-6">
-            <div>
-              <label className="block text-text-secondary text-xs font-semibold mb-2 uppercase tracking-wider">OTP Code (Default: 4321)</label>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="w-full bg-[#2A3942] text-text-primary border-b-2 border-[#00A884] focus:outline-none focus:border-[#00A884] px-4 py-3 rounded-t transition-colors placeholder-[#8696A0] text-center tracking-[1em] font-mono text-xl"
-                placeholder="----"
-                maxLength={4}
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={otp.length !== 4 || isLoading}
-              className="w-full bg-[#00A884] text-[#111B21] font-bold py-3 px-4 rounded hover:bg-[#00BFA5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wide text-sm flex justify-center items-center"
-            >
-              {isLoading ? (
-                <svg className="animate-spin h-5 w-5 text-[#111B21]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : 'Verify & Login'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep('PHONE')}
-              className="w-full bg-transparent text-[#00A884] font-semibold py-3 px-4 rounded hover:bg-[#2A3942] transition-colors uppercase tracking-wide text-xs mt-2"
-            >
-              Back to Phone
-            </button>
-          </form>
-        )}
-      </div>
+        <p className="text-center text-text-tertiary text-xs mt-6 flex items-center justify-center gap-1">
+          <ShieldCheck size={14} className="text-success" /> Secured by end-to-end encryption.
+        </p>
+      </motion.div>
     </div>
   );
 }

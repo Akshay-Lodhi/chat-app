@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2, Calendar, Clock, Sparkles, Bot, EyeOff } from 'lucide-react';
+import { Paperclip, Smile, Send, Mic, X, MapPin, Camera, IndianRupee, Video, Phone, BarChart2, Calendar, Clock, Sparkles, Bot, EyeOff, Plus, Type } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -13,6 +13,7 @@ import PendingScheduledModal from './PendingScheduledModal';
 import AIAssistantModal from './AIAssistantModal';
 import { AudioEffectsPreview } from './AudioEffectsPreview';
 import { ScribbleModal } from './ScribbleModal';
+import { cn } from '@/lib/utils';
 
 interface MessageComposerProps {
   onSendMessage: (text: string) => void;
@@ -116,7 +117,6 @@ export function MessageComposer({
       return;
     }
 
-    // Only fetch smart replies if the last message ID actually changed!
     if (lastMsg.id === lastFetchedMsgIdRef.current) {
       return;
     }
@@ -146,7 +146,7 @@ export function MessageComposer({
       } else {
         setSmartReplies([]);
       }
-    }, 800); // Debounce by 800ms to prevent duplicates from rapid status updates
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [activeChatId, messages]);
@@ -180,7 +180,7 @@ export function MessageComposer({
     if (file) {
       onSendMedia(file, false);
       setShowAttachMenu(false);
-      e.target.value = ''; // Reset
+      e.target.value = '';
     }
   };
 
@@ -189,7 +189,7 @@ export function MessageComposer({
     if (file) {
       onSendMedia(file, true);
       setShowAttachMenu(false);
-      e.target.value = ''; // Reset
+      e.target.value = '';
     }
   };
 
@@ -252,7 +252,7 @@ export function MessageComposer({
 
   if (isBlocked) {
     return (
-      <div className="bg-transparent px-4 py-4 relative shrink-0 z-20 flex justify-center text-text-secondary text-sm">
+      <div className="bg-surface/50 backdrop-blur-md px-4 py-4 relative shrink-0 z-20 flex justify-center text-text-secondary text-sm border-t border-surface-border">
         You have blocked this contact.
       </div>
     );
@@ -260,7 +260,7 @@ export function MessageComposer({
 
   if (recordedAudioBlob) {
     return (
-      <div className="p-2 w-full max-w-md mx-auto">
+      <div className="p-3 w-full bg-surface/80 backdrop-blur-xl border-t border-surface-border/50">
         <AudioEffectsPreview 
           blob={recordedAudioBlob} 
           onSend={(blob) => {
@@ -275,11 +275,11 @@ export function MessageComposer({
 
   return (
     <div 
-      className="bg-transparent py-1.5 px-2 sm:px-3 relative shrink-0 z-20 w-full max-w-[100vw] box-border"
+      className="bg-surface/70 backdrop-blur-2xl py-3 px-3 sm:px-4 relative shrink-0 z-20 w-full box-border border-t border-surface-border/50 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] transition-colors"
       style={{
-        paddingLeft: 'max(6px, env(safe-area-inset-left))',
-        paddingRight: 'max(6px, env(safe-area-inset-right))',
-        paddingBottom: 'max(6px, env(safe-area-inset-bottom))'
+        paddingLeft: 'max(12px, env(safe-area-inset-left))',
+        paddingRight: 'max(12px, env(safe-area-inset-right))',
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom))'
       }}
     >
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
@@ -292,18 +292,17 @@ export function MessageComposer({
             initial={{ opacity: 0, y: 10, height: 0 }}
             animate={{ opacity: 1, y: 0, height: 'auto' }}
             exit={{ opacity: 0, y: 10, height: 0 }}
-            className="flex items-center justify-between bg-surface p-3 rounded-2xl border-l-4 border-warning mb-2 shadow-lg relative z-0"
+            className="flex items-center justify-between bg-surface-hover/80 p-3 rounded-2xl border-l-4 border-warning mb-3 shadow-sm relative z-0"
           >
             <div className="flex flex-col min-w-0">
-              <span className="text-warning text-xs font-semibold flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
-                Editing message
+              <span className="text-warning text-xs font-bold flex items-center tracking-wide uppercase">
+                <Type size={12} className="mr-1" /> Editing message
               </span>
-              <span className="text-text-secondary text-sm truncate max-w-sm mt-1">
+              <span className="text-text-primary text-sm truncate max-w-sm mt-1">
                 {editingMessage.content}
               </span>
             </div>
-            <button onClick={() => setEditingMessageId(null)} className="p-2 hover:bg-white/10 rounded-full text-text-secondary transition-colors shrink-0">
+            <button onClick={() => setEditingMessageId(null)} className="p-2 hover:bg-black/10 rounded-full text-text-secondary transition-colors shrink-0">
               <X size={18} />
             </button>
           </motion.div>
@@ -313,11 +312,11 @@ export function MessageComposer({
             initial={{ opacity: 0, y: 10, height: 0 }}
             animate={{ opacity: 1, y: 0, height: 'auto' }}
             exit={{ opacity: 0, y: 10, height: 0 }}
-            className="flex items-center justify-between bg-surface p-3 rounded-2xl border-l-4 border-primary mb-2 shadow-lg relative z-0"
+            className="flex items-center justify-between bg-surface-hover/80 p-3 rounded-2xl border-l-4 border-primary mb-3 shadow-sm relative z-0"
           >
             <div className="flex flex-col min-w-0">
-              <span className="text-primary text-xs font-semibold">Replying to message</span>
-              <span className="text-text-secondary text-sm truncate max-w-sm">
+              <span className="text-primary text-xs font-bold tracking-wide uppercase">Replying to message</span>
+              <span className="text-text-primary text-sm truncate max-w-sm mt-1">
                 {(() => {
                   const msg = replyingTo;
                   if (!msg) return '';
@@ -341,7 +340,7 @@ export function MessageComposer({
                 })()}
               </span>
             </div>
-            <button onClick={onCancelReply} className="text-text-tertiary hover:text-text-primary p-1">
+            <button onClick={onCancelReply} className="text-text-secondary hover:text-text-primary p-2 hover:bg-black/10 rounded-full transition-colors">
               <X size={18} />
             </button>
           </motion.div>
@@ -353,61 +352,62 @@ export function MessageComposer({
         {showAttachMenu && (
           <motion.div 
             ref={attachMenuRef}
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className="absolute bottom-[calc(100%+10px)] left-4 bg-surface rounded-2xl shadow-2xl border border-surface-border p-2 flex flex-col space-y-2 z-30"
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="absolute bottom-[calc(100%+16px)] left-4 bg-surface/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-surface-border/50 p-2.5 flex flex-col space-y-1 z-30 w-56 overflow-hidden"
           >
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+              className="flex items-center space-x-3 p-2.5 hover:bg-surface-hover rounded-2xl text-text-primary transition-colors text-left group"
             >
-              <div className="bg-blue-500/20 text-blue-400 p-2.5 rounded-full"><Paperclip size={20} /></div>
-              <span className="text-sm font-medium">Document & Media</span>
+              <div className="bg-blue-500/10 text-blue-500 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><Paperclip size={20} /></div>
+              <span className="text-sm font-semibold">Media & Docs</span>
             </button>
             <button 
               onClick={() => viewOnceFileInputRef.current?.click()}
-              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+              className="flex items-center space-x-3 p-2.5 hover:bg-surface-hover rounded-2xl text-text-primary transition-colors text-left group"
             >
-              <div className="bg-orange-500/20 text-orange-400 p-2.5 rounded-full"><EyeOff size={20} /></div>
-              <span className="text-sm font-medium">View Once Media</span>
+              <div className="bg-orange-500/10 text-orange-500 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><EyeOff size={20} /></div>
+              <span className="text-sm font-semibold">View Once</span>
             </button>
             <button 
               onClick={() => { onSendLocation(); setShowAttachMenu(false); }}
-              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+              className="flex items-center space-x-3 p-2.5 hover:bg-surface-hover rounded-2xl text-text-primary transition-colors text-left group"
             >
-              <div className="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-full"><MapPin size={20} /></div>
-              <span className="text-sm font-medium">Location</span>
+              <div className="bg-emerald-500/10 text-emerald-500 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><MapPin size={20} /></div>
+              <span className="text-sm font-semibold">Location</span>
             </button>
             <button 
               onClick={() => { setShowPollModal(true); setShowAttachMenu(false); }}
-              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+              className="flex items-center space-x-3 p-2.5 hover:bg-surface-hover rounded-2xl text-text-primary transition-colors text-left group"
             >
-              <div className="bg-yellow-500/20 text-yellow-400 p-2.5 rounded-full"><BarChart2 size={20} /></div>
-              <span className="text-sm font-medium">Poll</span>
+              <div className="bg-yellow-500/10 text-yellow-500 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><BarChart2 size={20} /></div>
+              <span className="text-sm font-semibold">Poll</span>
             </button>
             <button 
               onClick={() => { setShowScribbleModal(true); setShowAttachMenu(false); }}
-              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+              className="flex items-center space-x-3 p-2.5 hover:bg-surface-hover rounded-2xl text-text-primary transition-colors text-left group"
             >
-              <div className="bg-pink-500/20 text-pink-400 p-2.5 rounded-full">
+              <div className="bg-pink-500/10 text-pink-500 p-2.5 rounded-xl group-hover:scale-110 transition-transform">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
               </div>
-              <span className="text-sm font-medium">Scribble</span>
+              <span className="text-sm font-semibold">Scribble</span>
             </button>
+            <div className="h-px bg-surface-border/50 my-1 mx-2" />
             <button 
               onClick={() => { setShowScheduleModal(true); setShowAttachMenu(false); }}
-              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+              className="flex items-center space-x-3 p-2.5 hover:bg-surface-hover rounded-2xl text-text-primary transition-colors text-left group"
             >
-              <div className="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-full"><Calendar size={20} /></div>
-              <span className="text-sm font-medium">Schedule Message</span>
+              <div className="bg-primary/10 text-primary p-2.5 rounded-xl group-hover:scale-110 transition-transform"><Calendar size={20} /></div>
+              <span className="text-sm font-semibold">Schedule</span>
             </button>
             <button 
               onClick={() => { setShowPendingScheduledModal(true); setShowAttachMenu(false); }}
-              className="flex items-center space-x-3 p-3 hover:bg-surface-hover rounded-xl text-text-primary transition-colors text-left"
+              className="flex items-center space-x-3 p-2.5 hover:bg-surface-hover rounded-2xl text-text-primary transition-colors text-left group"
             >
-              <div className="bg-purple-500/20 text-purple-400 p-2.5 rounded-full"><Clock size={20} /></div>
-              <span className="text-sm font-medium">Upcoming Messages</span>
+              <div className="bg-accent/10 text-accent p-2.5 rounded-xl group-hover:scale-110 transition-transform"><Clock size={20} /></div>
+              <span className="text-sm font-semibold">Upcoming</span>
             </button>
           </motion.div>
         )}
@@ -421,18 +421,18 @@ export function MessageComposer({
           onSendMessage(url);
           setShowEmojiPicker(false);
         }}
-        className="absolute bottom-[calc(100%+12px)] left-2"
+        className="absolute bottom-[calc(100%+16px)] left-2"
       />
 
       {/* AI Smart Reply Chips */}
       {smartReplies.length > 0 && !message.trim() && (
         <motion.div 
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 5 }}
-          className="flex items-center space-x-2 px-2 py-1 mb-1.5 overflow-x-auto no-scrollbar shrink-0 relative z-10"
+          initial={{ opacity: 0, y: 10, height: 0 }}
+          animate={{ opacity: 1, y: 0, height: 'auto' }}
+          exit={{ opacity: 0, y: 10, height: 0 }}
+          className="flex items-center space-x-2 px-1 py-1 mb-3 overflow-x-auto no-scrollbar shrink-0 relative z-10"
         >
-          <div className="flex items-center space-x-1 text-[11px] font-semibold text-purple-500 shrink-0 bg-purple-500/10 px-2 py-1 rounded-full border border-purple-500/20">
+          <div className="flex items-center space-x-1 text-[11px] font-bold text-accent shrink-0 bg-accent/10 px-2.5 py-1 rounded-full border border-accent/20">
             <Sparkles size={12} className="animate-pulse" />
             <span>AI Suggest</span>
           </div>
@@ -444,7 +444,7 @@ export function MessageComposer({
                 onSendMessage(reply);
                 setSmartReplies([]);
               }}
-              className="text-xs bg-surface hover:bg-purple-500/20 hover:border-purple-400/50 text-text-primary border border-surface-border px-3 py-1 rounded-full transition-all shrink-0 active:scale-95 shadow-sm font-medium cursor-pointer"
+              className="text-xs bg-surface/50 backdrop-blur-md hover:bg-accent/20 hover:border-accent/40 text-text-primary border border-surface-border/50 px-3.5 py-1.5 rounded-full transition-all shrink-0 active:scale-95 shadow-sm font-semibold cursor-pointer"
             >
               {reply}
             </button>
@@ -456,129 +456,112 @@ export function MessageComposer({
       <AnimatePresence>
         {showAiSuggest && (
           <motion.div
-            initial={{ opacity: 0, y: 5, scale: 0.98 }}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 5, scale: 0.98 }}
-            className="absolute bottom-16 left-4 z-30 bg-surface border border-purple-500/30 rounded-xl p-2.5 shadow-2xl backdrop-blur-lg flex items-center space-x-3 cursor-pointer hover:bg-purple-500/10 transition-colors"
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="absolute bottom-16 left-4 z-30 bg-surface/95 border border-accent/30 rounded-2xl p-3 shadow-2xl backdrop-blur-xl flex items-center space-x-3 cursor-pointer hover:bg-accent/10 transition-colors"
             onClick={() => {
               const base = message.replace(/@\w*$/, '');
               setMessage(base + '@AI ');
               setShowAiSuggest(false);
             }}
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-white shadow-md shrink-0">
-              <Bot size={18} />
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-accent to-purple-500 flex items-center justify-center text-white shadow-lg shrink-0">
+              <Bot size={20} />
             </div>
             <div>
               <div className="flex items-center space-x-1.5">
-                <span className="text-sm font-semibold text-text-primary">@AI</span>
-                <span className="text-[10px] bg-purple-500/20 text-purple-500 font-bold px-1.5 py-0.5 rounded-full uppercase">Nexus Bot</span>
+                <span className="text-sm font-bold text-text-primary">@AI</span>
+                <span className="text-[10px] bg-accent/20 text-accent font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Nexus Bot</span>
               </div>
-              <p className="text-xs text-text-secondary">Mention @AI in any chat for instant answers, code, or help</p>
+              <p className="text-xs text-text-secondary font-medium mt-0.5">Mention @AI in any chat for instant answers</p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <form onSubmit={handleSubmit} className="flex items-center space-x-1.5 relative z-10 w-full min-w-0 flex-nowrap">
+      <form onSubmit={handleSubmit} className="flex items-center space-x-2 relative z-10 w-full min-w-0 flex-nowrap">
         
+        <button 
+          type="button" 
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowAttachMenu(!showAttachMenu);
+          }} 
+          className={cn(
+            "p-2.5 rounded-full transition-colors shrink-0",
+            showAttachMenu ? "bg-primary/20 text-primary rotate-45" : "text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+          )}
+          title="Attach"
+        >
+          <Plus size={22} className="transition-transform duration-300" />
+        </button>
+
         {isRecording ? (
-          <div className="flex-1 min-w-0 flex items-center justify-between bg-surface rounded-full px-4 py-2.5 shadow-md">
+          <div className="flex-1 min-w-0 flex items-center justify-between bg-surface-hover/80 rounded-2xl px-4 py-3 shadow-inner border border-surface-border/50">
             <div className="flex items-center space-x-3">
-              <div className="w-3 h-3 bg-danger rounded-full animate-pulse" />
-              <span className="text-danger font-medium text-sm">{formatDuration(recordingDuration)}</span>
+              <div className="w-3 h-3 bg-danger rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+              <span className="text-danger font-bold text-sm tracking-wide">{formatDuration(recordingDuration)}</span>
             </div>
             <button type="button" onClick={cancelRecording} className="text-text-secondary hover:text-danger p-1 transition-colors">
               <X size={20} />
             </button>
           </div>
         ) : (
-          /* WhatsApp-style Input Pill */
-          <div className="flex-1 min-w-0 bg-surface rounded-full flex items-center px-2.5 py-1 shadow-md min-h-[44px] border border-transparent focus-within:border-primary/30 transition-all overflow-hidden">
-            {/* Smile / Emoji */}
-            <div className="flex items-center space-x-1">
-              <button 
-                type="button" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowEmojiPicker(!showEmojiPicker);
-                  setShowAttachMenu(false);
-                }}
-                className="p-1.5 hover:bg-black/10 rounded-full text-text-secondary hover:text-text-primary transition-colors shrink-0" 
-                title="Emojis & Media"
-              >
-                <Smile size={22} />
-              </button>
-            </div>
+          /* Premium iOS-style Input Field */
+          <div className="flex-1 min-w-0 bg-surface-hover/60 rounded-2xl flex items-center px-2 py-1.5 shadow-sm min-h-[48px] border border-surface-border/50 focus-within:border-primary/50 focus-within:bg-surface focus-within:shadow-md transition-all overflow-hidden group">
+            
+            <input
+              type="text"
+              placeholder="Message..."
+              value={message}
+              onChange={handleChange}
+              onFocus={(e) => {
+                setTimeout(() => {
+                  try { e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(err) {}
+                }, 300);
+              }}
+              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 text-text-primary placeholder:text-text-tertiary px-3 py-1 text-[15px]"
+            />
 
-            {/* Private AI Writing Assistant */}
             <button 
               type="button" 
               onClick={(e) => {
                 e.stopPropagation();
                 setShowAiAssistantModal(true);
               }}
-              className="p-1 text-purple-400 hover:text-purple-300 transition-colors shrink-0 hover:bg-purple-500/10 rounded-full" 
-              title="Private AI Writing Assistant"
+              className="p-1.5 text-accent hover:text-accent hover:bg-accent/10 transition-colors shrink-0 rounded-full mr-1" 
+              title="AI Writing Assistant"
             >
-              <Sparkles size={19} className="animate-pulse" />
+              <Sparkles size={18} />
             </button>
 
-            {/* Input field */}
-            <input
-              type="text"
-              placeholder="Message"
-              value={message}
-              onChange={handleChange}
-              onFocus={(e) => {
-                // Ensure input stays visible when mobile keyboard opens
-                setTimeout(() => {
-                  try { e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(err) {}
-                }, 300);
-              }}
-              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 text-text-primary placeholder-[#8696a0] px-1.5 py-1 text-[15px] leading-normal"
-            />
-
-            {/* Attach Icon */}
             <button 
               type="button" 
               onClick={(e) => {
                 e.stopPropagation();
-                setShowAttachMenu(!showAttachMenu);
-              }} 
-              className="p-1 text-text-secondary hover:text-[#aebac1] transition-colors shrink-0 rotate-45" 
-              title="Attach file"
+                setShowEmojiPicker(!showEmojiPicker);
+                setShowAttachMenu(false);
+              }}
+              className="p-1.5 hover:bg-black/10 rounded-full text-text-secondary hover:text-text-primary transition-colors shrink-0 mr-1" 
+              title="Stickers & Emoji"
             >
-              <Paperclip size={20} />
+              <Smile size={20} />
             </button>
-
-            {/* Rupee Icon (hidden when typing, matching WhatsApp) */}
-            {!message.trim() && (
-              <button type="button" className="p-1 text-text-secondary hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex items-center justify-center" title="Payment">
-                <IndianRupee size={18} />
-              </button>
-            )}
-
-            {/* Camera Icon (hidden when typing, matching WhatsApp) */}
-            {!message.trim() && (
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1 text-text-secondary hover:text-[#aebac1] transition-colors shrink-0 hidden sm:flex" title="Camera">
-                <Camera size={20} />
-              </button>
-            )}
           </div>
         )}
 
-        {/* WhatsApp Green Standalone Action Circle */}
+        {/* Action Button */}
         {message.trim() ? (
-          <button type="submit" className="w-11 h-11 shrink-0 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shadow-lg transition-transform active:scale-95 cursor-pointer ml-0.5" title="Send">
-            <Send size={20} className="ml-0.5" />
+          <button type="submit" className="w-12 h-12 shrink-0 rounded-full bg-primary hover:bg-primary-hover flex items-center justify-center text-white shadow-lg shadow-primary/30 transition-transform active:scale-90 cursor-pointer">
+            <Send size={20} className="ml-1" />
           </button>
         ) : isRecording ? (
-          <button type="button" onClick={stopRecording} className="w-11 h-11 shrink-0 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shadow-lg transition-transform active:scale-95 cursor-pointer ml-0.5" title="Send Voice">
-            <Send size={20} className="ml-0.5" />
+          <button type="button" onClick={stopRecording} className="w-12 h-12 shrink-0 rounded-full bg-primary hover:bg-primary-hover flex items-center justify-center text-white shadow-lg shadow-primary/30 transition-transform active:scale-90 cursor-pointer">
+            <Send size={20} className="ml-1" />
           </button>
         ) : (
-          <button type="button" onMouseDown={startRecording} className="w-11 h-11 shrink-0 rounded-full bg-[#00a884] hover:bg-[#008f70] flex items-center justify-center text-white shadow-lg transition-transform active:scale-95 cursor-pointer ml-0.5" title="Record Voice">
+          <button type="button" onMouseDown={startRecording} className="w-12 h-12 shrink-0 rounded-full bg-primary hover:bg-primary-hover flex items-center justify-center text-white shadow-lg shadow-primary/30 transition-transform active:scale-90 cursor-pointer">
             <Mic size={22} />
           </button>
         )}
