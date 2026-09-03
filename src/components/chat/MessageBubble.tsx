@@ -25,7 +25,8 @@ import {
   Globe,
   Camera,
   EyeOff,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useDragControls, AnimatePresence } from "framer-motion";
@@ -1068,6 +1069,7 @@ export function MessageBubble({
           {message.expiresAt && <span title="Disappearing message"><Clock size={11} className="mr-0.5 text-emerald-400" /></span>}
           {message.isPinned && <span title="Pinned message"><Pin size={11} className="mr-0.5 fill-current text-amber-400 rotate-45" /></span>}
           {message.isStarred && <Star size={11} className="mr-0.5 fill-current" />}
+          {message.isEncrypted && <span title="End-to-End Encrypted"><Lock size={11} className="mr-0.5 opacity-70" /></span>}
           {message.isEdited && <span className="italic mr-0.5">(Edited)</span>}
           {message.type === 'TEXT' && !isImageOnly && (
             <div 
